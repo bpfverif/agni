@@ -14,7 +14,7 @@ import os
 import os.path
 import json
 import time   
-import colored 
+
 
 
 BITVEC_WIDTH_64 = 64
