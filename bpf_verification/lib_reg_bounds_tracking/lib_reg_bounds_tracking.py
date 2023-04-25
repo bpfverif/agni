@@ -429,7 +429,7 @@ class process_stats:
 	def print_verification_stats(self):
 		#print("\n################# VERIFICATION STATS ########################")
 		#print("Iteration " + str(self.iteration) + " out of " + self.total_progs)
-		print("\nOverall elapsed time in minutes", self.tmp_elapsed_time / 60 )
+		#print("\nOverall elapsed time in minutes", self.tmp_elapsed_time / 60 )
 		#print("Program execution time in minutes", self.prog_execution_time / 60)
 		#print("\nEvaluation Dictionary: time per prog (seconds), sat/unsat, bug types")
 		#pprint(self.eval_dict)
@@ -440,14 +440,14 @@ class process_stats:
 		abs_domains = ["unsigned_64", "signed_64", "Tnum", "unsigned_32", "signed_32"]
 		violations = [0] * 5 
 		for c in self.eval_dict.keys():
-			#formatting insn name for table
+			#formatting insn name for table (the splicing is for the SRO sync,sync format)
 			insn_name = c if len(c) < 15 else c[18:]
 			#use sat/unsat for checkmarking soundness
 			soundness = "✓" if self.eval_dict[c][1] == "unsat" else "✘"
 			#checkboxes for domains violated
 			for i,x in enumerate(abs_domains):
-				violations[i] = "✓" if x in self.eval_dict[c][2] else "✘"
-			table.add_row([insn_name, soundness, violations[0], violations[1], violations[2], violations[3], violations[4], round(self.eval_dict[c][0], 3)])
+				violations[i] = "✘" if x in self.eval_dict[c][2] else "✓"
+			table.add_row([insn_name, soundness, violations[0], violations[1], violations[2], violations[3], violations[4], round(self.eval_dict[c][0], 2)])
 		
 		print(table)
 		#print("###########################################################\n")
