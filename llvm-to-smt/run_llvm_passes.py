@@ -43,7 +43,6 @@ class LLVMPassRunner:
             self.logfile.write("Running opt -O0\n")
             self.logfile.write(cmd_opt)
             self.logfile.write("\n")
-        print(cmd_opt)
         subprocess.run(cmd_opt, shell=True, check=True, text=True,
                        stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished running opt\n")
@@ -61,7 +60,6 @@ class LLVMPassRunner:
         self.logfile.write("Running force_function_early_exit_pass\n")
         self.logfile.write(cmd_force_functions_early_exit_op)
         self.logfile.write("\n")
-        print(cmd_force_functions_early_exit_op)
         subprocess.run(cmd_force_functions_early_exit_op, shell=True, check=True,
                        text=True, stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished force_function_early_exit_pass\n")
@@ -80,7 +78,6 @@ class LLVMPassRunner:
         self.logfile.write("Running remove_functions_calls_pass\n")
         self.logfile.write(cmd_remove_func_calls_op)
         self.logfile.write("\n")
-        print(cmd_remove_func_calls_op)
         subprocess.run(cmd_remove_func_calls_op, shell=True, check=True, text=True,
                        stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished remove_functions_calls_pass\n")
@@ -99,7 +96,6 @@ class LLVMPassRunner:
         self.logfile.write("Running inline_verifier_func_pass\n")
         self.logfile.write(cmd_inline_verifier_func_op)
         self.logfile.write("\n")
-        print(cmd_inline_verifier_func_op)
         subprocess.run(cmd_inline_verifier_func_op, shell=True, check=True, text=True,
                        stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished inline_verifier_func_pass\n")
@@ -118,7 +114,6 @@ class LLVMPassRunner:
         self.logfile.write("Running promote_memcpy_pass\n")
         self.logfile.write(cmd_promote_memcpy_op)
         self.logfile.write("\n")
-        print(cmd_promote_memcpy_op)
         subprocess.run(cmd_promote_memcpy_op, shell=True, check=True, text=True,
                        stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished promote_memcpy_pass\n")
@@ -138,7 +133,6 @@ class LLVMPassRunner:
         self.logfile.write("Running llvm_to_smt_pass\n")
         self.logfile.write(cmd_llvm_to_smt_op)
         self.logfile.write("\n")
-        print(cmd_llvm_to_smt_op)
         subprocess.run(cmd_llvm_to_smt_op, shell=True, check=True, text=True,
                        stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished llvm_to_smt_pass\n")
