@@ -1,0 +1,11 @@
+verbose
+verbose_invalid_scalar
+verbose_linfo
+print_verifier_state
+print_liveness
+print_verification_stats
+bpf_verifier_log_write
+bpf_vlog_reset
+bpf_log
+bpf_verifier_vlog
+print_bpf_insn
