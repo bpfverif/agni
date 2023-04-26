@@ -114,15 +114,22 @@ def synthesize_bugs(usr_config):
             if check_output == "sat":
                 #add only sat programs to our eval dictionary
                 synth_stats.eval_dict[",".join(synth_module.prog)] = list((synth_stats.prog_execution_time, check_output, copy.deepcopy(synth_module.violated_prop_list)))
+                #aggregate synth violations 
+                usr_config.synth_violations += len(synth_module.violated_prop_list)
+                usr_config.synth_len1 = usr_config.synth_len1 + len(synth_module.violated_prop_list) if len(prog) == 1 else usr_config.synth_len1
+                usr_config.synth_len2 = usr_config.synth_len2 + len(synth_module.violated_prop_list) if len(prog) == 2 else usr_config.synth_len2
+                usr_config.synth_len3 = usr_config.synth_len3 + len(synth_module.violated_prop_list) if len(prog) == 3 else usr_config.synth_len3 
+                
 
 
             synth_stats.set_elapsed_time()
             #synth_stats.print_synthesis_stats()
             synth_stats.iteration += 1
-       
+
         #add another set to the synthesis for next iteration    
         usr_config.insn_set_list.insert(0, usr_config.OPS_set)
         synth_stats.iteration = 1
+    synth_stats.print_synthesis_aggregate(usr_config)
     synth_stats.write_dict_to_file(usr_config, "synth")
 
 

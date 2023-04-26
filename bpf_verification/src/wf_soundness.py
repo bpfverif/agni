@@ -110,8 +110,11 @@ def check_wf_soundness(usr_config):
         if check_output == "sat":
             #we add the violated instruction to our wf_ver list
             wf_ver_set.add(wf_module.prog[0])
+            #aggregate gen violations 
+            usr_config.gen_violations += len(wf_module.violated_prop_list)
+            usr_config.gen_unsound_insn += 1
         
-        #print("\n--------------GEN SOUNDNESS CHECK--------------")
+
         wf_stats.set_elapsed_time()
         #wf_stats.print_verification_stats()
         wf_stats.iteration += 1

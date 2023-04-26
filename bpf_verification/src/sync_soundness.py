@@ -115,13 +115,17 @@ def check_sync_soundness(usr_config):
             #copy violated bounds for the offending instruction for the dict
             #{insn: [u32, u64]..}
             bug_type_dict_per_insn[sync_module.prog[2]] = copy.deepcopy(sync_module.violated_prop_list)
+            #aggregate sro violations 
+            usr_config.sro_violations += len(sync_module.violated_prop_list)
+            usr_config.sro_unsound_insn += 1
         
-        #print("\n--------------SRO SOUNDNESS CHECK--------------")
+
         sync_stats.set_elapsed_time()
         #sync_stats.print_verification_stats()
         sync_stats.iteration += 1
     print(colored("SRO Verification Complete", "green"))
     sync_stats.print_verification_stats()
+    sync_stats.print_verification_aggregate(usr_config)
     #print("Set of potential unsound instructions: ", sync_ver_set, "\n")
     sync_stats.write_dict_to_file(usr_config, "sync")
     #update our usr_config to reflect unsound ops and which bugs types they can manifest
