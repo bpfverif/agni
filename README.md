@@ -146,3 +146,45 @@ Synthesized program for BPF_AND (signed_32). Instruction sequence: BPF_JSLE BPF_
 ### Expected Result for Long Version
 The two aggregate tables produced by the script (one for verification and one for synthesis) should exactly match the
 specific row from the table (kernel version 5.9) in Fig.5(a) and Fig.5(b), respectively.
+
+
+### Explanation
+The automated verification and synthesis is done using
+[z3py](https://ericpony.github.io/z3py-tutorial/guide-examples.htm). 
+
+
+
+### Source code structure
+We use one script `bpf_alu_jmp_synthesis.py` to call three modules which perform
+verification and synthesis. Two modules are used for performing verification,
+one for gen (`wf_soundness.py`) and one for sro(`sync_soundness.py`), and one
+more module for synthesis(`synthesize_bug_types.py`) - these can be found in the
+src directory under bpf_verification. Each of these modules uses the encodings
+produced by our llvm-to-smt procedure to verify instructions or synthesize POCs.
+Our verification conditions and concrete semantics for bpf instructions are
+contained within the `verification_synth_module` class included in the shared
+module library called `lib_reg_bounds_tracking.py` under the
+lib_reg_bounds_tracking directory. We perform verification using z3 (by checking
+if the solver returns `unsat`) and if verification fails we use z3 to produce a
+counterexample program which serves as a POC. 
+
+Our `bpf_alu_jmp_synthesis.py` script can be configured using various options
+for verification and synthesis. These options can be changed by argparse
+arguments to the script which we show below otherwise default values will be
+assumed. While our experiment gives particular instructions for testing kernel
+version 5.9, any kernel version, and any instruction of interest, can be tested
+using our script `bpf_alu_jmp_synthesis.py`. For example, if we want to test one
+instruction, `BPF_ADD`, in kernel version 5.10 we can use the following command:
+
+```
+python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --ver_set BPF ADD
+```
+If we want to test 2 instructions or more we add them sequentially as follows:
+```
+python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --ver_set BPF_ADD BPF_OR BPF_AND 
+```
+We make a distinction between the verification set - which is used to check correctness of given instructions and produce POCs for them in case of failure - and the synthesis set which is solely used for synthesizing POCs for instructions given in the verification set. We set a default synthesis set which is able to produce POCs as described by our paper but can be changed in the following way:
+```
+python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --ver_set BPF ADD --synth_set BPF_XOR BPF_OR
+```
+Changing the synthesis set in this case means that only those instructions (BPF_XOR and BPF_OR) will be used in a multi-sequence program to attempt and generate a POC for BPF_ADD

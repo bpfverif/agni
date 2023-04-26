@@ -2,8 +2,9 @@
         #range analysis. 
         title = "verification and synthesis config file"
 
-        #json_offset should be set to 5 by default - this refers to where
-        #abstract domains start in the bpf register struct
+        #json_offset should be set to 5 by default and set to 4 if verifying
+        #kernel version 4.14 - this refers to where abstract domains start in
+        #the bpf register struct
 		json_offset = 5
 
         #kernel version to verify and synthesize bugs for

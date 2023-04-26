@@ -29,7 +29,7 @@ def main():
     parser.add_argument('--encodings_path', type=str, help="set path to bpf encodings")
     parser.add_argument('--res_path', type=str, help="set path where to write results")
     parser.add_argument('--synth_iter', type=int, help="set length k of sequence to synthesize")
-    parser.add_argument('--insn_set', type=str, help="choose instructions use as priors for synthesis (meaning they won't be the last instructions in the sequence)", nargs="*", choices=["BPF_AND", "BPF_OR", "BPF_LSH", "BPF_RSH", "BPF_JLT", "BPF_JLE", "BPF_JEQ", "BPF_JNE", "BPF_JGE", "BPF_JGT", "BPF_JSGE", "BPF_JSGT", "BPF_JSLT", "BPF_JSLE", "BPF_ADD", "BPF_SUB", "BPF_XOR", "BPF_ARSH", "BPF_OR_32", "BPF_AND_32", "BPF_LSH_32", "BPF_RSH_32", "BPF_ADD_32", "BPF_SUB_32", "BPF_XOR_32","BPF_ARSH_32", "BPF_JLT_32",  "BPF_JLE_32", "BPF_JSLT_32", "BPF_JSLE_32", "BPF_JEQ_32", "BPF_JNE_32", "BPF_JGE_32", "BPF_JGT_32", "BPF_JSGE_32", "BPF_JSGT_32"])
+    parser.add_argument('--synth_set', type=str, help="choose instructions use as priors for synthesis (meaning they won't be the last instructions in the sequence)", nargs="*", choices=["BPF_AND", "BPF_OR", "BPF_LSH", "BPF_RSH", "BPF_JLT", "BPF_JLE", "BPF_JEQ", "BPF_JNE", "BPF_JGE", "BPF_JGT", "BPF_JSGE", "BPF_JSGT", "BPF_JSLT", "BPF_JSLE", "BPF_ADD", "BPF_SUB", "BPF_XOR", "BPF_ARSH", "BPF_OR_32", "BPF_AND_32", "BPF_LSH_32", "BPF_RSH_32", "BPF_ADD_32", "BPF_SUB_32", "BPF_XOR_32","BPF_ARSH_32", "BPF_JLT_32",  "BPF_JLE_32", "BPF_JSLT_32", "BPF_JSLE_32", "BPF_JEQ_32", "BPF_JNE_32", "BPF_JGE_32", "BPF_JGT_32", "BPF_JSGE_32", "BPF_JSGT_32"])
     parser.add_argument('--ver_set', type=str, help="choose instructions to verify", nargs="*", choices=["BPF_AND", "BPF_OR", "BPF_LSH", "BPF_RSH", "BPF_JLT", "BPF_JLE", "BPF_JEQ", "BPF_JNE", "BPF_JGE", "BPF_JGT", "BPF_JSGE", "BPF_JSGT", "BPF_JSLT", "BPF_JSLE", "BPF_ADD", "BPF_SUB", "BPF_XOR", "BPF_ARSH", "BPF_OR_32", "BPF_AND_32", "BPF_LSH_32", "BPF_RSH_32", "BPF_ADD_32", "BPF_SUB_32", "BPF_XOR_32","BPF_ARSH_32", "BPF_JLT_32",  "BPF_JLE_32", "BPF_JSLT_32", "BPF_JSLE_32", "BPF_JEQ_32", "BPF_JNE_32", "BPF_JGE_32", "BPF_JGT_32", "BPF_JSGE_32", "BPF_JSGT_32"])
     args = parser.parse_args()
     #print(args)
@@ -42,7 +42,7 @@ def main():
     parsed_toml["bpf_encodings_path"] = args.encodings_path if args.encodings_path else parsed_toml["bpf_encodings_path"]
     parsed_toml["write_dir_path"] = args.res_path if args.res_path else parsed_toml["write_dir_path"]
     parsed_toml["num_synthesis_iter"] = args.synth_iter if args.synth_iter else parsed_toml["num_synthesis_iter"]
-    parsed_toml["insn_set"] = args.insn_set if args.insn_set else parsed_toml["insn_set"]
+    parsed_toml["insn_set"] = args.synth_set if args.synth_set else parsed_toml["synth_set"]
     parsed_toml["verification_set"] = args.ver_set if args.ver_set else parsed_toml["verification_set"]
     usr_config = config_setup(parsed_toml)
 

@@ -478,7 +478,7 @@ class process_stats:
         table = ColorTable()
         table = ColorTable(theme=Themes.OCEAN)
         table.field_names = ["Kernel Version", "Num of Total Violations", "ALL POCs Synthesized?", "Prog length 1", "Prog length 2", "Prog length 3"]
-        table.add_row([usr_config.kernel_ver, usr_config.synth_violations, all_poc_syn, usr_config.synth_len1, usr_config.synth_len2, usr_config.synth_len3])
+        table.add_row([usr_config.kernel_ver, usr_config.sro_violations, all_poc_syn, usr_config.synth_len1, usr_config.synth_len2, usr_config.synth_len3])
         
         print(table)
         #print("###########################################################\n")
