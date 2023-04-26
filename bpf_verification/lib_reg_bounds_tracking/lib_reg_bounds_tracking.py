@@ -436,7 +436,7 @@ class process_stats:
 
 		table = ColorTable()
 		table = ColorTable(theme=Themes.OCEAN)
-		table.field_names = ["Instruction", "Sound?", "U64", "U32", "Tnum", "S64", "S32", "Execution time (seconds)"]
+		table.field_names = ["Instruction", "Sound?", "U64", "S64", "Tnum", "U32", "S32", "Execution time (seconds)"]
 		abs_domains = ["unsigned_64", "signed_64", "Tnum", "unsigned_32", "signed_32"]
 		violations = [0] * 5 
 		for c in self.eval_dict.keys():
@@ -1105,9 +1105,9 @@ class verification_synth_module:
 				#update smt model map to be able to write it to file
 				BitVecHelper.update_map_with_model(self.solver.model())
 				self.violated_prop_list.append(p)
-				self.print_register_mappings()
-				self.print_specification()
-				self.print_synthesis_model()
+				# self.print_register_mappings()
+				# self.print_specification()
+				# self.print_synthesis_model()
 				self.print_synthesized_program()
 				self.write_synthesis_bug_model(usr_config, p)
 				self.write_counter += 1
@@ -1145,65 +1145,94 @@ class verification_synth_module:
 
 			f.write(s)
 
+			if version.parse(self.kernver) < version.parse("5.7-rc1"):
+				for i in range(self.prog_size):
+					f.write("\n")
+					f.write(getcstr_no_32_bounds("dst_reg_input_" + str(i), self.input_dst_reg_list[i]))
+					f.write(getcstr_no_32_bounds("src_reg_input_" + str(i), self.input_src_reg_list[i]))
+					f.write(getcstr_no_32_bounds("dst_reg_output_" + str(i), self.output_dst_reg_list[i]))
+					if self.prog[i][4] == "J":
+						f.write(getcstr_no_32_bounds("src_reg_output_" + str(i), self.output_src_reg_list[i]))
+			else: 
+				for i in range(self.prog_size):
+					f.write("\n")
+					f.write(getcstr("dst_reg_input_" + str(i), self.input_dst_reg_list[i]))
+					f.write(getcstr("src_reg_input_" + str(i), self.input_src_reg_list[i]))
+					f.write(getcstr("dst_reg_output_" + str(i), self.output_dst_reg_list[i]))
+					if self.prog[i][4] == "J":
+						f.write(getcstr("src_reg_output_" + str(i), self.output_src_reg_list[i]))
+		
+			f.write("Output program:\n")
+			m = self.solver.model()
+			for i in range(self.prog_size):
+				#print model for 32 bit if it's a 32 bit op
+				if(self.prog[i][-1] == "2"):
+					f.write(str(self.prog[i]) + "({}, {})\n".format(m[self.input_dst_reg_list[i].conc32], m[self.input_src_reg_list[i].conc32],  m[self.output_dst_reg_list[i].conc32]))
+				#else pring model for 64 bit
+				else:
+					f.write(str(self.prog[i]) + "({}, {})\n".format(m[self.input_dst_reg_list[i].conc64], m[self.input_src_reg_list[i].conc64],  m[self.output_dst_reg_list[i].conc64]))
+			
+			
+
 	#print synthesis model
 	def print_synthesized_program(self):
 		
-		print("Output program:\n")
+		print("\n\tOutput program:")
 		m = self.solver.model()
 		for i in range(self.prog_size):
 			#print model for 32 bit if it's a 32 bit op
 			if(self.prog[i][-1] == "2"):
-				print(str(self.prog[i]) + "({}, {}) = {}".format(m[self.input_dst_reg_list[i].conc32], m[self.input_src_reg_list[i].conc32],  m[self.output_dst_reg_list[i].conc32]))
+				print(str(self.prog[i]) + "({}, {})".format(m[self.input_dst_reg_list[i].conc32], m[self.input_src_reg_list[i].conc32],  m[self.output_dst_reg_list[i].conc32]))
 			#else pring model for 64 bit
 			else:
-				print(str(self.prog[i]) + "({}, {}) = {}".format(m[self.input_dst_reg_list[i].conc64], m[self.input_src_reg_list[i].conc64],  m[self.output_dst_reg_list[i].conc64]))
+				print(str(self.prog[i]) + "({}, {})".format(m[self.input_dst_reg_list[i].conc64], m[self.input_src_reg_list[i].conc64],  m[self.output_dst_reg_list[i].conc64]))
 		
 
-		reg_count = 1
-		#print model for bpf bytecode
-		for i in range(self.prog_size):
-			if m[self.input_dst_reg_list[i].var_off_mask] == 0:
-				print("\n// REG_{} known".format(reg_count))
-				print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_dst_reg_list[i].conc64])))
-				reg_count += 1
-			else:
-				print("\n// REG_{} unknown".format(reg_count))
-				print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_dst_reg_list[i].conc64])))
-				print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
-				print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
-				reg_count += 1
-			if m[self.input_src_reg_list[i].var_off_mask] == 0:
-				print("\n// REG_{} known".format(reg_count))
-				print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_src_reg_list[i].conc64])))
-				reg_count += 1
-			else:
-				print("\n// REG_{} unknown".format(reg_count))
-				print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_src_reg_list[i].conc64])))
-				print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
-				print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
-				reg_count += 1
+		# reg_count = 1
+		# #print model for bpf bytecode
+		# for i in range(self.prog_size):
+		# 	if m[self.input_dst_reg_list[i].var_off_mask] == 0:
+		# 		print("\n// REG_{} known".format(reg_count))
+		# 		print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_dst_reg_list[i].conc64])))
+		# 		reg_count += 1
+		# 	else:
+		# 		print("\n// REG_{} unknown".format(reg_count))
+		# 		print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_dst_reg_list[i].conc64])))
+		# 		print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
+		# 		print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
+		# 		reg_count += 1
+		# 	if m[self.input_src_reg_list[i].var_off_mask] == 0:
+		# 		print("\n// REG_{} known".format(reg_count))
+		# 		print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_src_reg_list[i].conc64])))
+		# 		reg_count += 1
+		# 	else:
+		# 		print("\n// REG_{} unknown".format(reg_count))
+		# 		print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_src_reg_list[i].conc64])))
+		# 		print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
+		# 		print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
+		# 		reg_count += 1
 
-		reg_count = 1
-		#print instructions
-		print("\n//instruction sequence begins")
-		for i in range(self.prog_size):
-			#print model for bpf bytecode
-			if m[self.input_dst_reg_list[i].var_off_mask] == 0:
-				dst = str(m[self.input_dst_reg_list[i].conc64])
-				reg_count += 1
-			else:
-				dst = "REG_" + str(reg_count)
-				reg_count += 1
-			if m[self.input_src_reg_list[i].var_off_mask] == 0:
-				src = str(m[self.input_src_reg_list[i].conc64])
-				reg_count += 1
-			else:
-				src = "REG_" + str(reg_count)
-				reg_count += 1
-			if self.prog[i][4] == "J":
-				print("BPF_{}_REG({}, {}, {}, X)".format("JMP?", self.prog[i], dst, src))
-			else:
-				print("BPF_{}_REG({}, {}, {}, X)".format("ALU?", self.prog[i], dst, src))
+		# reg_count = 1
+		# #print instructions
+		# print("\n//instruction sequence begins")
+		# for i in range(self.prog_size):
+		# 	#print model for bpf bytecode
+		# 	if m[self.input_dst_reg_list[i].var_off_mask] == 0:
+		# 		dst = str(m[self.input_dst_reg_list[i].conc64])
+		# 		reg_count += 1
+		# 	else:
+		# 		dst = "REG_" + str(reg_count)
+		# 		reg_count += 1
+		# 	if m[self.input_src_reg_list[i].var_off_mask] == 0:
+		# 		src = str(m[self.input_src_reg_list[i].conc64])
+		# 		reg_count += 1
+		# 	else:
+		# 		src = "REG_" + str(reg_count)
+		# 		reg_count += 1
+		# 	if self.prog[i][4] == "J":
+		# 		print("BPF_{}_REG({}, {}, {}, X)".format("JMP?", self.prog[i], dst, src))
+		# 	else:
+		# 		print("BPF_{}_REG({}, {}, {}, X)".format("ALU?", self.prog[i], dst, src))
 			# BPF_MOV64_IMM(BPF_REG_0, 1),
 
 			# BPF_JMP32_REG(BPF_JLT, BPF_REG_1, BPF_REG_3, 3),

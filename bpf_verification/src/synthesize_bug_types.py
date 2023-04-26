@@ -12,15 +12,16 @@ import json
 
 #function to synthesize POC for bugs
 def synthesize_bugs(usr_config):
-    print("\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    print("SYNTHESIZING BUGS BASED ON BUG TYPE")
-    print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    print("\n--------------------------------------------------------------")
+    print("\t\tGENERATING POC FOR DOMAIN VIOLATIONS")
+    print("--------------------------------------------------------------\n")
     
     #keep track of verification stats
     synth_stats = lr.process_stats()
     #initialize construct for synthesis
     synth_module = lr.verification_synth_module(usr_config)
-    usr_config.print_settings()
+    #for debugging
+    #usr_config.print_settings()
 
     for k in range(usr_config.num_iter):
         #enumerate product of given insn sets by taking product of all sets
@@ -116,7 +117,7 @@ def synthesize_bugs(usr_config):
 
 
             synth_stats.set_elapsed_time()
-            synth_stats.print_synthesis_stats()
+            #synth_stats.print_synthesis_stats()
             synth_stats.iteration += 1
        
         #add another set to the synthesis for next iteration    

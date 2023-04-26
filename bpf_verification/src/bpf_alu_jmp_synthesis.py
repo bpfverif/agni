@@ -70,7 +70,7 @@ def main():
     #   returned from the SRO soundness check)
     usr_config.insn_set_list = [last_set]
     synthesize_bugs(usr_config)
-    usr_config.print_settings()
+    #usr_config.print_settings()
 
 
 if __name__ == "__main__":
