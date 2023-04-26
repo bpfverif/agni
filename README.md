@@ -49,7 +49,7 @@ and synthesis for any set of instructions and any kernel version
 Short Version:
 ```
 cd bpf_verification/src
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/matan/bpfverif/bpf_synthesis/bpf_encodings/5.9.auto --ver_set "BPF_OR" BPF_AND BPF_JSGT BPF_JSLT
+python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/matan/bpfverif/bpf_synthesis/bpf_encodings/5.9.auto --ver_set BPF_OR BPF_AND BPF_JSGT BPF_JSLT
 ```
 
 Long Version:
@@ -62,8 +62,9 @@ python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/matan/bpfv
 ### Expected Result for Short Version
 
 The results should be similar to the output given below - note that the order of
-verification and synthesis might differ but the tables should be the same.
+instruction verification and synthesis might differ but the tables should be the same.
 
+```
 --------------------------------------------------------------
                 EXECUTING GEN VERIFICATION
 --------------------------------------------------------------
@@ -139,8 +140,7 @@ Synthesized program for BPF_AND (signed_32). Instruction sequence: BPF_JSLE BPF_
 +----------------+-------------------------+-----------------------+---------------+---------------+---------------+
 |      5.9       |            14           |           ✓           |       10      |       4       |       0       |
 +----------------+-------------------------+-----------------------+---------------+---------------+---------------+
-
-
+```
 
 
 ### Expected Result for Long Version
