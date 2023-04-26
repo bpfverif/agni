@@ -193,4 +193,9 @@ We make a distinction between the verification set - which is used to check corr
 ```
 python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --ver_set BPF ADD --synth_set BPF_XOR BPF_OR
 ```
-Changing the synthesis set in this case means that only those instructions (BPF_XOR and BPF_OR) will be used in a multi-sequence program to attempt and generate a POC for BPF_ADD
+Changing the synthesis set in this case means that only those instructions (BPF_XOR and BPF_OR) will be used in a multi-sequence program when generating a POC for BPF_ADD. 
+
+For more on config options, use the following command:
+```
+python3 bpf_alu_jmp_synthesis.py -h
+```
