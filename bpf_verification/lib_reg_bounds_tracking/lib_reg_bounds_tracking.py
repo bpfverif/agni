@@ -9,6 +9,7 @@ from prettytable.colortable import ColorTable, Themes
 from pprint import pprint
 from itertools import chain, combinations
 from packaging import version
+from termcolor import colored
 import time
 import os
 import os.path
@@ -1108,10 +1109,10 @@ class verification_synth_module:
 				# self.print_register_mappings()
 				# self.print_specification()
 				# self.print_synthesis_model()
-				self.print_synthesized_program()
+				self.print_synthesized_program(p)
 				self.write_synthesis_bug_model(usr_config, p)
 				self.write_counter += 1
-				print("Bound violated: ", p)
+				
 			
 			self.solver.pop()
 		#remove safety condition we put in for new one to replace it
@@ -1175,17 +1176,17 @@ class verification_synth_module:
 			
 
 	#print synthesis model
-	def print_synthesized_program(self):
+	def print_synthesized_program(self, bug_type):
 		
-		print("\n\tOutput program:")
+		print("\nSynthesized program for", self.prog[-1], "(bound violation: {})".format(bug_type))
 		m = self.solver.model()
 		for i in range(self.prog_size):
 			#print model for 32 bit if it's a 32 bit op
 			if(self.prog[i][-1] == "2"):
-				print(str(self.prog[i]) + "({}, {})".format(m[self.input_dst_reg_list[i].conc32], m[self.input_src_reg_list[i].conc32],  m[self.output_dst_reg_list[i].conc32]))
+				print(colored(str(self.prog[i]) + "({}, {})".format(m[self.input_dst_reg_list[i].conc32], m[self.input_src_reg_list[i].conc32],  m[self.output_dst_reg_list[i].conc32]), "green"))
 			#else pring model for 64 bit
 			else:
-				print(str(self.prog[i]) + "({}, {})".format(m[self.input_dst_reg_list[i].conc64], m[self.input_src_reg_list[i].conc64],  m[self.output_dst_reg_list[i].conc64]))
+				print(colored(str(self.prog[i]) + "({}, {})".format(m[self.input_dst_reg_list[i].conc64], m[self.input_src_reg_list[i].conc64],  m[self.output_dst_reg_list[i].conc64]), "green"))
 		
 
 		# reg_count = 1
