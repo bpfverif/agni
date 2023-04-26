@@ -42,7 +42,7 @@ def main():
     parsed_toml["bpf_encodings_path"] = args.encodings_path if args.encodings_path else parsed_toml["bpf_encodings_path"]
     parsed_toml["write_dir_path"] = args.res_path if args.res_path else parsed_toml["write_dir_path"]
     parsed_toml["num_synthesis_iter"] = args.synth_iter if args.synth_iter else parsed_toml["num_synthesis_iter"]
-    parsed_toml["insn_set"] = args.synth_set if args.synth_set else parsed_toml["synth_set"]
+    parsed_toml["insn_set"] = args.synth_set if args.synth_set else parsed_toml["insn_set"]
     parsed_toml["verification_set"] = args.ver_set if args.ver_set else parsed_toml["verification_set"]
     usr_config = config_setup(parsed_toml)
 
