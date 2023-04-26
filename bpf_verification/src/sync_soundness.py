@@ -104,7 +104,7 @@ def check_sync_soundness(usr_config):
         #check violated bounds for current instruction
         sync_module.check_bug_violations()
         check_output = "sat" if len(sync_module.violated_prop_list) > 0 else "unsat"
-        print(colored("Done.", "green"), "Bounds violated: ", sync_module.violated_prop_list)
+        print(colored("Done.", "green"))# "Bounds violated: ", sync_module.violated_prop_list)
     
         sync_stats.end_time = time.time()
         sync_stats.set_execution_time()
