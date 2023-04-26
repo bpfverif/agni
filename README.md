@@ -155,8 +155,8 @@ procedure first attempts to verify given instructions and notes which abstract
 domains are being violated for each instruction. As described by our paper, we
 first perform GEN verification and then in SRO verification. Any instruction
 that fails SRO verification will then be included in the synthesis procedure
-where POCs will be generated based on the domain violations discovered in the
-SRO verification.
+where POCs will be generated for unsound instructions based on the domain
+violations discovered in the SRO verification.
 
 
 
