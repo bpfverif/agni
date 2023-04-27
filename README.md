@@ -64,36 +64,80 @@ instruction verification and synthesis might differ but the tables should be the
                 EXECUTING GEN VERIFICATION
 --------------------------------------------------------------
 
-1/4 Verifying BPF_OR ...  Done.
-2/4 Verifying BPF_JSGT ...  Done.
-3/4 Verifying BPF_JSLT ...  Done.
-4/4 Verifying BPF_AND ...  Done.
+1/15 Verifying BPF_JNE ...  Done.
+2/15 Verifying BPF_JEQ ...  Done.
+3/15 Verifying BPF_JLT ...  Done.
+4/15 Verifying BPF_OR_32 ...  Done.
+5/15 Verifying BPF_AND ...  Done.
+6/15 Verifying BPF_JGE ...  Done.
+7/15 Verifying BPF_JGT ...  Done.
+8/15 Verifying BPF_JSGT ...  Done.
+9/15 Verifying BPF_OR ...  Done.
+10/15 Verifying BPF_SUB ...  Done.
+11/15 Verifying BPF_AND_32 ...  Done.
+12/15 Verifying BPF_JLE ...  Done.
+13/15 Verifying BPF_JSGE ...  Done.
+14/15 Verifying BPF_JSLE ...  Done.
+15/15 Verifying BPF_JSLT ...  Done.
 Gen Verification Complete
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
 | Instruction | Sound? | U64 | S64 | Tnum | U32 | S32 | Execution time (seconds) |
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
-|    BPF_OR   |   ✘    |  ✓  |  ✘  |  ✓   |  ✘  |  ✘  |           8.2            |
-|   BPF_JSGT  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          58.87           |
-|   BPF_JSLT  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          37.61           |
-|   BPF_AND   |   ✘    |  ✓  |  ✘  |  ✓   |  ✘  |  ✘  |           9.9            |
+|   BPF_JNE   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          192.43          |
+|   BPF_JEQ   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          89.32           |
+|   BPF_JLT   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          55.04           |
+|  BPF_OR_32  |   ✘    |  ✘  |  ✘  |  ✓   |  ✘  |  ✘  |           5.18           |
+|   BPF_AND   |   ✘    |  ✓  |  ✘  |  ✓   |  ✘  |  ✘  |           9.53           |
+|   BPF_JGE   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          33.15           |
+|   BPF_JGT   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          42.89           |
+|   BPF_JSGT  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |           28.4           |
+|    BPF_OR   |   ✘    |  ✓  |  ✘  |  ✓   |  ✘  |  ✘  |           9.21           |
+|   BPF_SUB   |   ✘    |  ✘  |  ✘  |  ✘   |  ✓  |  ✓  |          116.87          |
+|  BPF_AND_32 |   ✘    |  ✘  |  ✘  |  ✓   |  ✘  |  ✘  |           5.28           |
+|   BPF_JLE   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          62.81           |
+|   BPF_JSGE  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          38.35           |
+|   BPF_JSLE  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          32.33           |
+|   BPF_JSLT  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          50.91           |
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
 
 --------------------------------------------------------------
                 EXECUTING SRO VERIFICATION
 --------------------------------------------------------------
 
-1/4 Verifying BPF_OR ...  Done.
-2/4 Verifying BPF_JSGT ...  Done.
-3/4 Verifying BPF_JSLT ...  Done.
-4/4 Verifying BPF_AND ...  Done.
+1/15 Verifying BPF_JNE ...  Done.
+2/15 Verifying BPF_JEQ ...  Done.
+3/15 Verifying BPF_JLT ...  Done.
+4/15 Verifying BPF_OR_32 ...  Done.
+5/15 Verifying BPF_JGE ...  Done.
+6/15 Verifying BPF_JGT ...  Done.
+7/15 Verifying BPF_JSGT ...  Done.
+8/15 Verifying BPF_OR ...  Done.
+9/15 Verifying BPF_SUB ...  Done.
+10/15 Verifying BPF_JSLE ...  Done.
+11/15 Verifying BPF_AND_32 ...  Done.
+12/15 Verifying BPF_JLE ...  Done.
+13/15 Verifying BPF_JSGE ...  Done.
+14/15 Verifying BPF_AND ...  Done.
+15/15 Verifying BPF_JSLT ...  Done.
 SRO Verification Complete
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
 | Instruction | Sound? | U64 | S64 | Tnum | U32 | S32 | Execution time (seconds) |
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
-|    BPF_OR   |   ✘    |  ✓  |  ✓  |  ✓   |  ✘  |  ✘  |          15.56           |
-|   BPF_JSGT  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          52.02           |
-|   BPF_JSLT  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          41.98           |
-|   BPF_AND   |   ✘    |  ✓  |  ✓  |  ✓   |  ✘  |  ✘  |          18.24           |
+|   BPF_JNE   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          203.43          |
+|   BPF_JEQ   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |         3911.46          |
+|   BPF_JLT   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          74.94           |
+|  BPF_OR_32  |   ✘    |  ✘  |  ✘  |  ✓   |  ✘  |  ✘  |          17.38           |
+|   BPF_JGE   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          120.62          |
+|   BPF_JGT   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          225.68          |
+|   BPF_JSGT  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          114.93          |
+|    BPF_OR   |   ✘    |  ✓  |  ✓  |  ✓   |  ✘  |  ✘  |          26.93           |
+|   BPF_SUB   |   ✘    |  ✘  |  ✘  |  ✘   |  ✓  |  ✓  |          213.83          |
+|   BPF_JSLE  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          79.36           |
+|  BPF_AND_32 |   ✘    |  ✘  |  ✘  |  ✓   |  ✘  |  ✘  |          22.71           |
+|   BPF_JLE   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          103.7           |
+|   BPF_JSGE  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          95.13           |
+|   BPF_AND   |   ✘    |  ✓  |  ✓  |  ✓   |  ✘  |  ✘  |          31.16           |
+|   BPF_JSLT  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          71.92           |
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
 
 --------------------------------------------------------------
@@ -103,7 +147,7 @@ SRO Verification Complete
 +----------------+------------+------------+----------------+---------------+-----------------------+-----------------------+
 | Kernel Version | Gen Sound? | Sro Sound? | Gen Violations | Sro Violation | Gen Unsound Operators | Sro Unsound Operators |
 +----------------+------------+------------+----------------+---------------+-----------------------+-----------------------+
-|      5.9       |     ✘      |     ✘      |       16       |       14      |           4           |           4           |
+|      5.9       |     ✘      |     ✘      |       67       |       65      |           15          |           15          |
 +----------------+------------+------------+----------------+---------------+-----------------------+-----------------------+
 
 --------------------------------------------------------------
@@ -111,20 +155,71 @@ SRO Verification Complete
 --------------------------------------------------------------
 
 
+Synthesized program for BPF_JLT (signed_64). Instruction sequence: BPF_JLT 
+Synthesized program for BPF_JLT (Tnum). Instruction sequence: BPF_JLT 
+Synthesized program for BPF_JLT (unsigned_32). Instruction sequence: BPF_JLT 
+Synthesized program for BPF_JLT (signed_32). Instruction sequence: BPF_JLT 
+Synthesized program for BPF_JGE (signed_64). Instruction sequence: BPF_JGE 
+Synthesized program for BPF_JGE (Tnum). Instruction sequence: BPF_JGE 
+Synthesized program for BPF_JGE (unsigned_32). Instruction sequence: BPF_JGE 
+Synthesized program for BPF_JGE (signed_32). Instruction sequence: BPF_JGE 
+Synthesized program for BPF_JGT (signed_64). Instruction sequence: BPF_JGT 
+Synthesized program for BPF_JGT (Tnum). Instruction sequence: BPF_JGT 
+Synthesized program for BPF_JGT (unsigned_32). Instruction sequence: BPF_JGT 
+Synthesized program for BPF_JGT (signed_32). Instruction sequence: BPF_JGT 
 Synthesized program for BPF_JSGT (unsigned_64). Instruction sequence: BPF_JSGT 
 Synthesized program for BPF_JSGT (signed_64). Instruction sequence: BPF_JSGT 
 Synthesized program for BPF_JSGT (Tnum). Instruction sequence: BPF_JSGT 
 Synthesized program for BPF_JSGT (unsigned_32). Instruction sequence: BPF_JSGT 
 Synthesized program for BPF_JSGT (signed_32). Instruction sequence: BPF_JSGT 
+Synthesized program for BPF_SUB (unsigned_64). Instruction sequence: BPF_SUB 
+Synthesized program for BPF_SUB (signed_64). Instruction sequence: BPF_SUB 
+Synthesized program for BPF_SUB (Tnum). Instruction sequence: BPF_SUB 
+Synthesized program for BPF_JLE (signed_64). Instruction sequence: BPF_JLE 
+Synthesized program for BPF_JLE (Tnum). Instruction sequence: BPF_JLE 
+Synthesized program for BPF_JLE (unsigned_32). Instruction sequence: BPF_JLE 
+Synthesized program for BPF_JLE (signed_32). Instruction sequence: BPF_JLE 
+Synthesized program for BPF_JSGE (unsigned_64). Instruction sequence: BPF_JSGE 
+Synthesized program for BPF_JSGE (signed_64). Instruction sequence: BPF_JSGE 
+Synthesized program for BPF_JSGE (Tnum). Instruction sequence: BPF_JSGE 
+Synthesized program for BPF_JSGE (unsigned_32). Instruction sequence: BPF_JSGE 
+Synthesized program for BPF_JSGE (signed_32). Instruction sequence: BPF_JSGE 
+Synthesized program for BPF_JSLE (unsigned_64). Instruction sequence: BPF_JSLE 
+Synthesized program for BPF_JSLE (signed_64). Instruction sequence: BPF_JSLE 
+Synthesized program for BPF_JSLE (Tnum). Instruction sequence: BPF_JSLE 
+Synthesized program for BPF_JSLE (unsigned_32). Instruction sequence: BPF_JSLE 
+Synthesized program for BPF_JSLE (signed_32). Instruction sequence: BPF_JSLE 
 Synthesized program for BPF_JSLT (unsigned_64). Instruction sequence: BPF_JSLT 
 Synthesized program for BPF_JSLT (signed_64). Instruction sequence: BPF_JSLT 
 Synthesized program for BPF_JSLT (Tnum). Instruction sequence: BPF_JSLT 
 Synthesized program for BPF_JSLT (unsigned_32). Instruction sequence: BPF_JSLT 
 Synthesized program for BPF_JSLT (signed_32). Instruction sequence: BPF_JSLT 
+Synthesized program for BPF_JNE (unsigned_64). Instruction sequence: BPF_JGE BPF_JNE 
+Synthesized program for BPF_JNE (signed_64). Instruction sequence: BPF_JGE BPF_JNE 
+Synthesized program for BPF_JNE (Tnum). Instruction sequence: BPF_JGE BPF_JNE 
+Synthesized program for BPF_JNE (unsigned_32). Instruction sequence: BPF_JGE BPF_JNE 
+Synthesized program for BPF_JNE (signed_32). Instruction sequence: BPF_JGE BPF_JNE 
+Synthesized program for BPF_JEQ (unsigned_64). Instruction sequence: BPF_JGE BPF_JEQ 
+Synthesized program for BPF_JEQ (signed_64). Instruction sequence: BPF_JGE BPF_JEQ 
+Synthesized program for BPF_JEQ (Tnum). Instruction sequence: BPF_JGE BPF_JEQ 
+Synthesized program for BPF_JEQ (unsigned_32). Instruction sequence: BPF_JGE BPF_JEQ 
+Synthesized program for BPF_JEQ (signed_32). Instruction sequence: BPF_JGE BPF_JEQ 
+Synthesized program for BPF_JLT (unsigned_64). Instruction sequence: BPF_JGE BPF_JLT 
+Synthesized program for BPF_JGE (unsigned_64). Instruction sequence: BPF_JGE BPF_JGE 
+Synthesized program for BPF_AND (unsigned_32). Instruction sequence: BPF_JGE BPF_AND 
+Synthesized program for BPF_AND (signed_32). Instruction sequence: BPF_JGE BPF_AND 
+Synthesized program for BPF_JGT (unsigned_64). Instruction sequence: BPF_JGE BPF_JGT 
+Synthesized program for BPF_AND_32 (unsigned_64). Instruction sequence: BPF_JGE BPF_AND_32 
+Synthesized program for BPF_AND_32 (signed_64). Instruction sequence: BPF_JGE BPF_AND_32 
+Synthesized program for BPF_AND_32 (unsigned_32). Instruction sequence: BPF_JGE BPF_AND_32 
+Synthesized program for BPF_AND_32 (signed_32). Instruction sequence: BPF_JGE BPF_AND_32 
+Synthesized program for BPF_JLE (unsigned_64). Instruction sequence: BPF_JGE BPF_JLE 
+Synthesized program for BPF_OR_32 (unsigned_64). Instruction sequence: BPF_JSLE BPF_OR_32 
+Synthesized program for BPF_OR_32 (signed_64). Instruction sequence: BPF_JSLE BPF_OR_32 
+Synthesized program for BPF_OR_32 (unsigned_32). Instruction sequence: BPF_JSLE BPF_OR_32 
+Synthesized program for BPF_OR_32 (signed_32). Instruction sequence: BPF_JSLE BPF_OR_32 
 Synthesized program for BPF_OR (unsigned_32). Instruction sequence: BPF_JSLE BPF_OR 
 Synthesized program for BPF_OR (signed_32). Instruction sequence: BPF_JSLE BPF_OR 
-Synthesized program for BPF_AND (unsigned_32). Instruction sequence: BPF_JSLE BPF_AND 
-Synthesized program for BPF_AND (signed_32). Instruction sequence: BPF_JSLE BPF_AND 
 
 --------------------------------------------------------------
                 SYNTHESIS AGGREGATE STATISTICS
@@ -133,8 +228,9 @@ Synthesized program for BPF_AND (signed_32). Instruction sequence: BPF_JSLE BPF_
 +----------------+-------------------------+-----------------------+---------------+---------------+---------------+
 | Kernel Version | Num of Total Violations | ALL POCs Synthesized? | Prog length 1 | Prog length 2 | Prog length 3 |
 +----------------+-------------------------+-----------------------+---------------+---------------+---------------+
-|      5.9       |            14           |           ✓           |       10      |       4       |       0       |
+|      5.9       |            65           |           ✓           |       39      |       26      |       0       |
 +----------------+-------------------------+-----------------------+---------------+---------------+---------------+
+
 ```
 
 ### Long Version (Optional)
