@@ -35,29 +35,24 @@ We have tested the docker image on different architectures (`x86_64`, `amd64`) a
 
 Here, we demonstrate our tool can be used to *automatically* extract the semantics of the kernel's C code. 
 
+--------------------------------------------------------------------------------
 
 ## Verification and POC synthesis for eBPF range analysis 
-In this experiment we verify the correctness of the ebpf range analysis and
-produce POCs for unsound instructions for kernel version 5.9. We give a short
-version and a long version of the experiment. The short version should take a
-few minutes and the long version should take roughly 5 hours. 
+In the paper, we verify the soundness of the eBPF verifier's range analysis. To do this for a given kernel version, we check the correctness of 36 abstract operators using our verification conditions gen (§4.1) and sro (§4.2). When our soundness checks fail, we synthesis a concrete proof-of-concept (PoC) program that demonstrates the mismatch between abstract values maintained by the verifier and the concrete execution of the eBPF program. To keep the experiment short, we will make the following simplifications to the experiment:
+
+- We will only run the experiment for kernel version 5.9
+- For kernel version 5.9, checking all the eBPF operators for soundness take a long time (~12 hours). In this experiment, we provide a script which will accept a reduced list of eBPF operators which are known to be unsound. The experiment will then confirm that the reduced list of eBPF operators is indeed unsound.
+- The synthesies PoC programs will be for demonstrative purposes only. To go from a PoC to an actual program requires some manual effort. For the review, will will avoid this step. We directly provide the reviwers with constructed eBPF programs that manifest unsound behaviors. 
+
 
 ### Run the script
-The following script invokes a python script which performs the verification 
-and synthesis for any set of instructions and any kernel version
+The script `bpf_alu_jmp_synthesis.py` performs the verification and synthesis for a specific set of instructions and a specific kernel version.
+To make the verification faster, we will choose only those operators which are known to be unsound.
 
-Short Version:
 ```
 cd bpf_verification/src
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/matan/bpfverif/bpf_synthesis/bpf_encodings/5.9.auto --ver_set BPF_OR BPF_AND BPF_JSGT BPF_JSLT 
+python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/matan/bpfverif/bpf_synthesis/bpf_encodings/5.9.auto --ver_set BPF_AND_32 BPF_SUB BPF_JGT BPF_JSLE BPF_JEQ BPF_JNE BPF_JSGT BPF_JSGE BPF_OR_32 BPF_JLT BPF_OR BPF_AND BPF_JGE BPF_JSLT BPF_JLE 
 ```
-
-Long Version:
-```
-cd bpf_verification/src
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/matan/bpfverif/bpf_synthesis/bpf_encodings/5.9.auto 
-```
-
 
 ### Expected Result for Short Version
 
@@ -142,6 +137,11 @@ Synthesized program for BPF_AND (signed_32). Instruction sequence: BPF_JSLE BPF_
 +----------------+-------------------------+-----------------------+---------------+---------------+---------------+
 ```
 
+### Long Version (Optional)
+```
+cd bpf_verification/src
+python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/matan/bpfverif/bpf_synthesis/bpf_encodings/5.9.auto 
+```
 
 ### Expected Result for Long Version
 The two aggregate tables produced by the script (one for verification and one for synthesis) should exactly match the
@@ -157,8 +157,6 @@ first perform GEN verification and then in SRO verification. Any instruction
 that fails SRO verification will then be included in the synthesis procedure
 where POCs will be generated for unsound instructions based on the domain
 violations discovered in the SRO verification.
-
-
 
 ### Source code structure
 We use one script `bpf_alu_jmp_synthesis.py` to call three modules which perform
