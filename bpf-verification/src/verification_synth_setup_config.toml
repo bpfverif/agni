@@ -11,11 +11,11 @@
 		kernel_ver = "5.9"
 
         #provide absolute path to bpf encodings dir
-		bpf_encodings_path = "/home/matan/bpfverif/bpf_synthesis/bpf_encodings/5.8.auto/"
+		bpf_encodings_path = "/home/bpf-encodings/"
 
         #provide path for results directory - this is where result files will be
         #written to
-		write_dir_path = "/home/matan/bpfverif/bpf_synthesis/results"
+		write_dir_path = "/home/cav23-artifact/bpf-verification/results"
 
         #program size to synthesize 
 		num_synthesis_iter = 3
@@ -30,7 +30,7 @@
         #"NULL". If set to "NULL" synthesis insn pool (insn_set) will be used
         #here instead. Specific list of instructions can be used if needs to
         #differ from insn_set.
-        verification_set = ['BPF_AND_32', 'BPF_SUB', 'BPF_JGT', 'BPF_JSLE', 'BPF_JEQ', 'BPF_JNE', 'BPF_JSGT', 'BPF_JSGE', 'BPF_OR_32', 'BPF_JLT', 'BPF_OR', 'BPF_AND', 'BPF_JGE', 'BPF_JSLT', 'BPF_JLE']
+        verification_set = ["BPF_AND","BPF_OR","BPF_LSH","BPF_RSH","BPF_JLT","BPF_JLE","BPF_JEQ","BPF_JNE","BPF_JGE","BPF_JGT","BPF_JSGE","BPF_JSGT","BPF_JSLT","BPF_JSLE","BPF_ADD","BPF_SUB","BPF_XOR","BPF_ARSH","BPF_OR_32","BPF_AND_32","BPF_LSH_32","BPF_RSH_32","BPF_ADD_32","BPF_SUB_32","BPF_XOR_32","BPF_ARSH_32","BPF_JLT_32","BPF_JLE_32","BPF_JSLT_32","BPF_JSLE_32","BPF_JEQ_32","BPF_JNE_32","BPF_JGE_32","BPF_JGT_32","BPF_JSGE_32","BPF_JSGT_32"]
 
         #bug typr per bpf instruction dictionary - default value should be empty
         #table but can be set to specific bpf_op: bug_type list pairs

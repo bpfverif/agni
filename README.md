@@ -125,7 +125,7 @@ To make the verification faster, we will choose only those operators which are k
 
 ```
 cd bpf_verification/src
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /root/cav23-artifact/bpf-encodings --ver_set BPF_AND_32 BPF_SUB BPF_JGT BPF_JSLE BPF_JEQ BPF_JNE BPF_JSGT BPF_JSGE BPF_OR_32 BPF_JLT BPF_OR BPF_AND BPF_JGE BPF_JSLT BPF_JLE 
+python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/cav23-artifact/bpf-encodings --ver_set BPF_AND_32 BPF_SUB BPF_JGT BPF_JSLE BPF_JEQ BPF_JNE BPF_JSGT BPF_JSGE BPF_OR_32 BPF_JLT BPF_OR BPF_AND BPF_JGE BPF_JSLT BPF_JLE 
 ```
 
 ### Expected Result for Short Version
@@ -310,7 +310,7 @@ Synthesized program for BPF_OR (signed_32). Instruction sequence: BPF_JSLE BPF_O
 ### Long Version (Optional)
 ```
 cd bpf_verification/src
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /root/cav23-artifact/bpf-encodings 
+python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/cav23-artifact/bpf-encodings 
 ```
 
 ### Expected Result for Long Version
