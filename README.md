@@ -11,7 +11,7 @@ This paper proposes an automated method to check the correctness of range analys
 2. Verification of the kernel's range analysis using our `gen` and `sro` verification conditions. 
 3. Synthesizing proof-of-concept BPF programs demonstrate a mismatch between the concrete and abstract semantics
 
-`Note`. To make it feasible to run the artifact quickly, we have reduced the sample sizes used for the experiments. The experiments for the paper were performed without using any containers, and on larger inputs sizes. It should take roughly 5 hours to evaluate this artifact.
+`Note`. To make it feasible to run the artifact quickly, we have reduced the sample sizes used for the experiments. The experiments for the paper were performed without using any containers, and on larger inputs sizes. It should take roughly 4-5 hours to evaluate this artifact.
 
 --------------------------------------------------------------------------------
 
@@ -42,7 +42,7 @@ In the paper, we verify the soundness of the eBPF verifier's range analysis. To 
 
 - We will only run the experiment for kernel version 5.9
 - For kernel version 5.9, checking all the eBPF operators for soundness take a long time (~12 hours). In this experiment, we provide a script which will accept a reduced list of eBPF operators which are known to be unsound. The experiment will then confirm that the reduced list of eBPF operators is indeed unsound.
-- The synthesies PoC programs will be for demonstrative purposes only. To go from a PoC to an actual program requires some manual effort. For the review, will will avoid this step. We directly provide the reviwers with constructed eBPF programs that manifest unsound behaviors. 
+- The synthesized PoC programs will be for demonstrative purposes since constructing a full BPF program from our generated POCs requires some manual effort. For the review, we will forgo this step. We directly provide the reviewers with constructed eBPF programs that manifest unsound behaviors. 
 
 
 ### Run the script
@@ -240,8 +240,9 @@ python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/matan/bpfv
 ```
 
 ### Expected Result for Long Version
-The two aggregate tables produced by the script (one for verification and one for synthesis) should exactly match the
-specific row from the table (kernel version 5.9) in Fig.5(a) and Fig.5(b), respectively.
+The two aggregate tables produced by the script, one for verification and one
+for synthesis, should exactly match the specific row from the table (kernel
+version 5.9) in Fig.5(a) and Fig.5(b), respectively.
 
 
 ### Explanation
@@ -282,11 +283,11 @@ python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --encodings_path <path to 5.10 e
 ```
 If we want to test 2 instructions or more we add them sequentially as follows:
 ```
-python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --encodings_path <path to 5.10 encodings directory>--ver_set BPF_ADD BPF_OR BPF_AND 
+python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --encodings_path <path to 5.10 encodings directory> --ver_set BPF_ADD BPF_OR BPF_AND 
 ```
-We make a distinction between the verification set - which is used to check correctness of given instructions and produce POCs for them in case of failure - and the synthesis set which is solely used for synthesizing POCs for instructions given in the verification set. We set a default synthesis set which is able to produce POCs as described by our paper but can be changed in the following way:
+We make a distinction between the verification set - which is the set of instructions used for verification and POC generation in case of failure - and the synthesis set which is solely used for synthesizing POCs for instructions given in the verification set. We set a default synthesis set which is able to produce POCs as described by our paper but can be changed in the following way:
 ```
-python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --ver_set BPF ADD --synth_set BPF_XOR BPF_OR
+python3 bpf_alu_jmp_synthesis.py --kernver 5.11 --encodings_path <path to 5.11 encodings directory> --ver_set BPF ADD --synth_set BPF_XOR BPF_OR
 ```
 Changing the synthesis set in this case means that only those instructions (BPF_XOR and BPF_OR) will be used in a multi-sequence program when generating a POC for BPF_ADD. 
 
