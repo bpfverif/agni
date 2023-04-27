@@ -362,17 +362,15 @@ def print_and_log(s, pend="\n"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--llvmdir", help="llvm install directory", type=str,
-                        required=True)
+                        required=False, default="/usr/")
     parser.add_argument("--kernver", help="kernel version", type=str,
                         required=True)
     parser.add_argument("--kernbasedir", help="kernel base directory", type=str,
-                        required=True)
+                        required=False, default="/root/linux-stable")
     parser.add_argument("--outdir", help="output directory", type=str,
                         required=True)
-    parser.add_argument("--logdir", help="logging directory", type=str,
-                        required=True)
     parser.add_argument("--scriptsdir", help="scripts directory from llvm-to-smt",
-                        type=str, required=True)
+                        type=str, required=False, default="/root/cav23-artifact/llvm-to-smt/llvm-passes")
     parser.add_argument("--specific-op", dest='specific_op',
                         help='single specific BPF op to encode',
                         type=str, required=False)
@@ -397,11 +395,10 @@ if __name__ == "__main__":
             raise RuntimeError(
                 'Unsupported BPF op {}'.format(args.specific_op))
 
-    ############################
-    #  create log directory #
-    ############################
-    logdir_fullpath = pathlib.Path(args.logdir).resolve()
-    os.makedirs(logdir_fullpath, exist_ok=True)
+    ####################
+    #  setup logging   #
+    ####################
+    logdir_fullpath = pathlib.Path(args.outdir).resolve()
 
     logfile_name = datetime.now().strftime('log_%H_%M_%d_%m_%Y.log')
     logfile_path = pathlib.Path.joinpath(logdir_fullpath, logfile_name)
