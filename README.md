@@ -31,13 +31,81 @@ We have tested the docker image on different architectures (`x86_64`, `amd64`) a
 
 --------------------------------------------------------------------------------
 
-## Automatically extracting the semantics of the Linux kernel's C code to SMT 
+## Automatically extracting the semantics of the Linux kernel's C code to SMT (15-25 minutes)
 
-Here, we demonstrate our tool can be used to *automatically* extract the semantics of the kernel's C code. 
+Here, we demonstrate our tool can be used to *automatically* extract the
+semantics of the kernel's C code as described in our paper(§5). This experiment produces all bpf instruction encodings for kernel version 5.9 for reviewing purposes. We later specify how to extract semantics for any kernel version from 4.14 onwards. 
+
+### Run the script
+
+```
+cd llvm-to-smt
+python3 generate_encodings.py --llvmdir "/usr/lib/llvm-12" --kernver 5.9 --outdir encodings --logdir log_dir --kernbasedir /home/matan/test/linux-stable --scriptsdir /home/matan/bpfverif/cav23-artifact/llvm-to-smt/llvm-passes
+```
+
+
+### Expected Result 
+```
+Log file: /home/matan/bpfverif/cav23-artifact/llvm-to-smt/log_dir/log_23_29_26_04_2023.log
+Log error file: /home/matan/bpfverif/cav23-artifact/llvm-to-smt/log_dir/log_err_23_29_26_04_2023.log
+Create output directory: /home/matan/bpfverif/cav23-artifact/llvm-to-smt/encodings ... done
+Change to kernel directory: /home/matan/test/linux-stable ... done
+Checkout kernel version v5.9 ... done
+Run make config and edit BPF flags ... done
+Extract compile flags for current kernel version ... done
+Edit tnum.c and verifier.c to add wrappers ... done
+Compile verifier.c and tnum.c ... done
+Link verifier.ll and tnum.ll to single verifier.ll ... done
+Getting encoding for BPF_ADD ... done
+Getting encoding for BPF_SUB ... done
+Getting encoding for BPF_OR ... done
+Getting encoding for BPF_AND ... done
+Getting encoding for BPF_LSH ... done
+Getting encoding for BPF_RSH ... done
+Getting encoding for BPF_ARSH ... done
+Getting encoding for BPF_XOR ... done
+Getting encoding for BPF_ADD_32 ... done
+Getting encoding for BPF_SUB_32 ... done
+Getting encoding for BPF_OR_32 ... done
+Getting encoding for BPF_AND_32 ... done
+Getting encoding for BPF_LSH_32 ... done
+Getting encoding for BPF_RSH_32 ... done
+Getting encoding for BPF_ARSH_32 ... done
+Getting encoding for BPF_XOR_32 ... done
+Getting encoding for BPF_JEQ ... done
+Getting encoding for BPF_JNE ... done
+Getting encoding for BPF_JGE ... done
+Getting encoding for BPF_JGT ... done
+Getting encoding for BPF_JSGE ... done
+Getting encoding for BPF_JSGT ... done
+Getting encoding for BPF_JLE ... done
+Getting encoding for BPF_JLT ... done
+Getting encoding for BPF_JSLE ... done
+Getting encoding for BPF_JSLT ... done
+Getting encoding for BPF_JEQ_32 ... done
+Getting encoding for BPF_JNE_32 ... done
+Getting encoding for BPF_JGE_32 ... done
+Getting encoding for BPF_JGT_32 ... done
+Getting encoding for BPF_JSGE_32 ... done
+Getting encoding for BPF_JSGT_32 ... done
+Getting encoding for BPF_JLE_32 ... done
+Getting encoding for BPF_JLT_32 ... done
+Getting encoding for BPF_JSLE_32 ... done
+Getting encoding for BPF_JSLT_32 ... done
+Getting encoding for BPF_SYNC ... done
+```
+
+
+### Explanation
+Our automatic encoder produces an smt file for each bpf instruction in a particular kernel version. 
+
+### Source code structure
+
+
 
 --------------------------------------------------------------------------------
 
-## Verification and POC synthesis for eBPF range analysis 
+## Verification and POC synthesis for eBPF range analysis (3-4 hours)
 In the paper, we verify the soundness of the eBPF verifier's range analysis. To do this for a given kernel version, we check the correctness of 36 abstract operators using our verification conditions gen (§4.1) and sro (§4.2). When our soundness checks fail, we synthesis a concrete proof-of-concept (PoC) program that demonstrates the mismatch between abstract values maintained by the verifier and the concrete execution of the eBPF program. To keep the experiment short, we will make the following simplifications to the experiment:
 
 - We will only run the experiment for kernel version 5.9
