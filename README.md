@@ -49,7 +49,7 @@ and synthesis for any set of instructions and any kernel version
 Short Version:
 ```
 cd bpf_verification/src
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/matan/bpfverif/bpf_synthesis/bpf_encodings/5.9.auto --ver_set BPF_OR BPF_AND BPF_JSGT BPF_JSLT
+python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/matan/bpfverif/bpf_synthesis/bpf_encodings/5.9.auto --ver_set BPF_OR BPF_AND BPF_JSGT BPF_JSLT 
 ```
 
 Long Version:
@@ -175,19 +175,20 @@ if the solver returns `unsat`) and if verification fails we use z3 to produce a
 counterexample program which serves as a POC. 
 
 Our `bpf_alu_jmp_synthesis.py` script can be configured using various options
-for verification and synthesis. These options can be changed by argparse
-arguments to the script which we show below otherwise default values will be
+for verification and synthesis. These options can be changed by changing our
+configuration `verification_synth_setup_config.toml` file or by passing argparse
+arguments to the script which we show below, otherwise default values will be
 assumed. While our experiment gives particular instructions for testing kernel
 version 5.9, any kernel version, and any instruction of interest, can be tested
 using our script `bpf_alu_jmp_synthesis.py`. For example, if we want to test one
 instruction, `BPF_ADD`, in kernel version 5.10 we can use the following command:
 
 ```
-python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --ver_set BPF ADD
+python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --encodings_path <path to 5.10 encodings directory> --ver_set BPF ADD
 ```
 If we want to test 2 instructions or more we add them sequentially as follows:
 ```
-python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --ver_set BPF_ADD BPF_OR BPF_AND 
+python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --encodings_path <path to 5.10 encodings directory>--ver_set BPF_ADD BPF_OR BPF_AND 
 ```
 We make a distinction between the verification set - which is used to check correctness of given instructions and produce POCs for them in case of failure - and the synthesis set which is solely used for synthesizing POCs for instructions given in the verification set. We set a default synthesis set which is able to produce POCs as described by our paper but can be changed in the following way:
 ```
