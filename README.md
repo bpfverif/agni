@@ -1,4 +1,4 @@
-# Verifying the Verifier: eBPF Range Analysis Verification"
+# Verifying the Verifier: eBPF Range Analysis Verification
 
 ## Abstract
 This paper proposes an automated method to check the correctness of range analysis used in the Linux Kernel’s eBPF verifier. We provide the specification of soundness for range analysis performed by the eBPF verifier. We automatically generate verification conditions that encode the operation of eBPF verifier directly from the Linux Kernel’s C source code and check it against our specification. When we discover instances where the eBPF verifier is unsound, we propose a method to generate an eBPF program that demonstrates the mismatch between the abstract and the concrete semantics. Our prototype automatically checks the soundness of 16 versions of the eBPF verifier in the Linux Kernel versions ranging from 4.14 to 5.19. In this process, we have discovered new bugs in older versions and proved the soundness of range analysis in the latest version of the Linux kernel.
@@ -31,16 +31,15 @@ We have tested the docker image on different architectures (`x86_64`, `amd64`) a
 
 --------------------------------------------------------------------------------
 
-## Automatically extracting the semantics of the Linux kernel's C code to SMT (15-25 minutes)
+## Automatically extracting the semantics of the Linux kernel's C code to SMT (25 minutes)
 
-Here, we demonstrate our tool can be used to *automatically* extract the
-semantics of the kernel's C code as described in our paper(§5). This experiment produces all bpf instruction encodings for kernel version 5.9 for reviewing purposes. We later specify how to extract semantics for any kernel version from 4.14 onwards. 
+Here, we demonstrate how our tool can be used to *automatically* extract the semantics of the Linux Kernel verifier's C code as described in our paper (§5). Our tool produces the first-order logic formula (in [SMT-LIB](https://smtlib.cs.uiowa.edu/papers/smt-lib-reference-v2.6-r2021-05-12.pdf) format) for the abstract semantics defined in Linux Kernel for each eBPF instruction. For this review, we will use kernel v5.9
 
 ### Run the script
 
 ```
 cd llvm-to-smt
-python3 generate_encodings.py --llvmdir "/usr/lib/llvm-12" --kernver 5.9 --outdir encodings --logdir log_dir --kernbasedir /home/matan/test/linux-stable --scriptsdir /home/matan/bpfverif/cav23-artifact/llvm-to-smt/llvm-passes
+python3 generate_encodings.py --llvmdir /usr/lib/llvm-12 --kernver 5.9 --outdir ~/bpf_encodings --logdir ~/bpf_encodings --kernbasedir ~/linux-stable --scriptsdir ~/llvm-to-smt/llvm-passes
 ```
 
 
@@ -97,9 +96,16 @@ Getting encoding for BPF_SYNC ... done
 
 
 ### Explanation
-Our automatic encoder produces an smt file for each bpf instruction in a particular kernel version. 
+Our automatic encoder produces an SMT-LIB (`.smt2`) file for each eBPF instruction which captures the Linux Kernel's abstract semantics that instruction. The encodings should be present in the directory specified by `--outdir`, in our case `~/bpf_encodings`.
+
+```
+ls bpf_encodings
+...
+```
 
 ### Source code structure
+
+
 
 
 
