@@ -5,6 +5,12 @@ This paper proposes an automated method to check the correctness of range analys
 
 --------------------------------------------------------------------------------
 
+### Prerequisites to run the artifact.
+
+1.  Install docker by following the documentation [here](https://docs.docker.com/install/). You might need to follow the post installation steps for managing docker as a non-root user [here](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
+
+2.  Install Virtual Box by downloading from [here](https://www.virtualbox.org/wiki/Downloads).
+
 ### Claims to validate/reproduce.
 
 1. Automatically extracting the semantics of the Linux kernel's C code to SMT (Docker).
@@ -14,20 +20,12 @@ This paper proposes an automated method to check the correctness of range analys
 
 `Note`. To make it feasible to run the artifact quickly, we have reduced the sample sizes used for the experiments. The experiments for the paper were performed without using any containers, and on larger inputs sizes. It should take roughly 4-5 hours to evaluate this artifact. 
 
-### Prerequisites to run the artifact.
-
-This artifact has two parts. In the first part, we will use the Docker image to validate the claims 1 and 2. In the second part we will use the Virtual Box appliance to validate claim 3. 
-
-1.  Install docker by following the documentation [here](https://docs.docker.com/install/). You might need to follow the post installation steps for managing docker as a non-root user [here](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
-
-2.  Install Virtual Box by downloading from [here](https://www.virtualbox.org/wiki/Downloads).
-
-### Known issues 
+### Known issues.
 We have tested the Docker image and the Virtual Box appliance on `x86_64` machines, running Linux and Windows operating systems.  We have no known issues to report.
 
 --------------------------------------------------------------------------------
 
-## Automatically extracting the semantics of the Linux kernel's C code to SMT (25 minutes)
+## 1. Automatically extracting the semantics of the Linux kernel's C code to SMT (25 minutes)
 
 Here, we demonstrate how our tool can be used to *automatically* extract the semantics of the Linux Kernel verifier's C code as described in our paper (§5). Our tool produces the first-order logic formula (in [SMT-LIB](https://smtlib.cs.uiowa.edu/papers/smt-lib-reference-v2.6-r2021-05-12.pdf) format) for the abstract semantics defined in Linux Kernel for each eBPF instruction. For this review, we will use kernel v5.9
 
