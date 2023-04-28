@@ -38,7 +38,9 @@ of the Linux kernel.
    kernel's C code to SMT (Docker).
 2.  1. Verifying the kernel's range analysis using our `gen`
        and `sro` verification conditions (Docker).
-    2. Synthesizing proof-of-concept BPF programs demonstrate a mismatch between the concrete and abstract semantics (Docker).
+    2. Synthesizing proof-of-concept BPF programs
+       demonstrate a mismatch between the concrete and
+       abstract semantics (Docker).
 3.  Running our synthesized proof-of-concept BPF programs to
     witness unsound behaviour in a real Linux kernel
     (Virtual Box).
@@ -154,26 +156,48 @@ The top-level script `generate_encodings.py` does the following:
 --------------------------------------------------------------------------------
 
 ## (2.1 & 2.2) Verification and POC synthesis for eBPF range analysis (3-4 hours)
-In the paper, we verify the soundness of the eBPF verifier's range analysis. To do this for a given kernel version, we check the correctness of 36 abstract operators using our verification conditions gen (§4.1) and sro (§4.2). When our soundness checks fail, we synthesis a concrete proof-of-concept (PoC) program that demonstrates the mismatch between abstract values maintained by the verifier and the concrete execution of the eBPF program. To keep the experiment short, we will make the following simplifications to the experiment:
 
-- We will only run the experiment for kernel version 5.9
-- For kernel version 5.9, checking all the eBPF operators for soundness take a long time (~12 hours). In this experiment, we provide a script which will accept a reduced list of eBPF operators which are known to be unsound. The experiment will then confirm that the reduced list of eBPF operators is indeed unsound.
-- The synthesized PoC programs will be for demonstrative purposes since constructing a full BPF program from our generated POCs requires some manual effort. For the review, we will forgo this step. We directly provide the reviewers with constructed eBPF programs that manifest unsound behaviors. 
+First, we check the correctness of 36 abstract operators
+corresponding to 36 eBPF instructions (page 6 in the paper)
+using our verification conditions `gen` (§4.1) and `sro`
+(§4.2). When our soundness checks fail, we synthesize
+proof-of-concept (PoC) programs that demonstrate the
+mismatch between abstract values maintained by the verifier
+and the values in a concrete execution of the eBPF program.
+To keep the experiment short, we will make the following
+simplifications:
 
+- We will only run the experiment for kernel v5.9
+- For kernel v5.9, checking all the eBPF operators for
+  soundness take a long time (~12 hours). In this
+  experiment, we provide a script which will accept a
+  reduced list of eBPF instructions whose abstract semantics
+  are known to be unsound. The experiment will then confirm
+  that the reduced list of eBPF instructions is indeed
+  unsound.
+- The synthesized PoC programs will be for demonstrative
+  purposes only. Constructing a full eBPF program from our
+  generated POCs requires some manual effort. For the
+  review, we will forgo this step. In part 3, we directly
+  provide full eBPF programs that manifest unsound behaviors
+  in an actual kernel.
 
-### Run the script
-The script `bpf_alu_jmp_synthesis.py` performs the verification and synthesis for a specific set of instructions and a specific kernel version.
-To make the verification faster, we will choose only those operators which are known to be unsound.
+### Run the script to perform the verification and synthesis
+The script uses the encodings we previously generated,
+present in `/home/cav23-artifact/bpf-encodings-5.9`. The
+`ver_set` argument is used to restrict our verification to a
+reduced list of eBPF instructions.
 
 ```
-cd bpf_verification/src
+cd /home/cav23-artifact/bpf-verification/src
 python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/cav23-artifact/bpf-encodings --ver_set BPF_AND_32 BPF_SUB BPF_JGT BPF_JSLE BPF_JEQ BPF_JNE BPF_JSGT BPF_JSGE BPF_OR_32 BPF_JLT BPF_OR BPF_AND BPF_JGE BPF_JSLT BPF_JLE 
 ```
 
-### Expected Result for Short Version
+### Expected result
 
-The results should be similar to the output given below - note that the order of
-instruction verification and synthesis might differ but the tables should be the same.
+The expected output should be similar to the one below. Note
+that the order of instruction verification and synthesis
+might differ but the tables should be the same.
 
 ```
 --------------------------------------------------------------
@@ -348,6 +372,10 @@ Synthesized program for BPF_OR (signed_32). Instruction sequence: BPF_JSLE BPF_O
 +----------------+-------------------------+-----------------------+---------------+---------------+---------------+
 
 ```
+
+### Explanation.
+
+
 
 ### Long Version (Optional)
 ```
