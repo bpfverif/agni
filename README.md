@@ -406,6 +406,27 @@ For more on config options, use the following command:
 python3 bpf_alu_jmp_synthesis.py -h
 ```
 
+## (3) Running synthesized eBPF programs in a real Linux Kernel
+
+We saw some synthesized mini eBPF programs in the previous
+experiment. We use these mini programs to construct a full
+eBPF program that demonstrates a mismatch between abstract
+values maintained by the verifier and the concrete execution
+of the eBPF program. The process to construct a full eBPF
+program requires some manual effort. Instead, we provide
+these eBPF programs constructed by us using the output from
+the synthesis inside our Virtual Box appliance
+`cav23-artifact-vm.ova`. This appliance packages a virtual
+machine that runs Ubuntu 20.04 installed with Linux Kernel
+v5.9. 
+
+### Import and start the virtual machine
+- Open Virtual Box
+- File > Import Appliance 
+- Browse and select the path to cav23-artifact-vm.ova
+- You should have the `cav23-artifact-vm` 
+
+
 !["BPF_SUB S64 Violation"](images/sub_s64.jpg "BPF_SUB S64 Violation")
 !["BPF_OR S32 Violation"](images/or_s32.jpg "BPF_OR S32 Violation")
 
