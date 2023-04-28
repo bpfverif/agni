@@ -364,6 +364,6 @@ For more on config options, use the following command:
 python3 bpf_alu_jmp_synthesis.py -h
 ```
 
-!["BPF_SUB S64 Violation"](/bpfverif/cav23-artifact/sub_s64.jpg "BPF_SUB S64 Violation")
-!["BPF_OR S32 Violation"](/bpfverif/cav23-artifact/or_s32.jpg "BPF_OR S32 Violation")
+!["BPF_SUB S64 Violation"](images/sub_s64.jpg "BPF_SUB S64 Violation")
+!["BPF_OR S32 Violation"](images/or_s32.jpg "BPF_OR S32 Violation")
 
