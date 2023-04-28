@@ -366,11 +366,11 @@ if __name__ == "__main__":
     parser.add_argument("--kernver", help="kernel version", type=str,
                         required=True)
     parser.add_argument("--kernbasedir", help="kernel base directory", type=str,
-                        required=False, default="/root/linux-stable")
+                        required=False, default="/home/linux-stable")
     parser.add_argument("--outdir", help="output directory", type=str,
                         required=True)
     parser.add_argument("--scriptsdir", help="scripts directory from llvm-to-smt",
-                        type=str, required=False, default="/root/cav23-artifact/llvm-to-smt/llvm-passes")
+                        type=str, required=False, default="/home/cav23-artifact/llvm-to-smt/llvm-passes")
     parser.add_argument("--specific-op", dest='specific_op',
                         help='single specific BPF op to encode',
                         type=str, required=False)
