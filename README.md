@@ -193,7 +193,7 @@ reduced list of eBPF instructions.
 ```
 cd /home/cav23-artifact/bpf-verification/src
 python3 bpf_alu_jmp_synthesis.py --kernver 5.9 \
-  --encodings_path /home/cav23-artifact/bpf-encodings \
+  --encodings_path /home/cav23-artifact/bpf-encodings-5.9 \
   --ver_set BPF_AND_32 BPF_SUB BPF_JGT BPF_JSLE BPF_JEQ BPF_JNE BPF_JSGT BPF_JSGE \
             BPF_OR_32 BPF_JLT BPF_OR BPF_AND BPF_JGE BPF_JSLT BPF_JLE 
 ```
@@ -310,55 +310,9 @@ Synthesized program for BPF_JGE (unsigned_32). Instruction sequence: BPF_JGE
 Synthesized program for BPF_JGE (signed_32). Instruction sequence: BPF_JGE 
 Synthesized program for BPF_JGT (signed_64). Instruction sequence: BPF_JGT 
 Synthesized program for BPF_JGT (Tnum). Instruction sequence: BPF_JGT 
-Synthesized program for BPF_JGT (unsigned_32). Instruction sequence: BPF_JGT 
-Synthesized program for BPF_JGT (signed_32). Instruction sequence: BPF_JGT 
-Synthesized program for BPF_JSGT (unsigned_64). Instruction sequence: BPF_JSGT 
-Synthesized program for BPF_JSGT (signed_64). Instruction sequence: BPF_JSGT 
-Synthesized program for BPF_JSGT (Tnum). Instruction sequence: BPF_JSGT 
-Synthesized program for BPF_JSGT (unsigned_32). Instruction sequence: BPF_JSGT 
-Synthesized program for BPF_JSGT (signed_32). Instruction sequence: BPF_JSGT 
-Synthesized program for BPF_SUB (unsigned_64). Instruction sequence: BPF_SUB 
-Synthesized program for BPF_SUB (signed_64). Instruction sequence: BPF_SUB 
-Synthesized program for BPF_SUB (Tnum). Instruction sequence: BPF_SUB 
-Synthesized program for BPF_JLE (signed_64). Instruction sequence: BPF_JLE 
-Synthesized program for BPF_JLE (Tnum). Instruction sequence: BPF_JLE 
-Synthesized program for BPF_JLE (unsigned_32). Instruction sequence: BPF_JLE 
-Synthesized program for BPF_JLE (signed_32). Instruction sequence: BPF_JLE 
-Synthesized program for BPF_JSGE (unsigned_64). Instruction sequence: BPF_JSGE 
-Synthesized program for BPF_JSGE (signed_64). Instruction sequence: BPF_JSGE 
-Synthesized program for BPF_JSGE (Tnum). Instruction sequence: BPF_JSGE 
-Synthesized program for BPF_JSGE (unsigned_32). Instruction sequence: BPF_JSGE 
-Synthesized program for BPF_JSGE (signed_32). Instruction sequence: BPF_JSGE 
-Synthesized program for BPF_JSLE (unsigned_64). Instruction sequence: BPF_JSLE 
-Synthesized program for BPF_JSLE (signed_64). Instruction sequence: BPF_JSLE 
-Synthesized program for BPF_JSLE (Tnum). Instruction sequence: BPF_JSLE 
-Synthesized program for BPF_JSLE (unsigned_32). Instruction sequence: BPF_JSLE 
-Synthesized program for BPF_JSLE (signed_32). Instruction sequence: BPF_JSLE 
-Synthesized program for BPF_JSLT (unsigned_64). Instruction sequence: BPF_JSLT 
-Synthesized program for BPF_JSLT (signed_64). Instruction sequence: BPF_JSLT 
-Synthesized program for BPF_JSLT (Tnum). Instruction sequence: BPF_JSLT 
-Synthesized program for BPF_JSLT (unsigned_32). Instruction sequence: BPF_JSLT 
-Synthesized program for BPF_JSLT (signed_32). Instruction sequence: BPF_JSLT 
-Synthesized program for BPF_JNE (unsigned_64). Instruction sequence: BPF_JGE BPF_JNE 
-Synthesized program for BPF_JNE (signed_64). Instruction sequence: BPF_JGE BPF_JNE 
-Synthesized program for BPF_JNE (Tnum). Instruction sequence: BPF_JGE BPF_JNE 
-Synthesized program for BPF_JNE (unsigned_32). Instruction sequence: BPF_JGE BPF_JNE 
-Synthesized program for BPF_JNE (signed_32). Instruction sequence: BPF_JGE BPF_JNE 
-Synthesized program for BPF_JEQ (unsigned_64). Instruction sequence: BPF_JGE BPF_JEQ 
-Synthesized program for BPF_JEQ (signed_64). Instruction sequence: BPF_JGE BPF_JEQ 
-Synthesized program for BPF_JEQ (Tnum). Instruction sequence: BPF_JGE BPF_JEQ 
-Synthesized program for BPF_JEQ (unsigned_32). Instruction sequence: BPF_JGE BPF_JEQ 
-Synthesized program for BPF_JEQ (signed_32). Instruction sequence: BPF_JGE BPF_JEQ 
-Synthesized program for BPF_JLT (unsigned_64). Instruction sequence: BPF_JGE BPF_JLT 
-Synthesized program for BPF_JGE (unsigned_64). Instruction sequence: BPF_JGE BPF_JGE 
-Synthesized program for BPF_AND (unsigned_32). Instruction sequence: BPF_JGE BPF_AND 
-Synthesized program for BPF_AND (signed_32). Instruction sequence: BPF_JGE BPF_AND 
-Synthesized program for BPF_JGT (unsigned_64). Instruction sequence: BPF_JGE BPF_JGT 
-Synthesized program for BPF_AND_32 (unsigned_64). Instruction sequence: BPF_JGE BPF_AND_32 
-Synthesized program for BPF_AND_32 (signed_64). Instruction sequence: BPF_JGE BPF_AND_32 
-Synthesized program for BPF_AND_32 (unsigned_32). Instruction sequence: BPF_JGE BPF_AND_32 
-Synthesized program for BPF_AND_32 (signed_32). Instruction sequence: BPF_JGE BPF_AND_32 
-Synthesized program for BPF_JLE (unsigned_64). Instruction sequence: BPF_JGE BPF_JLE 
+.
+.
+.
 Synthesized program for BPF_OR_32 (unsigned_64). Instruction sequence: BPF_JSLE BPF_OR_32 
 Synthesized program for BPF_OR_32 (signed_64). Instruction sequence: BPF_JSLE BPF_OR_32 
 Synthesized program for BPF_OR_32 (unsigned_32). Instruction sequence: BPF_JSLE BPF_OR_32 
@@ -398,7 +352,7 @@ producing them all, as well as the respective program lengths.
 ```
 cd bpf_verification/src
 python3 bpf_alu_jmp_synthesis.py --kernver 5.9 \
-  --encodings_path /home/cav23-artifact/bpf-encodings 
+  --encodings_path /home/cav23-artifact/bpf-encodings-5.9
 ```
 
 ### Expected Result for Long Version
@@ -417,9 +371,7 @@ produced by our llvm-to-smt procedure to verify instructions or synthesize POCs.
 Our verification conditions and concrete semantics for bpf instructions are
 contained within the `verification_synth_module` class included in the shared
 module library called `lib_reg_bounds_tracking.py` under the
-lib_reg_bounds_tracking directory. We perform verification using z3 (by checking
-if the solver returns `unsat`) and if verification fails we use z3 to produce a
-counterexample program which serves as a POC. 
+lib_reg_bounds_tracking directory. 
 
 Our `bpf_alu_jmp_synthesis.py` script can be configured using various options
 for verification and synthesis. These options can be changed by changing our
