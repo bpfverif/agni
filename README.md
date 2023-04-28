@@ -176,19 +176,20 @@ To keep the experiment short, we will make the following
 simplifications:
 
 - We will only run the experiment for kernel v5.9
-- For kernel v5.9, checking all the eBPF operators for
-  soundness take a long time (~12 hours). In this
+- Checking all the 36 eBPF operators for soundness take a
+  long time (~12 hours) for kernel version 5.9. In this
   experiment, we provide a script which will accept a
   reduced list of eBPF instructions whose abstract semantics
-  are known to be unsound. The experiment will then confirm
-  that the reduced list of eBPF instructions is indeed
-  unsound.
+  are known to be _unsound_. The experiment will then
+  confirm that the reduced list of eBPF instructions are
+  indeed unsound. This part addresses claim 2.1.
 - The synthesized PoC programs will be for demonstrative
   purposes only. Constructing a full eBPF program from our
   generated POCs requires some manual effort. For the
-  review, we will forgo this step. In part 3, we directly
-  provide full eBPF programs that manifest unsound behaviors
-  in an actual kernel.
+  review, we will forgo this step. In part 3 of the artifact
+  (later), we provide full eBPF programs constructed from
+  the demonstrative examples that manifest unsound behaviors
+  in an actual kernel. 
 
 ### Run the script to perform the verification and synthesis
 The script uses the encodings we previously generated,
@@ -207,8 +208,10 @@ python3 bpf_alu_jmp_synthesis.py --kernver 5.9 \
 ### Expected result
 
 The expected output should be similar to the one below. Note
-that the order of instruction verification and synthesis
-might differ but the tables should be the same.
+that the order of instructions in the verification part and
+the order of synthesized programs in the synthesis part
+might differ. Each row in the tables however, should be the
+same.
 
 ```
 --------------------------------------------------------------
@@ -338,24 +341,42 @@ Synthesized program for BPF_OR (signed_32). Instruction sequence: BPF_JSLE BPF_O
 ```
 
 ### Explanation
-1. The first step of the experiment performs Gen verification on the set of
-instructions - the table at the end denotes whether an instruction is deemed
-sound (✓) or unsound (✘) and which of the five abstract domains have been
-violated as well as execution time. 
-2. The second step performs Sro verification on the instructions that are deemed
-unsound by the gen verification and produces a similar table as in the prior
-step. At the end of this step we also include an aggregate verification table
-that denotes the soundness results of each verification with respect to number
-of violations and the number of unsound operators in each.
-3. The third step performs synthesis on unsound instructions returned by the
-second step with the aim of producing a POC for each violation in every unsound
-instruction. When a program is found the POC sequence is shown in minimal form.
-Lastly we provide an aggregate synthesis table which denotes the amount of
-violations to be synthesized and whether the synthesis was successful in
-producing them all, as well as the respective program lengths. In general, each
-POC is documented in a separate log in
-`/home/cav23-artifact/bpf-verification/results` which we can then use to
-manually produce a BPF program.
+- The first part of this experiment `2.1(a) EXECUTING GEN VERIFICATION`, 
+corresponds to the verification on the set of
+eBPF instructions using our `gen` verification condition.
+The table at the end of this part denotes whether an
+instruction was deemed sound (✓) or unsound (✘), and which
+of the five abstract domains have been violated.
+- The second part `2.1(b) EXECUTING sro VERIFICATION`
+performs verification on the eBPF instructions that were
+deemed unsound by the previous `gen` verification condition,
+using our `sro` verification condition. It produces a
+similar table as in the prior part.
+- The third part `2.2 GENERATING POC FOR DOMAIN VIOLATIONS`
+performs synthesis. It attempts to generate proof-of-concept
+mini eBPF programs using instructions that were deemed
+unsound by both the `gen` and `sro` verification conditions
+from the previous steps. The programs manifest a mismatch
+between verifier's abstract values and the concrete
+execution, that is they demonstrate unsound behavior.
+- Lastly, we provide two tables with aggregate statistics.
+  - The first table `VERIFICATION AGGREGATE STATISTICS`
+shows aggregate statistics for the verification part of the
+experiment (2.1(a) and 2.1(b)). This table should match
+exactly with Fig 5(a) (row kernel version 5.9) from the
+paper. 
+  - The second table `SYNTHESIS AGGREGATE STATISTICS`
+summarizes the total number of unsound instructions + domain
+pairs (i.e. the total number of violations). It also shows
+whether the synthesis was successful in producing a program
+for all the violations, as well as the respective program
+lengths. This table should match with Fig. 5(b) from the
+paper.
+
+In general, each POC is documented in a separate log in
+`/home/cav23-artifact/bpf-verification/results`. We use
+these logs to manually craft a full eBPF program from the
+output of the synthesis process.
 
 ### Long Version (Optional)
 ```
