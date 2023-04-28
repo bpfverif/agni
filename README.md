@@ -56,7 +56,7 @@ operating systems.  We have no known issues to report.
 
 --------------------------------------------------------------------------------
 
-## 1. Automatically extracting the semantics of the Linux kernel's C code to SMT (25 minutes)
+## (1.) Automatically extracting the semantics of the Linux kernel's C code to SMT (25 minutes)
 
 Here, we demonstrate how our tool can be used to
 *automatically* extract the semantics of the Linux Kernel
@@ -153,7 +153,7 @@ The top-level script `generate_encodings.py` does the following:
 
 --------------------------------------------------------------------------------
 
-## Verification and POC synthesis for eBPF range analysis (3-4 hours)
+## (2.1 & 2.2) Verification and POC synthesis for eBPF range analysis (3-4 hours)
 In the paper, we verify the soundness of the eBPF verifier's range analysis. To do this for a given kernel version, we check the correctness of 36 abstract operators using our verification conditions gen (§4.1) and sro (§4.2). When our soundness checks fail, we synthesis a concrete proof-of-concept (PoC) program that demonstrates the mismatch between abstract values maintained by the verifier and the concrete execution of the eBPF program. To keep the experiment short, we will make the following simplifications to the experiment:
 
 - We will only run the experiment for kernel version 5.9
