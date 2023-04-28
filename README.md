@@ -1,48 +1,97 @@
 # Verifying the Verifier: eBPF Range Analysis Verification
 
 ## Abstract
-This paper proposes an automated method to check the correctness of range analysis used in the Linux Kernel’s eBPF verifier. We provide the specification of soundness for range analysis performed by the eBPF verifier. We automatically generate verification conditions that encode the operation of eBPF verifier directly from the Linux Kernel’s C source code and check it against our specification. When we discover instances where the eBPF verifier is unsound, we propose a method to generate an eBPF program that demonstrates the mismatch between the abstract and the concrete semantics. Our prototype automatically checks the soundness of 16 versions of the eBPF verifier in the Linux Kernel versions ranging from 4.14 to 5.19. In this process, we have discovered new bugs in older versions and proved the soundness of range analysis in the latest version of the Linux kernel.
+This paper proposes an automated method to check the
+correctness of range analysis used in the Linux Kernel’s
+eBPF verifier. We provide the specification of soundness for
+range analysis performed by the eBPF verifier. We
+automatically generate verification conditions that encode
+the operation of eBPF verifier directly from the Linux
+Kernel’s C source code and check it against our
+specification. When we discover instances where the eBPF
+verifier is unsound, we propose a method to generate an eBPF
+program that demonstrates the mismatch between the abstract
+and the concrete semantics. Our prototype automatically
+checks the soundness of 16 versions of the eBPF verifier in
+the Linux Kernel versions ranging from 4.14 to 5.19. In this
+process, we have discovered new bugs in older versions and
+proved the soundness of range analysis in the latest version
+of the Linux kernel.
 
 --------------------------------------------------------------------------------
 
 ### Prerequisites to run the artifact.
 
-1.  Install Docker if not already installed by following the documentation [here](https://docs.docker.com/install/). You might need to follow the post installation steps for managing docker as a non-root user [here](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
+1.  Install Docker if not already installed by following the
+    documentation [here](https://docs.docker.com/install/).
+    You might need to follow the post installation steps for
+    managing docker as a non-root user
+    [here](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
 
-2.  Install Virtual Box if not already installed by downloading from [here](https://www.virtualbox.org/wiki/Downloads).
+2.  Install Virtual Box if not already installed by
+    downloading from
+    [here](https://www.virtualbox.org/wiki/Downloads).
 
 ### Claims to validate/reproduce.
 
-1. Automatically extracting the semantics of the Linux kernel's C code to SMT (Docker).
-2.  1. Verifying the kernel's range analysis using our `gen` and `sro` verification conditions (Docker).
+1. Automatically extracting the semantics of the Linux
+   kernel's C code to SMT (Docker).
+2.  1. Verifying the kernel's range analysis using our `gen`
+       and `sro` verification conditions (Docker).
     2. Synthesizing proof-of-concept BPF programs demonstrate a mismatch between the concrete and abstract semantics (Docker).
-3.  Running our synthesized proof-of-concept BPF programs to witness unsound behaviour in a real Linux kernel (Virtual Box).
+3.  Running our synthesized proof-of-concept BPF programs to
+    witness unsound behaviour in a real Linux kernel
+    (Virtual Box).
 
-`Note`. To make it feasible to run the artifact quickly, we have reduced the sample sizes used for the experiments. The experiments for the paper were performed without using any containers, and on larger inputs sizes. It should take roughly 4-5 hours to evaluate this artifact. 
+`Note`. To make it feasible to run the artifact quickly, we
+have reduced the sample sizes used for the experiments. The
+experiments for the paper were performed without using any
+containers, and on larger inputs sizes. It should take
+roughly 4-5 hours to evaluate this artifact. 
 
 ### Known issues.
-We have tested the Docker image and the Virtual Box appliance on `x86_64` machines, running Linux and Windows operating systems.  We have no known issues to report.
+We have tested the Docker image and the Virtual Box
+appliance on `x86_64` machines, running Linux and Windows
+operating systems.  We have no known issues to report.
 
 --------------------------------------------------------------------------------
 
 ## 1. Automatically extracting the semantics of the Linux kernel's C code to SMT (25 minutes)
 
-Here, we demonstrate how our tool can be used to *automatically* extract the semantics of the Linux Kernel verifier's C code as described in our paper (§5). Our tool produces the first-order logic formula (in [SMT-LIB](https://smtlib.cs.uiowa.edu/papers/smt-lib-reference-v2.6-r2021-05-12.pdf) format) for the abstract semantics defined in Linux Kernel for each eBPF instruction. For this review, we will use kernel v5.9
+Here, we demonstrate how our tool can be used to
+*automatically* extract the semantics of the Linux Kernel
+verifier's C code as described in our paper (§5). Our tool
+produces the first-order logic formula (in
+[SMT-LIB](https://smtlib.cs.uiowa.edu/papers/smt-lib-reference-v2.6-r2021-05-12.pdf)
+format) for the abstract semantics defined in Linux Kernel
+for each eBPF instruction. We demonstrate our tool on kernel
+v5.9, the source code for which is present in
+`/home/linux-stable/`
 
-### Run the script
+### Load and run the docker image
+```
+docker load < cav23-artifact-docker.tar 
+docker run -it cav23-artifact
+```
+
+### Inside docker, create the output directory 
+```
+cd /home/cav23-artifact
+mkdir bpf-encodings-5.9
+```
+
+### Run the llvm-to-smt tool 
 
 ```
-cd llvm-to-smt
-python3 generate_encodings.py --llvmdir /usr/lib/llvm-12 --kernver 5.9 --outdir ~/bpf_encodings --logdir ~/bpf_encodings --kernbasedir ~/linux-stable --scriptsdir ~/llvm-to-smt/llvm-passes
+cd /home/llvm-to-smt
+python3 generate_encodings.py --kernver 5.9 --kernbasedir /home/linux-stable --outdir /home/cav23-artifact/bpf-encodings-5.9
 ```
-
 
 ### Expected Result 
 ```
-Log file: /home/matan/bpfverif/cav23-artifact/llvm-to-smt/log_dir/log_23_29_26_04_2023.log
-Log error file: /home/matan/bpfverif/cav23-artifact/llvm-to-smt/log_dir/log_err_23_29_26_04_2023.log
-Create output directory: /home/matan/bpfverif/cav23-artifact/llvm-to-smt/encodings ... done
-Change to kernel directory: /home/matan/test/linux-stable ... done
+Log file: /home/cav23-artifact/bpf-encodings-5.9/log_21_58_27_04_2023.log
+Log error file: /home/cav23-artifact/bpf-encodings-5.9/log_err_21_58_27_04_2023.log
+Change to kernel directory: /home/linux-stable ... done
 Checkout kernel version v5.9 ... done
 Run make config and edit BPF flags ... done
 Extract compile flags for current kernel version ... done
@@ -90,17 +139,20 @@ Getting encoding for BPF_SYNC ... done
 
 
 ### Explanation
-Our automatic encoder produces an SMT-LIB (`.smt2`) file for each eBPF instruction which captures the Linux Kernel's abstract semantics that instruction. The encodings should be present in the directory specified by `--outdir`, in our case `~/bpf_encodings`.
+Our automatic encoder produces an SMT-LIB (`.smt2`) file for
+each eBPF instruction in the output directory
+(`/home/bpf-encodings-5.9`, that captures the Linux Kernel's
+abstract semantics for the instruction. 
 
 ```
-ls bpf_encodings
+root@847d5c0f8828:/home/cav23-artifact/llvm-to-smt# ls -1 /home/bpf-encodings-5.9/*.smt2
+/home/bpf-encodings-5.9/BPF_ADD.smt2
+/home/bpf-encodings-5.9/BPF_ADD_32.smt2
+/home/bpf-encodings-5.9/BPF_AND.smt2
 ...
 ```
 
 ### Source code structure
-
-
-
 
 
 --------------------------------------------------------------------------------
