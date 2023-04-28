@@ -395,10 +395,13 @@ if __name__ == "__main__":
             raise RuntimeError(
                 'Unsupported BPF op {}'.format(args.specific_op))
 
+    outdir_fullpath = pathlib.Path(args.outdir).resolve()
+    assert outdir_fullpath.exists()
+
     ####################
     #  setup logging   #
     ####################
-    logdir_fullpath = pathlib.Path(args.outdir).resolve()
+    logdir_fullpath = outdir_fullpath
 
     logfile_name = datetime.now().strftime('log_%H_%M_%d_%m_%Y.log')
     logfile_path = pathlib.Path.joinpath(logdir_fullpath, logfile_name)
@@ -410,16 +413,6 @@ if __name__ == "__main__":
     logfile_err = logfile_err_path.open("w")
     print_and_log("Log file: {}".format(logfile_path))
     print_and_log("Log error file: {}".format(logfile_err_path))
-
-    ############################
-    #  create output directory #
-    ############################
-    outdir_fullpath = pathlib.Path(args.outdir).resolve()
-    print_and_log("Create output directory: {}".format(
-        str(outdir_fullpath)), pend="")
-    subprocess.run(['mkdir', '-p', '{}'.format(str(outdir_fullpath))],
-                   stdout=logfile, stderr=logfile_err, check=True, text=True, bufsize=1)
-    print_and_log(" ... done")
 
     logfile.flush()
     logfile_err.flush()
