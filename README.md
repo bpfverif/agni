@@ -408,25 +408,82 @@ python3 bpf_alu_jmp_synthesis.py -h
 
 ## (3) Running synthesized eBPF programs in a real Linux Kernel
 
-We saw some synthesized mini eBPF programs in the previous
-experiment. We use these mini programs to construct a full
-eBPF program that demonstrates a mismatch between abstract
-values maintained by the verifier and the concrete execution
-of the eBPF program. The process to construct a full eBPF
-program requires some manual effort. Instead, we provide
-these eBPF programs constructed by us using the output from
-the synthesis inside our Virtual Box appliance
-`cav23-artifact-vm.ova`. This appliance packages a virtual
-machine that runs Ubuntu 20.04 installed with Linux Kernel
-v5.9. 
+In the previous experiment, we synthesized mini eBPF
+programs. These programs are utilized to create a complete
+eBPF program, which showcases a discrepancy between the
+abstract values maintained by the verifier and the actual
+execution of the eBPF program. Building a full eBPF program
+requires some manual effort. However, to simplify the review
+process, we offer pre-constructed eBPF programs that we have
+created using the output from the synthesis. These programs
+are available in our Virtual Box appliance named
+cav23-artifact-vm.ova. This appliance contains a virtual
+machine that operates on Ubuntu 20.04 and is equipped with
+Linux Kernel v5.9.
 
 ### Import and start the virtual machine
 - Open Virtual Box
 - File > Import Appliance 
-- Browse and select the path to cav23-artifact-vm.ova
-- You should have the `cav23-artifact-vm` 
+- Browse and select the path to `cav23-artifact-vm.ova`
+- You should have the `cav23-artifact-vm` virtual machine imported and ready the sidebar.
+- Double-click on it or press "Start" to start the VM.
+- If prompted, choose "Ubuntu" in the grub boot menu. 
 
+### Setup
 
-!["BPF_SUB S64 Violation"](images/sub_s64.jpg "BPF_SUB S64 Violation")
+Open a terminal. The directory
+`/home/cav23-reviewer/bpf_progs/` contains all the code
+necessary to run our synthesized eBPF programs. These
+programs are located in
+`/home/cav23-reviewer/bpf_progs/pocs`. The naming convention
+for these eBPF programs are
+`<kernel_version>_<ebpf_isntruction>_<domain_violated>.c`.
+Since our VM is installed with kernel version 5.9, we will
+only work with the `5.9*` files.
+
+```
+ls /home/cav23-reviewer/bpf_progs/pocs/*.c
+5.5_jne_tnum_manfred.c  5.5_jsle_umin.c     5.7rc1_arsh32_u64.c  
+5.7rc1_xor32_u64.c      5.8_sub_s64.c       5.9_or_s32.c
+5.5_jsgt32_tnum.c       5.7rc1_add32_u64.c  5.7rc1_jge32_u64.c   
+5.8_jsgt_s32.c          5.9_jsgt_s32.c      5.9_sub_s64.c
+```
+
+### Run example eBPF program 1: a bug in 64-bit BPF_SUB
+
+We will now run the `5.9_sub_s64.c` program. This program
+causes the verifier's range tracking to reach an invalid
+state. The verifier believes that the minimum possible value
+in a register `smin_value` is greater than the maximum value
+`smax_value`. This is clearly unsound.
+```
+cd /home/cav23-reviewer/bpf_progs/
+cp pocs/5.9_sub_s64.c ./bpf_test.c
+sudo make
+./bpf_test 
+```
+
+The output should be somewhat similar to the one below.
+Scroll down to the lines  named `7`. `smin_value` is indeed
+greater than `smax_value`. 
+
+!["BPF_SUB S64 Violation"](images/sub_s64.jpg "BPF_SUB S64 Violation") 
+
+### Run example eBPF program 2: a bug in 32-bit BPF_OR
+
+```
+cd /home/cav23-reviewer/bpf_progs/
+cp pocs/5.9_sub_s64.c ./bpf_test.c
+sudo make
+./bpf_test 
+```
+
+Similar to the above program, this program demonstrates that
+minimum possible value in a 32-bit sub register
+`s32_min_value` is greater than the maximum 32-bit value
+`s32_max_value`. This too, is clearly unsound.
+
 !["BPF_OR S32 Violation"](images/or_s32.jpg "BPF_OR S32 Violation")
 
+---
+_Fin._
