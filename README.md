@@ -373,15 +373,21 @@ Synthesized program for BPF_OR (signed_32). Instruction sequence: BPF_JSLE BPF_O
 ```
 
 ### Explanation
-The automated verification and synthesis is done using
-[z3py](https://ericpony.github.io/z3py-tutorial/guide-examples.htm). Our
-procedure first attempts to verify given instructions and notes which abstract
-domains are being violated for each instruction. As described by our paper, we
-first perform GEN verification and then in SRO verification. Any instruction
-that fails SRO verification will then be included in the synthesis procedure
-where POCs will be generated for unsound instructions based on the domain
-violations discovered in the SRO verification.
-
+1) The first step of the experiment performs Gen verification on the set of
+instructions - the table at the end denotes whether an instruction is deemed
+sound (✓) or unsound (✘) and which of the five abstract domains have been
+violated as well as execution time. 
+2) The second step performs Sro verification on the instructions that are deemed
+unsound by the gen verification and produces a similar table as in the prior
+step. At the end of this step we also include an aggregate verification table
+that denotes the soundness results of each verification with respect to number
+of violations and the number of unsound operators in each.
+3) The third step performs synthesis on unsound instructions returned by the
+second step with the aim of producing a POC for each violation in every unsound
+instruction. When a program is found the POC sequence is shown in minimal form.
+Lastly we provide an aggregate synthesis table which denotes the amount of
+violations to be synthesized and whether the synthesis was successful in
+producing them all, as well as the respective program lengths.
 
 ### Long Version (Optional)
 ```
