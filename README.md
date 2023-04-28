@@ -7,9 +7,9 @@ This paper proposes an automated method to check the correctness of range analys
 
 ### Prerequisites to run the artifact.
 
-1.  Install docker by following the documentation [here](https://docs.docker.com/install/). You might need to follow the post installation steps for managing docker as a non-root user [here](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
+1.  Install Docker if not already installed by following the documentation [here](https://docs.docker.com/install/). You might need to follow the post installation steps for managing docker as a non-root user [here](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
 
-2.  Install Virtual Box by downloading from [here](https://www.virtualbox.org/wiki/Downloads).
+2.  Install Virtual Box if not already installed by downloading from [here](https://www.virtualbox.org/wiki/Downloads).
 
 ### Claims to validate/reproduce.
 
