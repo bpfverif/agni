@@ -371,6 +371,20 @@ to kernel version) in Fig.5(a) and Fig.5(b), respectively.
 
 
 ### Source code structure
+
+```
+bpf-verification/
+├── lib_reg_bounds_tracking
+│   └── lib_reg_bounds_tracking.py
+└── src
+    ├── bpf_alu_jmp_synthesis.py
+    ├── sync_soundness.py
+    ├── synthesize_bug_types.py
+    ├── verification_synth_setup_config.toml
+    └── wf_soundness.py
+
+```
+
 We use one script `bpf_alu_jmp_synthesis.py` to call three modules which perform
 verification and synthesis. Two modules are used for performing verification,
 one for gen (`wf_soundness.py`) and one for sro(`sync_soundness.py`), and one
