@@ -518,7 +518,7 @@ greater than `smax_value`.
 
 ```
 cd /home/cav23-reviewer/bpf_progs/
-cp pocs/5.9_sub_s64.c ./bpf_test.c
+cp pocs/5.9_or_s32.c ./bpf_test.c
 sudo make
 ./bpf_test 
 ```
