@@ -397,8 +397,8 @@ python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/cav23-arti
 
 ### Expected Result for Long Version
 The two aggregate tables produced by the script, one for verification and one
-for synthesis, should exactly match the specific row from the table (kernel
-version 5.9) in Fig.5(a) and Fig.5(b), respectively.
+for synthesis, should exactly match the specific row from the table (according
+to kernel version) in Fig.5(a) and Fig.5(b), respectively.
 
 
 ### Source code structure
