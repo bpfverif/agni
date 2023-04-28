@@ -154,6 +154,31 @@ root@847d5c0f8828:/home/cav23-artifact/llvm-to-smt# ls -1 /home/bpf-encodings-5.
 
 ### Source code structure
 
+```
+llvm-to-smt
+├── llvm-passes
+│   ├── ForceFunctionEarlyExit
+│   ├── InlineFunctionCalls
+│   ├── LLVMToSMT
+│   ├── PromoteMemcpy
+│   ├── RemoveFunctionCalls
+├── generate_encodings.py
+├── run_llvm_passes.py
+└── wrappers.py
+```
+
+The top-level script `generate_encodings.py` does the following:
+- Checks out the provided kernel version 
+- Edits `verifier.c` to add a stub function for each eBPF
+  instruction we need an encoding in SMT for.
+- Extracts the compile flags necessary to compile the eBPF
+  verifier kernel module to llvm IR.
+- Compiles `verifier.c` and `tnum.c` to `verifier.ll`.
+- Runs the llvm passes from the `llvm-passes` subdirectory
+  that transform the IR.
+- Finally runs the `LLVMToSMT` pass for each eBPF
+  instruction to obtain the SMT encoding for each eBPF
+  instruction.
 
 --------------------------------------------------------------------------------
 
