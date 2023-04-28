@@ -371,6 +371,6 @@ sub 264
 7: R1(id=0,smin_value=3550221988887957680,smax_value=3550221988887957679,umin_value=3550221988887957680,umax_value=3550221988887957679,var_off=(0x3144ec1600000000; 0xffffffff),s32_min_value=-2147483648,s32_max_value=2147483647,u32_min_value=0,u32_max_value=-1) R2(id=0,smin_value=-9223372036854775808,smax_value=9223372036854775807,umin_value=0,umax_value=18446744073709551615,var_off=(0x0; 0xffffffffffffffff),s32_min_value=-2147483648,s32_max_value=2147483647,u32_min_value=0,u32_max_value=-1) R10(id=0,smin_value=0,smax_value=0,umin_value=0,umax_value=0,var_off=(0x0; 0x0),s32_min_value=0,s32_max_value=0,u32_min_value=0,u32_max_value=0)
 ```
 
-![alt text for screen readers](./or_s32.jpg "Text to show on mouseover").
-![alt text for screen readers](./sub_s64.jpg "Text to show on mouseover").
+![alt text for screen readers](or_s32.jpg "Text to show on mouseover").
+![alt text for screen readers](sub_s64.jpg "Text to show on mouseover").
 
