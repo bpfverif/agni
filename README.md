@@ -215,7 +215,7 @@ same.
 
 ```
 --------------------------------------------------------------
-                EXECUTING GEN VERIFICATION
+                2.1(a) Executing gen verification
 --------------------------------------------------------------
 
 1/15 Verifying BPF_JNE ...  Done.
@@ -235,7 +235,7 @@ same.
 15/15 Verifying BPF_JSLT ...  Done.
 Gen Verification Complete
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
-| Instruction | Sound? | U64 | S64 | Tnum | U32 | S32 | Execution time (seconds) |
+| Instruction | Sound? | u64 | s64 | tnum | u32 | s32 | Execution time (seconds) |
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
 |   BPF_JNE   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          192.43          |
 |   BPF_JEQ   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          89.32           |
@@ -255,7 +255,7 @@ Gen Verification Complete
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
 
 --------------------------------------------------------------
-                EXECUTING SRO VERIFICATION
+                2.1(b) Executing sro verification
 --------------------------------------------------------------
 
 1/15 Verifying BPF_JNE ...  Done.
@@ -275,7 +275,7 @@ Gen Verification Complete
 15/15 Verifying BPF_JSLT ...  Done.
 SRO Verification Complete
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
-| Instruction | Sound? | U64 | S64 | Tnum | U32 | S32 | Execution time (seconds) |
+| Instruction | Sound? | u64 | s64 | tnum | u32 | s32 | Execution time (seconds) |
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
 |   BPF_JNE   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          203.43          |
 |   BPF_JEQ   |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |         3911.46          |
@@ -294,18 +294,9 @@ SRO Verification Complete
 |   BPF_JSLT  |   ✘    |  ✘  |  ✘  |  ✘   |  ✘  |  ✘  |          71.92           |
 +-------------+--------+-----+-----+------+-----+-----+--------------------------+
 
---------------------------------------------------------------
-                VERIFICATION AGGREGATE STATISTICS
---------------------------------------------------------------
-
-+---------+------------+------------+-----------+-----------+-----------------+-----------------+
-| KernVer | Gen Sound? | Sro Sound? | Gen Viol. | Sro Viol. | Gen Unsound Ops | Sro Unsound Ops |
-+---------+------------+------------+-----------+-----------+-----------------+-----------------+
-|  5.9    |     ✘      |     ✘      |    67     |    65     |       15        |      15         |
-+---------+------------+------------+-----------+-----------+-----------------+-----------------+
 
 --------------------------------------------------------------
-                GENERATING POC FOR DOMAIN VIOLATIONS
+                2.2 Generating POC for domain violations
 --------------------------------------------------------------
 
 
@@ -329,10 +320,16 @@ Synthesized program for BPF_OR_32 (signed_32). Instruction sequence: BPF_JSLE BP
 Synthesized program for BPF_OR (unsigned_32). Instruction sequence: BPF_JSLE BPF_OR 
 Synthesized program for BPF_OR (signed_32). Instruction sequence: BPF_JSLE BPF_OR 
 
---------------------------------------------------------------
-                SYNTHESIS AGGREGATE STATISTICS
---------------------------------------------------------------
+========================================================================
 
+Verification Aggregate Statistics
++---------+------------+------------+-----------+-----------+-----------------+-----------------+
+| KernVer | gen Sound? | sro Sound? | gen Viol. | sro Viol. | gen Unsound Ops | sro Unsound Ops |
++---------+------------+------------+-----------+-----------+-----------------+-----------------+
+|  5.9    |     ✘      |     ✘      |    67     |    65     |       15        |      15         |
++---------+------------+------------+-----------+-----------+-----------------+-----------------+
+
+Synthesis Aggregate Statistics
 +---------+--------------+-----------------------+------------+------------+------------+
 | KernVer | # Tot. Viol. | All POCs Synthesized? | Prog Len 1 | Prog Len 2 | Prog Len 3 |
 +---------+--------------+-----------------------+------------+------------+------------+
@@ -341,7 +338,7 @@ Synthesized program for BPF_OR (signed_32). Instruction sequence: BPF_JSLE BPF_O
 ```
 
 ### Explanation
-- The first part of this experiment `2.1(a) EXECUTING GEN VERIFICATION`, 
+- The first part of this experiment `2.1(a) Executing gen verification`, 
 corresponds to the verification on the set of
 eBPF instructions using our `gen` verification condition.
 The table at the end of this part denotes whether an
@@ -352,7 +349,7 @@ performs verification on the eBPF instructions that were
 deemed unsound by the previous `gen` verification condition,
 using our `sro` verification condition. It produces a
 similar table as in the prior part.
-- The third part `2.2 GENERATING POC FOR DOMAIN VIOLATIONS`
+- The third part `2.2 Generating POC for domain violations`
 performs synthesis. It attempts to generate proof-of-concept
 mini eBPF programs using instructions that were deemed
 unsound by both the `gen` and `sro` verification conditions
@@ -378,7 +375,7 @@ In general, each POC is documented in a separate log in
 these logs to manually craft a full eBPF program from the
 output of the synthesis process.
 
-### Long Version (Optional)
+### Long Version (Optional, ~13 hours)
 ```
 cd bpf_verification/src
 python3 bpf_alu_jmp_synthesis.py --kernver 5.9 \
@@ -407,22 +404,21 @@ bpf-verification/
 ```
 
 We use one script `bpf_alu_jmp_synthesis.py` to call three modules which perform
-verification and synthesis. Two modules are used for performing verification,
+verification and synthesis; two modules are used for performing verification,
 one for gen (`wf_soundness.py`) and one for sro(`sync_soundness.py`), and one
-more module for synthesis(`synthesize_bug_types.py`) - these can be found in the
-src directory under bpf_verification. Each of these modules uses the encodings
-produced by our llvm-to-smt procedure to verify instructions or synthesize POCs.
-Our verification conditions and concrete semantics for bpf instructions are
-contained within the `verification_synth_module` class included in the shared
-module library called `lib_reg_bounds_tracking.py` under the
+more module for synthesis(`synthesize_bug_types.py`). Each of these modules uses
+the encodings produced by our llvm-to-smt procedure to verify instructions or
+synthesize POCs. Our verification conditions and concrete semantics for bpf
+instructions are contained within the `verification_synth_module` class included
+in the shared module library called `lib_reg_bounds_tracking.py` under the
 lib_reg_bounds_tracking directory. 
 
 Our `bpf_alu_jmp_synthesis.py` script can be configured using various options
-for verification and synthesis. These options can be changed by changing our
+for verification and synthesis. These options can be changed in our
 configuration `verification_synth_setup_config.toml` file or by passing argparse
-arguments to the script which we show below, otherwise default values will be
+arguments to the script which we show below; otherwise, default values will be
 assumed. While our experiment gives particular instructions for testing kernel
-version 5.9, any kernel version, and any instruction of interest, can be tested
+version 5.9, any kernel version after 4.14, and any instruction of interest, can be tested
 using our script `bpf_alu_jmp_synthesis.py`. For example, if we want to test one
 instruction, `BPF_ADD`, in kernel version 5.10 we can use the following command:
 
@@ -437,18 +433,7 @@ python3 bpf_alu_jmp_synthesis.py --kernver 5.10 \
   --encodings_path <path to 5.10 encodings directory> \
   --ver_set BPF_ADD BPF_OR BPF_AND 
 ```
-We make a distinction between the verification set - which is the set of instructions used for verification and POC generation in case of failure - and the synthesis set which is solely used for synthesizing POCs for instructions given in the verification set. We set a default synthesis set which is able to produce POCs as described by our paper but can be changed in the following way:
-```
-python3 bpf_alu_jmp_synthesis.py --kernver 5.11 \
-  --encodings_path <path to 5.11 encodings directory> \
-  --ver_set BPF ADD --synth_set BPF_XOR BPF_OR
-```
-Changing the synthesis set in this case means that only those instructions (BPF_XOR and BPF_OR) will be used in a multi-sequence program when generating a POC for BPF_ADD. 
 
-For more on config options, use the following command:
-```
-python3 bpf_alu_jmp_synthesis.py -h
-```
 
 ## (3) Running synthesized eBPF programs in a real Linux Kernel (20 minutes)
 
