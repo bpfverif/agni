@@ -284,11 +284,11 @@ SRO Verification Complete
                 VERIFICATION AGGREGATE STATISTICS
 --------------------------------------------------------------
 
-+----------------+------------+------------+----------------+---------------+-----------------------+-----------------------+
-| Kernel Version | Gen Sound? | Sro Sound? | Gen Violations | Sro Violation | Gen Unsound Operators | Sro Unsound Operators |
-+----------------+------------+------------+----------------+---------------+-----------------------+-----------------------+
-|      5.9       |     ✘      |     ✘      |       67       |       65      |           15          |           15          |
-+----------------+------------+------------+----------------+---------------+-----------------------+-----------------------+
++---------+------------+------------+-----------+-----------+-----------------+-----------------+
+| KernVer | Gen Sound? | Sro Sound? | Gen Viol. | Sro Viol. | Gen Unsound Ops | Sro Unsound Ops |
++---------+------------+------------+-----------+-----------+-----------------+-----------------+
+|  5.9    |     ✘      |     ✘      |    67     |    65     |       15        |      15         |
++---------+------------+------------+-----------+-----------+-----------------+-----------------+
 
 --------------------------------------------------------------
                 GENERATING POC FOR DOMAIN VIOLATIONS
@@ -365,16 +365,22 @@ Synthesized program for BPF_OR (signed_32). Instruction sequence: BPF_JSLE BPF_O
                 SYNTHESIS AGGREGATE STATISTICS
 --------------------------------------------------------------
 
-+----------------+-------------------------+-----------------------+---------------+---------------+---------------+
-| Kernel Version | Num of Total Violations | ALL POCs Synthesized? | Prog length 1 | Prog length 2 | Prog length 3 |
-+----------------+-------------------------+-----------------------+---------------+---------------+---------------+
-|      5.9       |            65           |           ✓           |       39      |       26      |       0       |
-+----------------+-------------------------+-----------------------+---------------+---------------+---------------+
-
++---------+--------------+-----------------------+------------+------------+------------+
+| KernVer | # Tot. Viol. | All POCs Synthesized? | Prog Len 1 | Prog Len 2 | Prog Len 3 |
++---------+--------------+-----------------------+------------+------------+------------+
+|  5.9    |    65        |           ✓           |    39      |     26     |     0      |
++---------+--------------+-----------------------+------------+------------+------------+
 ```
 
-### Explanation.
-
+### Explanation
+The automated verification and synthesis is done using
+[z3py](https://ericpony.github.io/z3py-tutorial/guide-examples.htm). Our
+procedure first attempts to verify given instructions and notes which abstract
+domains are being violated for each instruction. As described by our paper, we
+first perform GEN verification and then in SRO verification. Any instruction
+that fails SRO verification will then be included in the synthesis procedure
+where POCs will be generated for unsound instructions based on the domain
+violations discovered in the SRO verification.
 
 
 ### Long Version (Optional)
@@ -388,16 +394,6 @@ The two aggregate tables produced by the script, one for verification and one
 for synthesis, should exactly match the specific row from the table (kernel
 version 5.9) in Fig.5(a) and Fig.5(b), respectively.
 
-
-### Explanation
-The automated verification and synthesis is done using
-[z3py](https://ericpony.github.io/z3py-tutorial/guide-examples.htm). Our
-procedure first attempts to verify given instructions and notes which abstract
-domains are being violated for each instruction. As described by our paper, we
-first perform GEN verification and then in SRO verification. Any instruction
-that fails SRO verification will then be included in the synthesis procedure
-where POCs will be generated for unsound instructions based on the domain
-violations discovered in the SRO verification.
 
 ### Source code structure
 We use one script `bpf_alu_jmp_synthesis.py` to call three modules which perform
