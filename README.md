@@ -67,15 +67,14 @@ produces the first-order logic formula (in
 [SMT-LIB](https://smtlib.cs.uiowa.edu/papers/smt-lib-reference-v2.6-r2021-05-12.pdf)
 format) for the abstract semantics defined in Linux Kernel
 for each eBPF instruction. We demonstrate our tool on kernel
-v5.9, the source code for which is present in
-`/home/linux-stable/`
+v5.9. Within docker, the source code for the 5.9 Linux
+kernel is present in `/home/linux-stable/`
 
 ### Load and run the docker image
 ```
 docker load < cav23-artifact-docker.tar  
 docker run -it cav23-artifact
 ```
-
 ### Inside docker, create the output directory 
 ```
 cd /home/cav23-artifact
@@ -125,7 +124,9 @@ root@847d5c0f8828:/home/cav23-artifact/llvm-to-smt# ls -1 /home/bpf-encodings-5.
 /home/bpf-encodings-5.9/BPF_ADD.smt2
 /home/bpf-encodings-5.9/BPF_ADD_32.smt2
 /home/bpf-encodings-5.9/BPF_AND.smt2
-...
+.
+.
+.
 ```
 
 ### Source code structure
@@ -143,18 +144,23 @@ llvm-to-smt
 └── wrappers.py
 ```
 
-The top-level script `generate_encodings.py` does the following:
-- Checks out the provided kernel version 
-- Edits `verifier.c` to add a stub function for each eBPF
-  instruction we need an encoding in SMT for.
-- Extracts the compile flags necessary to compile the eBPF
-  verifier kernel module to llvm IR.
+The `llvm-to-smt` directory contains the top-level script
+`generate_encodings.py`, which is essential for running our
+tool. The `llvm-passes` subdirectory includes our LLVM
+transformation passes and the required scripts for executing
+the passes. Our tool performs the following steps:
+- Checks out the specified kernel version 
+- Edits the `verifier.c` file to add a stub function for
+  each eBPF instruction that requires an SMT encoding.
+- Extracts the compilation flags needed to convert the eBPF
+  verifier kernel module to LLVM IR.
 - Compiles `verifier.c` and `tnum.c` to `verifier.ll`.
-- Runs the llvm passes from the `llvm-passes` subdirectory
-  that transform the IR.
-- Finally runs the `LLVMToSMT` pass for each eBPF
-  instruction to obtain the SMT encoding for each eBPF
-  instruction.
+- Applies the following LLVM passes from the `llvm-passes`
+  subdirectory to transform the IR:
+  `ForceFunctionEarlyExit`, `RemoveFunctionCalls`,
+  `InlineFunctionCalls`, and `PromoteMemcpy`.
+- Finally, runs the `LLVMToSMT` pass for each eBPF
+  instruction to obtain the SMT encoding for it.
 
 --------------------------------------------------------------------------------
 
@@ -332,16 +338,16 @@ Synthesized program for BPF_OR (signed_32). Instruction sequence: BPF_JSLE BPF_O
 ```
 
 ### Explanation
-1) The first step of the experiment performs Gen verification on the set of
+1. The first step of the experiment performs Gen verification on the set of
 instructions - the table at the end denotes whether an instruction is deemed
 sound (✓) or unsound (✘) and which of the five abstract domains have been
 violated as well as execution time. 
-2) The second step performs Sro verification on the instructions that are deemed
+2. The second step performs Sro verification on the instructions that are deemed
 unsound by the gen verification and produces a similar table as in the prior
 step. At the end of this step we also include an aggregate verification table
 that denotes the soundness results of each verification with respect to number
 of violations and the number of unsound operators in each.
-3) The third step performs synthesis on unsound instructions returned by the
+3. The third step performs synthesis on unsound instructions returned by the
 second step with the aim of producing a POC for each violation in every unsound
 instruction. When a program is found the POC sequence is shown in minimal form.
 Lastly we provide an aggregate synthesis table which denotes the amount of
@@ -431,6 +437,7 @@ Linux Kernel v5.9.
 - You should have the `cav23-artifact-vm` virtual machine imported and ready the sidebar.
 - Double-click on it or press "Start" to start the VM.
 - If prompted, choose "Ubuntu" in the grub boot menu. 
+- The password for login is `cav23`.
 
 ### Setup
 
