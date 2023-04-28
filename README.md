@@ -397,7 +397,8 @@ producing them all, as well as the respective program lengths.
 ### Long Version (Optional)
 ```
 cd bpf_verification/src
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/cav23-artifact/bpf-encodings 
+python3 bpf_alu_jmp_synthesis.py --kernver 5.9 \
+  --encodings_path /home/cav23-artifact/bpf-encodings 
 ```
 
 ### Expected Result for Long Version
@@ -430,15 +431,21 @@ using our script `bpf_alu_jmp_synthesis.py`. For example, if we want to test one
 instruction, `BPF_ADD`, in kernel version 5.10 we can use the following command:
 
 ```
-python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --encodings_path <path to 5.10 encodings directory> --ver_set BPF ADD
+python3 bpf_alu_jmp_synthesis.py --kernver 5.10 \
+  --encodings_path <path to 5.10 encodings directory> \
+  --ver_set BPF_ADD
 ```
 If we want to test 2 instructions or more we add them sequentially as follows:
 ```
-python3 bpf_alu_jmp_synthesis.py --kernver 5.10 --encodings_path <path to 5.10 encodings directory> --ver_set BPF_ADD BPF_OR BPF_AND 
+python3 bpf_alu_jmp_synthesis.py --kernver 5.10 \
+  --encodings_path <path to 5.10 encodings directory> \
+  --ver_set BPF_ADD BPF_OR BPF_AND 
 ```
 We make a distinction between the verification set - which is the set of instructions used for verification and POC generation in case of failure - and the synthesis set which is solely used for synthesizing POCs for instructions given in the verification set. We set a default synthesis set which is able to produce POCs as described by our paper but can be changed in the following way:
 ```
-python3 bpf_alu_jmp_synthesis.py --kernver 5.11 --encodings_path <path to 5.11 encodings directory> --ver_set BPF ADD --synth_set BPF_XOR BPF_OR
+python3 bpf_alu_jmp_synthesis.py --kernver 5.11 \
+  --encodings_path <path to 5.11 encodings directory> \
+  --ver_set BPF ADD --synth_set BPF_XOR BPF_OR
 ```
 Changing the synthesis set in this case means that only those instructions (BPF_XOR and BPF_OR) will be used in a multi-sequence program when generating a POC for BPF_ADD. 
 
