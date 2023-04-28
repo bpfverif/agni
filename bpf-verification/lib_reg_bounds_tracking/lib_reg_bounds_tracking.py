@@ -455,9 +455,7 @@ class process_stats:
     
     def print_verification_aggregate(self, usr_config):
 
-        print("\n--------------------------------------------------------------")
-        print("\t\tVERIFICATION AGGREGATE STATISTICS")
-        print("--------------------------------------------------------------\n")
+        print("\n\nVERIFICATION AGGREGATE STATISTICS")
         gen_sound = "✓" if usr_config.gen_violations == 0 else "✘"
         sro_sound = "✓" if usr_config.sro_violations == 0 else "✘"
         table = ColorTable()
@@ -471,9 +469,7 @@ class process_stats:
 
     def print_synthesis_aggregate(self, usr_config):
 
-        print("\n\n--------------------------------------------------------------")
-        print("\t\tSYNTHESIS AGGREGATE STATISTICS")
-        print("--------------------------------------------------------------\n")
+        print("\n\nSYNTHESIS AGGREGATE STATISTICS")
         all_poc_syn = "✓" if usr_config.synth_violations == usr_config.sro_violations else "✘"
         table = ColorTable()
         table = ColorTable(theme=Themes.OCEAN)

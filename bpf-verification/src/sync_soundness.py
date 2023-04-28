@@ -18,7 +18,7 @@ import json
 #predicate
 def check_sync_soundness(usr_config):
     print("\n--------------------------------------------------------------")
-    print("\t\tEXECUTING SRO VERIFICATION")
+    print("\t\t2.1(b) EXECUTING SRO VERIFICATION")
     print("--------------------------------------------------------------\n")
     #for debugging
     #usr_config.print_settings()
@@ -125,7 +125,7 @@ def check_sync_soundness(usr_config):
         sync_stats.iteration += 1
     print(colored("SRO Verification Complete", "green"))
     sync_stats.print_verification_stats()
-    sync_stats.print_verification_aggregate(usr_config)
+    #sync_stats.print_verification_aggregate(usr_config)
     #print("Set of potential unsound instructions: ", sync_ver_set, "\n")
     sync_stats.write_dict_to_file(usr_config, "sync")
     #update our usr_config to reflect unsound ops and which bugs types they can manifest

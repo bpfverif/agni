@@ -19,7 +19,7 @@ import toml
 #predicate
 def check_wf_soundness(usr_config):
     print("\n--------------------------------------------------------------")
-    print("\t\tEXECUTING GEN VERIFICATION")
+    print("\t\t2.1(a) EXECUTING GEN VERIFICATION")
     print("--------------------------------------------------------------\n")
     #for debugging
     #usr_config.print_settings()

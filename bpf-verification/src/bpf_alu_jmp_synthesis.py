@@ -1,7 +1,7 @@
 import sys
 import os.path
 #sys.path.insert(0, os.path.abspath('..'))
-from lib_reg_bounds_tracking.lib_reg_bounds_tracking import config_setup
+from lib_reg_bounds_tracking.lib_reg_bounds_tracking import config_setup, process_stats
 from wf_soundness import check_wf_soundness
 from sync_soundness import check_sync_soundness
 from synthesize_bug_types import synthesize_bugs
@@ -61,11 +61,6 @@ def main():
     usr_config.insn_set_list = [{"BPF_SYNC"}, {"BPF_SYNC"}, wf_set]
     last_set, usr_config.bugs_dict = check_sync_soundness(usr_config)
 
-    if (len(last_set) == 0):
-        print("Kernel version is sound")
-        sys.exit()
-    
-    
     #3) given insns that are not sound with wellformed SRO inputs - try to
     #   synthesize programs that become illformed (last insn must be from set
     #   returned from the SRO soundness check)
@@ -73,6 +68,10 @@ def main():
     synthesize_bugs(usr_config)
     #usr_config.print_settings()
 
+    #print aggregate stats.
+    aggregate = process_stats()
+    aggregate.print_verification_aggregate(usr_config)
+    aggregate.print_synthesis_aggregate(usr_config)
 
 if __name__ == "__main__":
     main()
