@@ -346,7 +346,10 @@ second step with the aim of producing a POC for each violation in every unsound
 instruction. When a program is found the POC sequence is shown in minimal form.
 Lastly we provide an aggregate synthesis table which denotes the amount of
 violations to be synthesized and whether the synthesis was successful in
-producing them all, as well as the respective program lengths.
+producing them all, as well as the respective program lengths. In general, each
+POC is documented in a separate log in
+`/home/cav23-artifact/bpf-verification/results` which we can then use to
+manually produce a BPF program.
 
 ### Long Version (Optional)
 ```
@@ -406,7 +409,7 @@ For more on config options, use the following command:
 python3 bpf_alu_jmp_synthesis.py -h
 ```
 
-## (3) Running synthesized eBPF programs in a real Linux Kernel
+## (3) Running synthesized eBPF programs in a real Linux Kernel (20 minutes)
 
 In the previous experiment, we synthesized mini eBPF
 programs. These programs are utilized to create a complete
