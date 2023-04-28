@@ -19,7 +19,7 @@ import toml
 #predicate
 def check_wf_soundness(usr_config):
     print("\n--------------------------------------------------------------")
-    print("\t\t2.1(a) EXECUTING GEN VERIFICATION")
+    print("\t\t2.1(a) Executing gen verification")
     print("--------------------------------------------------------------\n")
     #for debugging
     #usr_config.print_settings()
@@ -118,7 +118,7 @@ def check_wf_soundness(usr_config):
         wf_stats.set_elapsed_time()
         #wf_stats.print_verification_stats()
         wf_stats.iteration += 1
-    print(colored("Gen Verification Complete", "green"))
+    print(colored("gen Verification Complete", "green"))
     wf_stats.print_verification_stats()
     #print("Set of sound instructions: ", usr_config.insn_set_list[0] - wf_ver_set)
     #print("Set of potential unsound instructions: ", wf_ver_set, "\n")

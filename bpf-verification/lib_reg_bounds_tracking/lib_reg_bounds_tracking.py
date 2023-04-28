@@ -437,7 +437,7 @@ class process_stats:
 
         table = ColorTable()
         table = ColorTable(theme=Themes.OCEAN)
-        table.field_names = ["Instruction", "Sound?", "U64", "S64", "Tnum", "U32", "S32", "Execution time (seconds)"]
+        table.field_names = ["Instruction", "Sound?", "u64", "s64", "tnum", "u32", "s32", "Execution time (seconds)"]
         abs_domains = ["unsigned_64", "signed_64", "Tnum", "unsigned_32", "signed_32"]
         violations = [0] * 5 
         for c in self.eval_dict.keys():
@@ -455,12 +455,12 @@ class process_stats:
     
     def print_verification_aggregate(self, usr_config):
 
-        print("\n\nVERIFICATION AGGREGATE STATISTICS")
+        print("\n\nVerification Aggregate Statistics")
         gen_sound = "✓" if usr_config.gen_violations == 0 else "✘"
         sro_sound = "✓" if usr_config.sro_violations == 0 else "✘"
         table = ColorTable()
         table = ColorTable(theme=Themes.OCEAN)
-        table.field_names = ["KernVer", "Gen Sound?", "Sro Sound?", "Gen Viol.", "Sro Viol.", "Gen Unsound Ops", "Sro Unsound Ops"]
+        table.field_names = ["KernVer", "gen Sound?", "sro Sound?", "gen Viol.", "sro Viol.", "gen Unsound Ops", "sro Unsound Ops"]
         table.add_row([usr_config.kernel_ver, gen_sound, sro_sound, usr_config.gen_violations, usr_config.sro_violations, usr_config.gen_unsound_insn, usr_config.sro_unsound_insn])
         
         print(table)
@@ -469,7 +469,7 @@ class process_stats:
 
     def print_synthesis_aggregate(self, usr_config):
 
-        print("\n\nSYNTHESIS AGGREGATE STATISTICS")
+        print("\n\nSynthesis Aggregate Statistics")
         all_poc_syn = "✓" if usr_config.synth_violations == usr_config.sro_violations else "✘"
         table = ColorTable()
         table = ColorTable(theme=Themes.OCEAN)

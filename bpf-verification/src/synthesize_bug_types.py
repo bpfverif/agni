@@ -13,7 +13,7 @@ import json
 #function to synthesize POC for bugs
 def synthesize_bugs(usr_config):
     print("\n--------------------------------------------------------------")
-    print("\t\t2.2 GENERATING POC FOR DOMAIN VIOLATIONS")
+    print("\t\t2.2 Generating POC for domain violations")
     print("--------------------------------------------------------------\n")
     
     #keep track of verification stats
