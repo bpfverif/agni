@@ -12,31 +12,22 @@ This paper proposes an automated method to check the correctness of range analys
     2. Synthesizing proof-of-concept BPF programs demonstrate a mismatch between the concrete and abstract semantics (Docker).
 3.  Running our synthesized proof-of-concept BPF programs to witness unsound behaviour in a real Linux kernel (Virtual Box).
 
-`Note`. To make it feasible to run the artifact quickly, we have reduced the sample sizes used for the experiments. The experiments for the paper were performed without using any containers, and on larger inputs sizes. It should take roughly 4-5 hours to evaluate this artifact.
+`Note`. To make it feasible to run the artifact quickly, we have reduced the sample sizes used for the experiments. The experiments for the paper were performed without using any containers, and on larger inputs sizes. It should take roughly 4-5 hours to evaluate this artifact. 
 
 --------------------------------------------------------------------------------
 
-## Instructions to run the artifact.
+## Prerequisites to run the artifact.
 
-This artifact has two parts. In the first part, we will use the Docker image to validate the claims 1 and 2. In the second part we will use a Virtual Box appliance to validate claim 3. 
+This artifact has two parts. In the first part, we will use the Docker image to validate the claims 1 and 2. In the second part we will use the Virtual Box appliance to validate claim 3. 
 
-### Running the prebuilt Docker Image (Part 1)
+1.  Install docker by following the documentation [here](https://docs.docker.com/install/). You might need to follow the post installation steps for managing docker as a non-root user [here](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
 
-1. Install docker if it is not installed already by following the documentation [here](https://docs.docker.com/install/). You might need to follow the post installation steps for managing docker as a non-root user [here](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
+2.  Install Virtual Box by downloading from [here](https://www.virtualbox.org/wiki/Downloads).
 
-2.  Run the docker image:
-```
-docker load < cav23-artifact-docker.tar 
-docker run -it cav23-artifact
-```
+--------------------------------------------------------------------------------
 
-### Running the Virtual Box appliance (Part 2)
-
-1. Install Virtual Box by downloading from [here](https://www.virtualbox.org/wiki/Downloads).
-2. Open Virtual Box. Import the Virtual Box appliance by going to `File > Import Applicance`, and selecting the provided file `cav23-artifact.vm`
-
-### Known issues. 
-We have tested the docker image on different architectures (`x86_64`, `amd64`) and have no known issues to report.
+## Known issues 
+We have tested the Docker image and the Virtual Box appliance on `x86_64` machines, running Linux and Windows operating systems.  We have no known issues to report.
 
 --------------------------------------------------------------------------------
 
