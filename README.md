@@ -5,7 +5,7 @@ This paper proposes an automated method to check the correctness of range analys
 
 --------------------------------------------------------------------------------
 
-## Claims to validate/reproduce.
+### Claims to validate/reproduce.
 
 1. Automatically extracting the semantics of the Linux kernel's C code to SMT (Docker).
 2.  1. Verifying the kernel's range analysis using our `gen` and `sro` verification conditions (Docker).
@@ -14,9 +14,7 @@ This paper proposes an automated method to check the correctness of range analys
 
 `Note`. To make it feasible to run the artifact quickly, we have reduced the sample sizes used for the experiments. The experiments for the paper were performed without using any containers, and on larger inputs sizes. It should take roughly 4-5 hours to evaluate this artifact. 
 
---------------------------------------------------------------------------------
-
-## Prerequisites to run the artifact.
+### Prerequisites to run the artifact.
 
 This artifact has two parts. In the first part, we will use the Docker image to validate the claims 1 and 2. In the second part we will use the Virtual Box appliance to validate claim 3. 
 
@@ -24,9 +22,7 @@ This artifact has two parts. In the first part, we will use the Docker image to 
 
 2.  Install Virtual Box by downloading from [here](https://www.virtualbox.org/wiki/Downloads).
 
---------------------------------------------------------------------------------
-
-## Known issues 
+### Known issues 
 We have tested the Docker image and the Virtual Box appliance on `x86_64` machines, running Linux and Windows operating systems.  We have no known issues to report.
 
 --------------------------------------------------------------------------------
