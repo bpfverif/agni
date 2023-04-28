@@ -103,40 +103,11 @@ Getting encoding for BPF_SUB ... done
 Getting encoding for BPF_OR ... done
 Getting encoding for BPF_AND ... done
 Getting encoding for BPF_LSH ... done
-Getting encoding for BPF_RSH ... done
-Getting encoding for BPF_ARSH ... done
-Getting encoding for BPF_XOR ... done
-Getting encoding for BPF_ADD_32 ... done
-Getting encoding for BPF_SUB_32 ... done
-Getting encoding for BPF_OR_32 ... done
-Getting encoding for BPF_AND_32 ... done
-Getting encoding for BPF_LSH_32 ... done
-Getting encoding for BPF_RSH_32 ... done
-Getting encoding for BPF_ARSH_32 ... done
-Getting encoding for BPF_XOR_32 ... done
-Getting encoding for BPF_JEQ ... done
-Getting encoding for BPF_JNE ... done
-Getting encoding for BPF_JGE ... done
-Getting encoding for BPF_JGT ... done
-Getting encoding for BPF_JSGE ... done
-Getting encoding for BPF_JSGT ... done
-Getting encoding for BPF_JLE ... done
-Getting encoding for BPF_JLT ... done
-Getting encoding for BPF_JSLE ... done
-Getting encoding for BPF_JSLT ... done
-Getting encoding for BPF_JEQ_32 ... done
-Getting encoding for BPF_JNE_32 ... done
-Getting encoding for BPF_JGE_32 ... done
-Getting encoding for BPF_JGT_32 ... done
-Getting encoding for BPF_JSGE_32 ... done
-Getting encoding for BPF_JSGT_32 ... done
-Getting encoding for BPF_JLE_32 ... done
-Getting encoding for BPF_JLT_32 ... done
-Getting encoding for BPF_JSLE_32 ... done
-Getting encoding for BPF_JSLT_32 ... done
+.
+.
+.
 Getting encoding for BPF_SYNC ... done
 ```
-
 
 ### Explanation
 Our automatic encoder produces an SMT-LIB (`.smt2`) file for
