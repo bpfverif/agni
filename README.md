@@ -72,7 +72,7 @@ v5.9, the source code for which is present in
 
 ### Load and run the docker image
 ```
-docker load < cav23-artifact-docker.tar 
+docker load < cav23-artifact-docker.tar  
 docker run -it cav23-artifact
 ```
 
@@ -85,8 +85,9 @@ mkdir bpf-encodings-5.9
 ### Run the llvm-to-smt tool 
 
 ```
-cd /home/llvm-to-smt
-python3 generate_encodings.py --kernver 5.9 --kernbasedir /home/linux-stable --outdir /home/cav23-artifact/bpf-encodings-5.9
+cd /home/cav23-artifact/llvm-to-smt
+python3 generate_encodings.py --kernver 5.9 --kernbasedir /home/linux-stable \
+  --outdir /home/cav23-artifact/bpf-encodings-5.9
 ```
 
 ### Expected Result 
@@ -114,8 +115,10 @@ Getting encoding for BPF_SYNC ... done
 ### Explanation
 Our automatic encoder produces an SMT-LIB (`.smt2`) file for
 each eBPF instruction in the output directory
-(`/home/bpf-encodings-5.9`, that captures the Linux Kernel's
-abstract semantics for the instruction. 
+(`/home/bpf-encodings-5.9`), that captures the Linux
+Kernel's abstract semantics for the instruction.  We now
+have the semantics of 36 abstract operators corresponding to
+36 eBPF instructions.
 
 ```
 root@847d5c0f8828:/home/cav23-artifact/llvm-to-smt# ls -1 /home/bpf-encodings-5.9/*.smt2
@@ -157,8 +160,7 @@ The top-level script `generate_encodings.py` does the following:
 
 ## (2.1 & 2.2) Verification and POC synthesis for eBPF range analysis (3-4 hours)
 
-First, we check the correctness of 36 abstract operators
-corresponding to 36 eBPF instructions (page 6 in the paper)
+We now check the correctness of the 36 abstract operators
 using our verification conditions `gen` (§4.1) and `sro`
 (§4.2). When our soundness checks fail, we synthesize
 proof-of-concept (PoC) programs that demonstrate the
@@ -190,7 +192,10 @@ reduced list of eBPF instructions.
 
 ```
 cd /home/cav23-artifact/bpf-verification/src
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/cav23-artifact/bpf-encodings --ver_set BPF_AND_32 BPF_SUB BPF_JGT BPF_JSLE BPF_JEQ BPF_JNE BPF_JSGT BPF_JSGE BPF_OR_32 BPF_JLT BPF_OR BPF_AND BPF_JGE BPF_JSLT BPF_JLE 
+python3 bpf_alu_jmp_synthesis.py --kernver 5.9 \
+  --encodings_path /home/cav23-artifact/bpf-encodings \
+  --ver_set BPF_AND_32 BPF_SUB BPF_JGT BPF_JSLE BPF_JEQ BPF_JNE BPF_JSGT BPF_JSGE \
+            BPF_OR_32 BPF_JLT BPF_OR BPF_AND BPF_JGE BPF_JSLT BPF_JLE 
 ```
 
 ### Expected result
