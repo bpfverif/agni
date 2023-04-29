@@ -45,16 +45,19 @@ it is portable in essence to different environments.
 
 ### Claims to validate/reproduce.
 
-1. Automatically extracting the semantics of the Linux
-   kernel's C code to SMT (Docker).
-2.  1. Verifying the kernel's range analysis using our `gen`
-       and `sro` verification conditions (Docker).
-    2. Synthesizing proof-of-concept BPF programs
-       demonstrate a mismatch between the concrete and
-       abstract semantics (Docker).
-3.  Running our synthesized proof-of-concept BPF programs to
-    witness unsound behaviour in a real Linux kernel
-    (Virtual Box).
+(1) Our software can successfully start from the Linux
+kernel verifier's C source code and produce SMT that encodes
+the semantics of the Linux kernel's C code.
+
+(2.1) Our software is able to verify the kernel's range analysis using
+our `gen` and `sro` verification conditions.
+
+(2.2) Our software can synthesize proof-of-concept BPF
+programs demonstrate a mismatch between the concrete and
+abstract semantics.
+
+(3) Our synthesized proof-of-concept BPF programs mainfest
+unsound behaviour in a real Linux kernel.
 
 `Note`. To make it feasible to run the artifact quickly and with minimal
 resources, we have limited our experiments to one kernel version and a specific
