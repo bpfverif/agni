@@ -17,12 +17,13 @@ fails to meet the soundness condition.
 This artifact is publicly available at zenodo. DOI: TODO
 
 ### Functionality
-The entire set of experiments require roughly 6 days to
-complete. To keep the evaluation short, we demonstrate how
-to replicate a smaller subset of the results. We show that
-our results are indeed consistent with our paper for this
-subset. In practice, our artifact can be used to replicate
-the full set of results from the paper.
+The entire set of experiments can take up to 6 days to complete depending on the
+SMT heuristics and parameters. However, over 90% of our results are discovered
+within a few hours. To keep this evaluation short, we demonstrate how to
+replicate a smaller subset of the results. We show that our results are indeed
+consistent with our paper. While we provide a few representative experiments,
+this artifact contains all necessary tools and software needed to replicate the
+full set of results from the paper.
 
 ### Reusability
 Our artifact is open source with the MIT License. TODO.
