@@ -62,10 +62,11 @@ subset of bpf instructions. The experiments for the paper were performed without
 using any containers, and on more instructions. It should take roughly 4-5
 hours to evaluate this artifact. 
 
-### Known issues.
+
+## System requirements and known issues.
 We have tested the Docker image and the Virtual Box
 appliance on `x86_64` machines, running Linux and Windows
-operating systems.  We have no known issues to report.
+operating systems. We have no known issues to report.
 
 --------------------------------------------------------------------------------
 
