@@ -614,8 +614,7 @@ handle a richer set of instructions. Currently, each LLVM
 instruction is handled in its own function within the
 `FunctionEncoder.cpp` class, but additional functions can be
 added to handle a wider range of LLVM instructions. More
-details about the extension of the tooling are presented in
-§5 of the paper.
+details about the tool are presented in §5 of the paper.
 
 Once we obtain the semantics of the C code in first order,
 we can move on to verify the correctness of the other
