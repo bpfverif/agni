@@ -42,11 +42,11 @@ fails to meet the soundness condition.
     witness unsound behaviour in a real Linux kernel
     (Virtual Box).
 
-`Note`. To make it feasible to run the artifact quickly, we
-have reduced the sample sizes used for the experiments. The
-experiments for the paper were performed without using any
-containers, and on larger inputs sizes. It should take
-roughly 4-5 hours to evaluate this artifact. 
+`Note`. To make it feasible to run the artifact quickly and with minimal
+resources, we have limited our experiments to one kernel version and a specific
+subset of bpf instructions. The experiments for the paper were performed without
+using any containers, and on more instructions. It should take roughly 4-5
+hours to evaluate this artifact. 
 
 ### Known issues.
 We have tested the Docker image and the Virtual Box
