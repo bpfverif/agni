@@ -1,6 +1,6 @@
 # Verifying the Verifier: eBPF Range Analysis Verification
 
-## Abstract
+### Abstract
 Our paper proposes an automated method to check the
 correctness of range analysis used in the Linux Kernel’s
 eBPF verifier. In this artifact, we provide our software
@@ -13,7 +13,21 @@ demonstrates the mismatch between the abstract and the
 concrete semantics in the case where the range analysis
 fails to meet the soundness condition.
 
+### Availability
+This artifact is publicly available at zenodo. DOI: TODO
 
+### Functionality
+The entire set of experiments require roughly 6 days to
+complete. To keep the evaluation short, we demonstrate how
+to replicate a smaller subset of the results. We show that
+our results are indeed consistent with our paper for this
+subset. In practice, our artifact can be used to replicate
+the full set of results from the paper.
+
+### Reusability
+Our artifact is open source with the MIT License. TODO.
+While we provide a docker image with all the dependencies,
+it is portable in essence to different environments. 
 
 --------------------------------------------------------------------------------
 
