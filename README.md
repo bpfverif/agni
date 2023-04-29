@@ -123,8 +123,7 @@ docker run -it cav23-artifact
 
 ### Clone the Linux git repository (15 minutes)
 ```
-cd /home/cav23-artifact/
-git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git linux-stable
+git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git /home/linux-stable
 ```
 
 ### Create the output directory and run the llvm-to-smt tool (15 minutes)
