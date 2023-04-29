@@ -1,6 +1,6 @@
 # Verifying the Verifier: eBPF Range Analysis Verification
 
-### Abstract
+## Abstract
 Our paper proposes an automated method to check the
 correctness of range analysis used in the Linux Kernel’s
 eBPF verifier. In this artifact, we provide our software
@@ -59,17 +59,20 @@ abstract semantics.
 (3) Our synthesized proof-of-concept BPF programs mainfest
 unsound behaviour in a real Linux kernel.
 
-`Note`. To make it feasible to run the artifact quickly and with minimal
-resources, we have limited our experiments to one kernel version and a specific
-subset of bpf instructions. The experiments for the paper were performed without
-using any containers, and on more instructions. It should take roughly 4-5
-hours to evaluate this artifact. 
+### Artifact functionality, system requirements and known issues.
+In the paper, we report the results of the verification and
+synthesis in Fig. 5(a) and 5(b) respectively, for several
+kernel versions.
 
-
-## System requirements and known issues.
-We have tested the Docker image and the Virtual Box
-appliance on `x86_64` machines, running Linux and Windows
-operating systems. We have no known issues to report.
+To make it feasible to run the artifact quickly
+and with minimal resources, we have limited our experiments
+to one kernel version and a specific subset of bpf
+instructions. The experiments for the paper were performed
+without using any containers, and on more instructions. It
+should take roughly 4-5 hours to evaluate this artifact. We
+have tested the Docker image and the Virtual Box appliance
+on `x86_64` machines, running Linux and Windows operating
+systems. We have no known issues to report.
 
 --------------------------------------------------------------------------------
 
