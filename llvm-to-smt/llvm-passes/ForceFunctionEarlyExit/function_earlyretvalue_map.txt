@@ -1,0 +1,4 @@
+sanitize_needed:0
+sanitize_val_alu:0
+can_skip_alu_sanitation:1
+update_alu_sanitation_state:0

@@ -1,0 +1,8 @@
+{
+    "function_returnvalue_map": [
+        {"function": "sanitize_needed",  "return_value": 0},
+        {"function": "sanitize_val_alu",  "return_value": 0},
+        {"function": "can_skip_alu_sanitation",  "return_value": 1},
+        {"function": "update_alu_sanitation_state",  "return_value": 0}
+    ]
+}
