@@ -118,7 +118,7 @@ for each eBPF instruction.
 ### Load and run the docker image
 ```
 docker load < cav23-artifact-docker.tar  
-docker run -it cav23-artifact
+docker run -it cav23-artifact:publish
 ```
 
 ### Clone the Linux git repository (15 minutes)
@@ -164,7 +164,7 @@ have the semantics of 36 abstract operators corresponding to
 36 eBPF instructions.
 
 ```
-root@847d5c0f8828:/home/cav23-artifact/llvm-to-smt# ls -1 /home/bpf-encodings-5.9/*.smt2
+root@847d5c0f8828:/home/cav23-artifact/llvm-to-smt# ls -1 /home/cav23-artifact/bpf-encodings-5.9/*.smt2
 /home/bpf-encodings-5.9/BPF_ADD.smt2
 /home/bpf-encodings-5.9/BPF_ADD_32.smt2
 /home/bpf-encodings-5.9/BPF_AND.smt2
@@ -463,7 +463,7 @@ sudo make
 ```
 
 The output should be somewhat similar to the one below.
-Scroll down to the lines  named `7`. `smin_value` is indeed
+Scroll down to the lines named `7`. `smin_value` is indeed
 greater than `smax_value`. 
 
 !["BPF_SUB S64 Violation"](images/sub_s64.jpg "BPF_SUB S64 Violation") 
@@ -480,7 +480,8 @@ sudo make
 Similar to the above program, this program demonstrates that
 minimum possible value in a 32-bit sub register
 `s32_min_value` is greater than the maximum 32-bit value
-`s32_max_value`. This too, is clearly unsound.
+`s32_max_value`. This too, is clearly unsound. To see this,
+scroll down to the line named `14`.
 
 !["BPF_OR S32 Violation"](images/or_s32.jpg "BPF_OR S32 Violation")
 
