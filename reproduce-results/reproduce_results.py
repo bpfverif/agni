@@ -24,10 +24,10 @@ ver_set_dict = {
 "5.19": ['BPF_AND', 'BPF_XOR_32', 'BPF_OR', 'BPF_OR_32', 'BPF_XOR', 'BPF_AND_32']
 }
 
-kernbase_dir = f"/home/cav23-artifact/reproduce-results/linux-stable/v{{}}"
-bpf_encodings_outdir = f"/home/cav23-artifact/reproduce-results/bpf-encodings/v{{}}"
+kernbase_dir = "/home/cav23-artifact/reproduce-results/linux-stable/v{}"
+bpf_encodings_outdir = "/home/cav23-artifact/reproduce-results/bpf-encodings/v{}"
 generate_encodings_script = "/home/cav23-artifact/llvm-to-smt/generate_encodings.py"
-verif_synth_outdir = f"/home/cav23-artifact/reproduce-results/verifcation-synthesis-results/v{{}}"
+verif_synth_outdir = "/home/cav23-artifact/reproduce-results/verifcation-synthesis-results/v{}"
 bpf_alu_jmp_synthesis_script = "/home/cav23-artifact/bpf-verification/src/bpf_alu_jmp_synthesis.py"
 bpf_alu_jmp_synthesis_toml_path = "/home/cav23-artifact/bpf-verification/src/verification_synth_setup_config.toml"
 
@@ -43,11 +43,13 @@ if __name__ == "__main__":
     kernbase_outdir_fullpath_i = pathlib.Path(kernbase_dir_i).resolve()
     subprocess.run(['mkdir', '-p', '{}'.format(str(kernbase_outdir_fullpath_i))],
               check=True, text=True, bufsize=1)
+    subprocess.run(['rm', '-rf', '{}/*'.format(str(kernbase_outdir_fullpath_i))],
+              check=True, text=True, bufsize=1)
     
     # clone linux source
     clone_kernel_cmd_i = ["git", "clone", 
                           "--depth", "1", 
-                          "--branch", f"v{{}}".format(args.kernver), 
+                          "--branch", "v{}".format(args.kernver), 
                           "git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git", 
                           str(kernbase_outdir_fullpath_i)]
     subprocess.run(clone_kernel_cmd_i, check=True, text=True, bufsize=1)
@@ -55,6 +57,8 @@ if __name__ == "__main__":
     # create bpf encodings output directory
     bpf_encodings_outdir_i = pathlib.Path(bpf_encodings_outdir.format(args.kernver)).resolve()
     subprocess.run(['mkdir', '-p', '{}'.format(str(bpf_encodings_outdir_i))],
+              check=True, text=True, bufsize=1)
+    subprocess.run(['rm', '-rf', '{}/*'.format(str(bpf_encodings_outdir_i))],
               check=True, text=True, bufsize=1)
 
     # run llvm to smt
@@ -68,6 +72,8 @@ if __name__ == "__main__":
     # create verification/synthesis results directory
     verif_synth_outdir_i = pathlib.Path(verif_synth_outdir.format(args.kernver)).resolve()
     subprocess.run(['mkdir', '-p', '{}'.format(str(verif_synth_outdir_i))],
+              check=True, text=True, bufsize=1)
+    subprocess.run(['rm', '-rf', '{}/*'.format(str(verif_synth_outdir_i))],
               check=True, text=True, bufsize=1)
     
     # results output file
