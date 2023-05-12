@@ -97,6 +97,6 @@ if __name__ == "__main__":
 
     subprocess.run(verif_synth_cmd_i,
                    stdout=verif_synth_results_outfile_handle_i, 
-                   check=True, text=True, bufsize=1)
+                   check=True, capture_output=True, text=True, bufsize=1)
     
     verif_synth_results_outfile_handle_i.close()
