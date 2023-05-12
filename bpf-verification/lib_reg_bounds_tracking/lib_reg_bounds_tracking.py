@@ -483,6 +483,7 @@ class process_stats:
         with open(usr_config.write_path  + "stats" + ".txt", 'a') as w:
             w.write("\n\nSynthesis Aggregate Statistics\n")
             w.write(str(table))
+            w.write("\n")
         #print("###########################################################\n")
 
     def write_dict_to_file(self, usr_config, func_name):

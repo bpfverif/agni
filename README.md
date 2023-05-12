@@ -13,6 +13,8 @@ demonstrates the mismatch between the abstract and the
 concrete semantics in the case where the range analysis
 fails to meet the soundness condition.
 
+------------------------------------------------------------
+
 ### Availability
 This artifact is publicly available at zenodo (doi:
 10.5281/zenodo.7877222), and github
@@ -20,12 +22,12 @@ This artifact is publicly available at zenodo (doi:
 
 ### Functionality
 The entire set of experiments can take up to 6 days to
-complete depending on SMT solving heuristics. To keep this
-evaluation short, we demonstrate how to replicate a smaller
-subset of the results. We show that our results are indeed
-consistent with our paper. In practice, this artifact
-contains all necessary tools and software needed to
-replicate the full set of results from the paper.
+complete. This artifact contains all necessary tools and
+software needed to replicate the full set of results from
+the paper from scratch. To expedite the evaluation, we
+provide [this section](#reproducing-results-from-the-paper)
+that skips some time-consuming steps while still reproducing
+the results from the paper.
 
 ### Reusability
 Our artifact is open source with the MIT License. This
@@ -34,8 +36,6 @@ software and dependencies. However, our software is portable
 to different environments and platforms and we also list the
 dependencies and libraries. We explain the structure of our
 code and how to extend it. 
-
---------------------------------------------------------------------------------
 
 ### Prerequisites to run the artifact.
 
@@ -48,6 +48,12 @@ code and how to extend it.
 2.  Install Virtual Box if not already installed by
     downloading from
     [here](https://www.virtualbox.org/wiki/Downloads).
+
+`Note:` If your goal is solely to reproduce the results from
+the paper, you can proceed directly to the section titled
+[Reproducing Results from the Paper](#reproducing-results-from-the-paper). 
+However, if you are interested in learning how to utilize
+our software, please continue reading below.
 
 ### Claims to validate/reproduce.
 
@@ -68,17 +74,16 @@ unsound behavior in a real Linux kernel.
 ### Artifact functionality, system requirements and known issues.
 In the paper, we report the results of the verification and
 synthesis in Fig. 5(a) and 5(b) respectively, for several
-kernel versions. To make it feasible to run the artifact
-quickly and with minimal resources, we have limited our
-experiments to a specific subset of eBPF instructions and
-one kernel version. We have tested this artifact, including
-the Docker image and the Virtual Box appliance, on a machine
-with 4 physical cores running at 2.8 GHz and 16 GB of
-memory. Our tests have shown that it takes roughly 6 hours
-to evaluate this artifact. We have tested the artifact on
-machines running Linux and Windows operating systems, both
-using x86_64 architecture, and we have no known issues to
-report.
+kernel versions. In this artifact, we demonstrate our
+software for a specific kernel version, 5.9. It is
+straightforward to use it for other kernel versions. 
+
+We have tested this artifact, including the Docker image and
+the Virtual Box appliance, on a machine with 4 physical
+cores running at 2.8 GHz and 16 GB of memory. We have tested
+the artifact on machines running Linux and Windows operating
+systems, both using x86_64 architecture, and we have no
+known issues to report.
 
 ### Dependencies
 
@@ -175,7 +180,7 @@ root@847d5c0f8828:/home/cav23-artifact/llvm-to-smt# ls -1 /home/cav23-artifact/b
 
 --------------------------------------------------------------------------------
 
-## (2.1 & 2.2) Verification and POC synthesis for eBPF range analysis (3-4 hours)
+## (2.1 & 2.2) Verification and POC synthesis for eBPF range analysis (~13 hours)
 
 We now check the correctness of the 36 abstract operators
 using our verification conditions `gen` (§4.1) and `sro`
@@ -183,41 +188,23 @@ using our verification conditions `gen` (§4.1) and `sro`
 proof-of-concept (PoC) programs that demonstrate the
 mismatch between abstract values maintained by the verifier
 and the values in a concrete execution of the eBPF program.
-To keep the experiment short, we will make the following
-simplifications:
-
-- We will only run the experiment for kernel v5.9
-- In this experiment (short version), we provide a script
-  which will accept a reduced list of 15 eBPF instructions
-  whose abstract semantics are known to be _unsound_. The
-  experiment will then confirm that this list of
-  instructions are indeed unsound. This part addresses claim
-  2.1. We also give an optional generalized experiment (long
-  version) that checks all the 36 eBPF operators for
-  soundness in kernel version 5.9 but takes significantly
-  longer to run (~13 hours).
-- The synthesized PoC programs will be for demonstrative
-  purposes only. Constructing a full eBPF program from our
-  generated POCs requires some manual effort. For the
-  review, we will forgo this step. In part 3 of the artifact
-  (later), we provide full eBPF programs constructed from
-  the demonstrative examples that manifest unsound behaviors
-  in an actual kernel. 
+Note that the synthesized PoC programs will be for
+demonstrative purposes only. Constructing a full eBPF
+program from our generated POCs requires some manual effort.
+For the review, we will forgo this step. 
+In [part 3](#3-running-synthesized-ebpf-programs-in-a-real-linux-kernel-20-minutes) 
+of the artifact, we provide full eBPF programs constructed
+from the demonstrative examples that manifest unsound
+behaviors in an actual kernel. 
 
 ### Run the script to perform the verification and synthesis
 The script uses the encodings we previously generated,
-present in `/home/cav23-artifact/bpf-encodings-5.9`. The
-`ver_set` argument is used to restrict our verification to a
-reduced list of eBPF instructions.
-
+present in `/home/cav23-artifact/bpf-encodings-5.9`. 
 ```
 cd /home/cav23-artifact/bpf-verification
 mkdir results/
 cd src/
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 \
-  --encodings_path /home/cav23-artifact/bpf-encodings-5.9 \
-  --ver_set BPF_AND_32 BPF_SUB BPF_JGT BPF_JSLE BPF_JEQ BPF_JNE BPF_JSGT BPF_JSGE \
-            BPF_OR_32 BPF_JLT BPF_OR BPF_AND BPF_JGE BPF_JSLT BPF_JLE 
+python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/cav23-artifact/bpf-encodings-5.9 
 ```
 
 ### Expected result
@@ -372,12 +359,12 @@ from the previous steps. The programs manifest a mismatch
 between verifier's abstract values and the concrete
 execution, that is they demonstrate unsound behavior.
 - Lastly, we provide two tables with aggregate statistics.
-  - The first table `VERIFICATION AGGREGATE STATISTICS`
+  - The first table `Verification Aggregate Statistics`
 shows aggregate statistics for the verification part of the
 experiment (2.1(a) and 2.1(b)). This table should match
 exactly with Fig 5(a) (row kernel version 5.9) from the
 paper. 
-  - The second table `SYNTHESIS AGGREGATE STATISTICS`
+  - The second table `Synthesis Aggregate Statistics`
 summarizes the total number of unsound instructions + domain
 pairs (i.e. the total number of violations). It also shows
 whether the synthesis was successful in producing a program
@@ -389,19 +376,6 @@ In general, each POC is documented in a separate log in
 `/home/cav23-artifact/bpf-verification/results`. We use
 these logs to manually craft a full eBPF program from the
 output of the synthesis process.
-
-### Long Version (Optional, ~13 hours)
-```
-cd bpf_verification/src
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 \
-  --encodings_path /home/cav23-artifact/bpf-encodings-5.9
-```
-
-### Expected Result for Long Version
-The two aggregate tables produced by the script, one for
-verification and one for synthesis, should exactly match the
-specific row from the table (according to kernel version) in
-Fig.5(a) and Fig.5(b), respectively.
 
 ## (3) Running synthesized eBPF programs in a real Linux Kernel (20 minutes)
 
@@ -485,7 +459,111 @@ scroll down to the line named `14`.
 
 !["BPF_OR S32 Violation"](images/or_s32.jpg "BPF_OR S32 Violation")
 
----
+-----
+## Reproducing results from the paper
+
+We now show how to quickly reproduce the results from the
+paper. The script `reproduce_results.py` achieves this by:
+
+- Skipping the generation of the encoding of the abstract
+  semantics of eBPF instructions directly from the Linux C
+  source code. Instead, we provide our own encodings that we
+  generated using our
+  [llvm-to-smt](#1-automatically-extracting-the-semantics-of-the-linux-kernels-c-code-to-smt-30-minutes)
+  tool. These encodings are stored in the
+  `/home/cav23-artifact/reproduce-results` directory.
+- For each kernel version, storing a list of eBPF
+  instructions whose abstract semantics are known to be
+  _unsound_. E.g. for v5.9, 15 of the 36 instructions are
+  known to be unsound. The script then runs the verification
+  on this reduced list of instructions. to confirm that this
+  list of instructions are indeed unsound. These reduced
+  list of instructions are stored in the script
+  `reproduce_results.py` directly.
+- Restricting the length of programs synthesized to 1
+instruction. That is, the script only produces single
+instruction eBPF programs that manifest a mismatch between
+verifier's abstract values and the concrete execution.
+
+### Reproducing the table for a particular kernel version
+
+We show how to reproduce the verification results from Fig
+5(a) and the synthesis results from Fig 5(b), for a
+_particular_ kernel version. Note that we recommend running
+a separate docker container for each kernel version if you
+want to reproduce the results for several kernel versions in
+parallel. For example, for reproducing the results related
+to kernel v5.13, do the following on your host machine:
+
+```
+docker run -it cav23-artifact:publish
+```
+Then, within the container:
+```
+cd /home/cav23-artifact/reproduce-results
+python3 reproduce_results.py --kernver 5.13
+```
+
+Similarly, to reproduce the results related to v5.7-rc1,
+open a new terminal on your host machine, and spin up a new
+container:
+```
+docker run -it cav23-artifact:publish
+```
+Then, within the container:
+```
+cd /home/cav23-artifact/reproduce-results
+python3 reproduce_results.py --kernver 5.7-rc1
+```
+
+### Reading the results
+
+In the docker container that you ran for the specific kernel
+version, the table we are interesterd can be accessed as
+follows (we assume v5.9 here):
+
+```
+cd /home/cav23-artifact/reproduce-results/verifcation-synthesis-results
+cd v5.9/
+cd 5.9_res/
+cat stats.txt
+```
+
+The output should be as follows, for kernel v5.9:
+
+```
++---------+------------+------------+-----------+-----------+-----------------+-----------------+
+| KernVer | gen Sound? | sro Sound? | gen Viol. | sro Viol. | gen Unsound Ops | sro Unsound Ops |
++---------+------------+------------+-----------+-----------+-----------------+-----------------+
+|   5.9   |     ✘      |     ✘      |     67    |     65    |        15       |        15       |
++---------+------------+------------+-----------+-----------+-----------------+-----------------+
+
+Synthesis Aggregate Statistics
++---------+--------------+-----------------------+------------+------------+------------+
+| KernVer | # Tot. Viol. | All POCs Synthesized? | Prog Len 1 | Prog Len 2 | Prog Len 3 |
++---------+--------------+-----------------------+------------+------------+------------+
+|   5.9   |      65      |           ✘           |     39     |     0      |     0      |
++---------+--------------+-----------------------+------------+------------+------------+
+```
+
+  - The first table `Verification Aggregate Statistics`
+shows aggregate statistics for the verification part of the
+experiment (2.1(a) and 2.1(b)). This table should match
+exactly with Fig 5(a) (row kernel version 5.9) from the
+paper. 
+  - The second table `Synthesis Aggregate Statistics`
+summarizes the total number of unsound instructions + domain
+pairs (i.e. the total number of violations). It also shows
+whether the synthesis was successful in producing a program
+for all the violations, as well as the respective program
+lengths. This table should match with Fig. 5(b) from the
+paper.
+
+Each row in Fig 5(a), and Fig. 5(b) can be similarly
+confirmed by checking the `stats.txt` for that particular
+kernel version.
+
+----
 
 ## Source code structure and extensibility
 
