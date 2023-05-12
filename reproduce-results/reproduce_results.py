@@ -49,7 +49,7 @@ if __name__ == "__main__":
                           "--depth", "1", 
                           "--branch", f"v{{}}".format(args.kernver), 
                           "git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git", 
-                          kernbase_outdir_fullpath_i]
+                          str(kernbase_outdir_fullpath_i)]
     subprocess.run(clone_kernel_cmd_i, check=True, text=True, bufsize=1)
 
     # create bpf encodings output directory
@@ -78,6 +78,7 @@ if __name__ == "__main__":
                 '--kernver', str(args.kernver), 
                 '--encodings_path', str(bpf_encodings_outdir_i),
                 '--res_path', str(verif_synth_outdir_i),
+                'synth_iter', '1',
                 '--ver_set'
                 ]
     verif_synth_cmd_i += ver_set_dict[args.kernver]
