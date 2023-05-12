@@ -25,7 +25,7 @@ ver_set_dict = {
 }
 
 kernbase_dir = "/home/cav23-artifact/reproduce-results/linux-stable/v{}"
-bpf_encodings_outdir = "/home/cav23-artifact/reproduce-results/bpf-encodings/v{}"
+bpf_encodings_outdir = "/home/cav23-artifact/reproduce-results/bpf-encodings/{}"
 generate_encodings_script = "/home/cav23-artifact/llvm-to-smt/generate_encodings.py"
 verif_synth_outdir = "/home/cav23-artifact/reproduce-results/verifcation-synthesis-results/v{}"
 bpf_alu_jmp_synthesis_script = "/home/cav23-artifact/bpf-verification/src/bpf_alu_jmp_synthesis.py"
@@ -37,37 +37,9 @@ if __name__ == "__main__":
                         required=True)
 
     args = parser.parse_args()
-    kernbase_dir_i = kernbase_dir.format(args.kernver)
-
-    # create linux output directory
-    kernbase_outdir_fullpath_i = pathlib.Path(kernbase_dir_i).resolve()
-    subprocess.run(['mkdir', '-p', '{}'.format(str(kernbase_outdir_fullpath_i))],
-              check=True, text=True, bufsize=1)
-    subprocess.run(['rm', '-rf', '{}/*'.format(str(kernbase_outdir_fullpath_i))],
-              check=True, text=True, bufsize=1)
     
-    # clone linux source
-    clone_kernel_cmd_i = ["git", "clone", 
-                          "--depth", "1", 
-                          "--branch", "v{}".format(args.kernver), 
-                          "git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git", 
-                          str(kernbase_outdir_fullpath_i)]
-    subprocess.run(clone_kernel_cmd_i, check=True, text=True, bufsize=1)
-
-    # create bpf encodings output directory
+    # bpf encodings output directory
     bpf_encodings_outdir_i = pathlib.Path(bpf_encodings_outdir.format(args.kernver)).resolve()
-    subprocess.run(['mkdir', '-p', '{}'.format(str(bpf_encodings_outdir_i))],
-              check=True, text=True, bufsize=1)
-    subprocess.run(['rm', '-rf', '{}/*'.format(str(bpf_encodings_outdir_i))],
-              check=True, text=True, bufsize=1)
-
-    # run llvm to smt
-    subprocess.run(['python3', generate_encodings_script, 
-                    '--kernver', str(args.kernver), 
-                    '--kernbasedir', str(kernbase_outdir_fullpath_i),
-                    '--outdir', str(bpf_encodings_outdir_i)
-                    ],
-              check=True, text=True, bufsize=1)
 
     # create verification/synthesis results directory
     verif_synth_outdir_i = pathlib.Path(verif_synth_outdir.format(args.kernver)).resolve()
