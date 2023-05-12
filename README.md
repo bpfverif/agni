@@ -439,8 +439,7 @@ sudo make
 The output should be somewhat similar to the one below.
 Scroll down to the lines named `7`. `smin_value` is indeed
 greater than `smax_value`. 
-
-!["BPF_SUB S64 Violation"](images/sub_s64.jpg "BPF_SUB S64 Violation") 
+![sub_s64](https://github.com/bpfverif/ebpf-range-analysis-verification-cav23/assets/8588645/2d757e7a-968c-4097-a50b-60045cbb8eec)
 
 ### Run example eBPF program 2: a bug in 32-bit BPF_OR
 
@@ -456,8 +455,7 @@ minimum possible value in a 32-bit sub register
 `s32_min_value` is greater than the maximum 32-bit value
 `s32_max_value`. This too, is clearly unsound. To see this,
 scroll down to the line named `14`.
-
-!["BPF_OR S32 Violation"](images/or_s32.jpg "BPF_OR S32 Violation")
+ ![or_s32](https://github.com/bpfverif/ebpf-range-analysis-verification-cav23/assets/8588645/41a2c8d1-0c1d-415e-aa19-620613f33742)
 
 -----
 ## Reproducing results from the paper
