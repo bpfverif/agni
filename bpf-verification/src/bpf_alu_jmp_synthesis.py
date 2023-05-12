@@ -19,9 +19,6 @@ import json
 ###############################################################################
 def main():
 
-    #parse toml config file and initialize a config_setup class for verification
-    #and synthesis procedures.
-    parsed_toml = toml.load("verification_synth_setup_config.toml")
     #setup argparse and customized options
     bpf_instructions_set = ["BPF_AND", "BPF_OR", "BPF_LSH", "BPF_RSH", "BPF_JLT", "BPF_JLE", "BPF_JEQ", "BPF_JNE", "BPF_JGE", "BPF_JGT", "BPF_JSGE", "BPF_JSGT", "BPF_JSLT", "BPF_JSLE", "BPF_ADD", "BPF_SUB", "BPF_XOR", "BPF_ARSH", "BPF_OR_32", "BPF_AND_32", "BPF_LSH_32", "BPF_RSH_32", "BPF_ADD_32", "BPF_SUB_32", "BPF_XOR_32","BPF_ARSH_32", "BPF_JLT_32",  "BPF_JLE_32", "BPF_JSLT_32", "BPF_JSLE_32", "BPF_JEQ_32", "BPF_JNE_32", "BPF_JGE_32", "BPF_JGT_32", "BPF_JSGE_32", "BPF_JSGT_32"]
     parser = argp.ArgumentParser(prog="eBPF Verification and Synthesis", epilog="Possible bpf instructions: {BPF_AND,BPF_OR,BPF_LSH,BPF_RSH,BPF_JLT,BPF_JLE,BPF_JEQ,BPF_JNE,BPF_JGE,BPF_JGT,BPF_JSGE,BPF_JSGT,BPF_JSLT,BPF_JSLE,BPF_ADD,BPF_SUB,BPF_XOR,BPF_ARSH,BPF_OR_32,BPF_AND_32,BPF_LSH_32,BPF_RSH_32,BPF_ADD_32,BPF_SUB_32,BPF_XOR_32,BPF_ARSH_32,BPF_JLT_32,BPF_JLE_32,BPF_JSLT_32,BPF_JSLE_32,BPF_JEQ_32,BPF_JNE_32,BPF_JGE_32,BPF_JGT_32,BPF_JSGE_32,BPF_JSGT_32}")
@@ -32,11 +29,13 @@ def main():
     parser.add_argument('--synth_iter', type=int, help="set sequence length to synthesize (1-3)")
     parser.add_argument('--synth_set', type=str, metavar='bpf instruction', help="choose instructions use as priors for synthesis (meaning they won't be the last instructions in the sequence)", nargs="*", choices=bpf_instructions_set)
     parser.add_argument('--ver_set', type=str, metavar='bpf instruction', help="choose instructions to verify", nargs="*", choices=bpf_instructions_set)
+    parser.add_argument('--toml_path', type=str, required=True, help="kernel version", default="verification_synth_setup_config.toml")
     args = parser.parse_args()
-    #print(args)
 
-    
-    #print(parser)
+    #parse toml config file and initialize a config_setup class for verification
+    #and synthesis procedures.
+    parsed_toml = toml.load(args.toml_path)
+
     #update config options based on user inputs
     parsed_toml["kernel_ver"] = args.kernver if args.kernver else parsed_toml["kernel_ver"]
     parsed_toml["json_offset"] = args.json_offset if args.json_offset else parsed_toml["json_offset"]
