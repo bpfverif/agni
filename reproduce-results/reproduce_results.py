@@ -78,7 +78,7 @@ if __name__ == "__main__":
                 '--kernver', str(args.kernver), 
                 '--encodings_path', str(bpf_encodings_outdir_i),
                 '--res_path', str(verif_synth_outdir_i),
-                'synth_iter', '1',
+                '--synth_iter', '1',
                 '--ver_set'
                 ]
     verif_synth_cmd_i += ver_set_dict[args.kernver]
