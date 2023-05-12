@@ -458,12 +458,15 @@ class process_stats:
         print("\n\nVerification Aggregate Statistics")
         gen_sound = "✓" if usr_config.gen_violations == 0 else "✘"
         sro_sound = "✓" if usr_config.sro_violations == 0 else "✘"
-        table = ColorTable()
-        table = ColorTable(theme=Themes.OCEAN)
+        table = PrettyTable()
+
         table.field_names = ["KernVer", "gen Sound?", "sro Sound?", "gen Viol.", "sro Viol.", "gen Unsound Ops", "sro Unsound Ops"]
         table.add_row([usr_config.kernel_ver, gen_sound, sro_sound, usr_config.gen_violations, usr_config.sro_violations, usr_config.gen_unsound_insn, usr_config.sro_unsound_insn])
         
         print(table)
+        with open(usr_config.write_path  + "stats" + ".txt", 'w') as w:
+            w.write("\n\nVerification Aggregate Statistics\n")
+            w.write(str(table))
         #print("###########################################################\n")
 
 
@@ -471,12 +474,15 @@ class process_stats:
 
         print("\n\nSynthesis Aggregate Statistics")
         all_poc_syn = "✓" if usr_config.synth_violations == usr_config.sro_violations else "✘"
-        table = ColorTable()
-        table = ColorTable(theme=Themes.OCEAN)
+        table = PrettyTable()
+
         table.field_names = ["KernVer", "# Tot. Viol.", "All POCs Synthesized?", "Prog Len 1", "Prog Len 2", "Prog Len 3"]
         table.add_row([usr_config.kernel_ver, usr_config.sro_violations, all_poc_syn, usr_config.synth_len1, usr_config.synth_len2, usr_config.synth_len3])
         
         print(table)
+        with open(usr_config.write_path  + "stats" + ".txt", 'a') as w:
+            w.write("\n\nSynthesis Aggregate Statistics\n")
+            w.write(str(table))
         #print("###########################################################\n")
 
     def write_dict_to_file(self, usr_config, func_name):
