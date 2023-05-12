@@ -76,9 +76,6 @@ if __name__ == "__main__":
     subprocess.run(['rm', '-rf', '{}/*'.format(str(verif_synth_outdir_i))],
               check=True, text=True, bufsize=1)
     
-    # results output file
-    verif_synth_results_outfile_path_i = verif_synth_outdir_i.joinpath("results.txt")
-
     # run verification/synthesis
     verif_synth_cmd_i = ['python3', bpf_alu_jmp_synthesis_script, 
                 '--kernver', str(args.kernver), 
@@ -90,13 +87,8 @@ if __name__ == "__main__":
     verif_synth_cmd_i += ver_set_dict[args.kernver]
     verif_synth_cmd_i += ['--toml_path', bpf_alu_jmp_synthesis_toml_path]
     
-    verif_synth_results_outfile_handle_i = verif_synth_results_outfile_path_i.open("w")
     if args.kernver == "4.14":
         verif_synth_cmd_i.append('--json_offset')
         verif_synth_cmd_i.append('4')
 
-    subprocess.run(verif_synth_cmd_i,
-                   stdout=verif_synth_results_outfile_handle_i, 
-                   check=True, capture_output=True, text=True, bufsize=1)
-    
-    verif_synth_results_outfile_handle_i.close()
+    subprocess.run(verif_synth_cmd_i, check=True, bufsize=1)
