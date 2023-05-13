@@ -19,6 +19,8 @@ fails to meet the soundness condition.
 This artifact is publicly available at zenodo (doi:
 10.5281/zenodo.7877222), and github
 (https://github.com/bpfverif/ebpf-range-analysis-verification-cav23).
+You can read this readme with markdown highlighting directly
+on github.
 
 ### Functionality
 The entire set of experiments can take up to 6 days to
@@ -439,6 +441,7 @@ sudo make
 The output should be somewhat similar to the one below.
 Scroll down to the lines named `7`. `smin_value` is indeed
 greater than `smax_value`. 
+
 ![sub_s64](https://github.com/bpfverif/ebpf-range-analysis-verification-cav23/assets/8588645/2d757e7a-968c-4097-a50b-60045cbb8eec)
 
 ### Run example eBPF program 2: a bug in 32-bit BPF_OR
@@ -455,7 +458,8 @@ minimum possible value in a 32-bit sub register
 `s32_min_value` is greater than the maximum 32-bit value
 `s32_max_value`. This too, is clearly unsound. To see this,
 scroll down to the line named `14`.
- ![or_s32](https://github.com/bpfverif/ebpf-range-analysis-verification-cav23/assets/8588645/41a2c8d1-0c1d-415e-aa19-620613f33742)
+
+![or_s32](https://github.com/bpfverif/ebpf-range-analysis-verification-cav23/assets/8588645/41a2c8d1-0c1d-415e-aa19-620613f33742)
 
 -----
 ## Reproducing results from the paper
@@ -491,7 +495,8 @@ _particular_ kernel version. Note that we recommend running
 a separate docker container for each kernel version if you
 want to reproduce the results for several kernel versions in
 parallel. For example, for reproducing the results related
-to kernel v5.13, do the following on your host machine:
+to kernel v5.13, do the following on your host machine to
+start a new container:
 
 ```
 docker run -it cav23-artifact:publish
@@ -516,20 +521,15 @@ python3 reproduce_results.py --kernver 5.7-rc1
 
 ### Reading the results
 
-In the docker container that you ran for the specific kernel
-version, the table we are interesterd can be accessed as
-follows (we assume v5.9 here):
+The output of `reproduce_results.py` contains two tables at
+the tail end. For example, the output for kernel v5.9 should
+be as follows:
 
 ```
-cd /home/cav23-artifact/reproduce-results/verifcation-synthesis-results
-cd v5.9/
-cd 5.9_res/
-cat stats.txt
-```
-
-The output should be as follows, for kernel v5.9:
-
-```
+.
+.
+.
+Verification Aggregate Statistics
 +---------+------------+------------+-----------+-----------+-----------------+-----------------+
 | KernVer | gen Sound? | sro Sound? | gen Viol. | sro Viol. | gen Unsound Ops | sro Unsound Ops |
 +---------+------------+------------+-----------+-----------+-----------------+-----------------+
@@ -546,20 +546,25 @@ Synthesis Aggregate Statistics
 
   - The first table `Verification Aggregate Statistics`
 shows aggregate statistics for the verification part of the
-experiment (2.1(a) and 2.1(b)). This table should match
-exactly with Fig 5(a) (row kernel version 5.9) from the
-paper. 
+experiment. This table should match exactly with Fig 5(a)
+(row kernel version 5.9) from the paper. 
   - The second table `Synthesis Aggregate Statistics`
 summarizes the total number of unsound instructions + domain
 pairs (i.e. the total number of violations). It also shows
 whether the synthesis was successful in producing a program
 for all the violations, as well as the respective program
 lengths. This table should match with Fig. 5(b) from the
-paper.
+paper. 
+
+    `Note`: Becase we are restricting the
+synthesized program lengths to 1, the columns for `Prog Len 2` 
+and `Prog Len 3` will always be populated with 0. 
 
 Each row in Fig 5(a), and Fig. 5(b) can be similarly
-confirmed by checking the `stats.txt` for that particular
-kernel version.
+verified by checking the output of each instances of the
+`reproduce_results.py` script running in its own docker
+container. 
+
 
 ----
 
