@@ -487,6 +487,8 @@ instruction. That is, the script only produces single
 instruction eBPF programs that manifest a mismatch between
 verifier's abstract values and the concrete execution.
 
+`Note:` Each kernel version take an average of 5 hours to finish.
+
 ### Reproducing the table for a particular kernel version
 
 We show how to reproduce the verification results from Fig
