@@ -17,7 +17,7 @@ fails to meet the soundness condition.
 
 ### Availability
 This artifact is publicly available at zenodo (doi:
-10.5281/zenodo.7931798), and github
+10.5281/zenodo.7931901), and github
 (https://github.com/bpfverif/ebpf-range-analysis-verification-cav23).
 You can read this readme with markdown highlighting directly
 on github.
