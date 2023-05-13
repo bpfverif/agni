@@ -442,7 +442,7 @@ The output should be somewhat similar to the one below.
 Scroll down to the lines named `7`. `smin_value` is indeed
 greater than `smax_value`. 
 
-![sub_s64](https://github.com/bpfverif/ebpf-range-analysis-verification-cav23/assets/8588645/2d757e7a-968c-4097-a50b-60045cbb8eec)
+![sub_s64](images/sub_s64.jpg)
 
 ### Run example eBPF program 2: a bug in 32-bit BPF_OR
 
@@ -459,7 +459,7 @@ minimum possible value in a 32-bit sub register
 `s32_max_value`. This too, is clearly unsound. To see this,
 scroll down to the line named `14`.
 
-![or_s32](https://github.com/bpfverif/ebpf-range-analysis-verification-cav23/assets/8588645/41a2c8d1-0c1d-415e-aa19-620613f33742)
+![or_s32](images/or_s32.jpg)
 
 -----
 ## Reproducing results from the paper
