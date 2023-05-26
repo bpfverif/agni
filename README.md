@@ -1,4 +1,4 @@
-# Verifying the Verifier: eBPF Range Analysis Verification
+# Agni: Verifying the Verifier (eBPF Range Analysis Verification)
 
 ## Abstract
 Our paper proposes an automated method to check the
