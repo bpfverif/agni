@@ -8,14 +8,14 @@
 		json_offset = 5
 
         #kernel version to verify and synthesize bugs for
-		kernel_ver = "5.9"
+		kernel_ver = "5.10"
 
         #provide absolute path to bpf encodings dir
-		bpf_encodings_path = "/home/bpf-encodings/"
+		bpf_encodings_path = "/home/matan/bpfverif/bpf_synthesis/bpf_encodings/5.10.auto/"
 
         #provide path for results directory - this is where result files will be
         #written to
-		write_dir_path = "/home/cav23-artifact/bpf-verification/results"
+		write_dir_path = "/home/matan/bpfverif/cav23-artifact/bpf-verification/src/results"
 
         #program size to synthesize 
 		num_synthesis_iter = 3

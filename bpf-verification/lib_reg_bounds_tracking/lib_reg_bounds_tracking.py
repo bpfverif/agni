@@ -1151,9 +1151,11 @@ class verification_synth_module:
                 # self.print_synthesis_model()
                 self.print_synthesized_program(p)
                 self.write_synthesis_bug_model(usr_config, p)
+                self.generate_json_model(usr_config)
+
                 self.write_counter += 1
                 
-            
+
             self.solver.pop()
         #remove safety condition we put in for new one to replace it
         for p in self.violated_prop_list:
@@ -1233,7 +1235,44 @@ class verification_synth_module:
             # #else pring model for 64 bit
             # else:
             # 	print(colored(str(self.prog[i]) + "({}, {})".format(m[self.input_dst_reg_list[i].conc64], m[self.input_src_reg_list[i].conc64],  m[self.output_dst_reg_list[i].conc64]), "green"))
+
+
+    def generate_json_model(self, usr_config):
+        m = self.solver.model()
+        reg_headers = ["conc64", "conc32", "var_off_value", "var_off_mask", "smin_value", "smax_value", "umin_value", "umax_value",  "s32_min_value", "s32_max_value", "u32_min_value", "u32_max_value"]
+        prog_names = []
+        json_dict = {}
         
+        #create sub dictionaries
+        for i in self.prog:
+            #make a list of program names which are entries in dict
+            prog_names.append(i)
+            json_dict[i] = {"inst_num": None, "dst_inp": {}, "src_inp": {}, "dst_out": {}, "src_out": {}}
+
+        for i in range(len(self.prog)):
+            inp_dst_dict = vars(self.input_dst_reg_list[i])
+            inp_src_dict = vars(self.input_src_reg_list[i])
+            out_dst_dict = vars(self.output_dst_reg_list[i])
+            out_src_dict = vars(self.output_src_reg_list[i])
+
+            json_dict[prog_names[i]]["inst_num"] = i
+            for j in reg_headers:
+
+                json_dict[prog_names[i]]["dst_inp"][j] = m[inp_dst_dict[j]].as_long()
+                json_dict[prog_names[i]]["dst_out"][j] = m[out_dst_dict[j]].as_long()
+                json_dict[prog_names[i]]["src_inp"][j] = m[inp_src_dict[j]].as_long()
+                json_dict[prog_names[i]]["src_out"][j] = m[out_dst_dict[j]].as_long()
+
+        directory = usr_config.write_path +"/bug_log_" + usr_config.kernel_ver + "/"
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        
+        with open(directory + str(self.write_counter) + ".json", "w") as f:
+            json.dump(json_dict, f)
+
+
+
+    # def generate_bpf_bytcode(self):
 
         # reg_count = 1
         # #print model for bpf bytecode

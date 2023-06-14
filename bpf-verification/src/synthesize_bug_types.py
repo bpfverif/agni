@@ -146,7 +146,7 @@ if __name__ == "__main__":
     if len(sys.argv) == 2:
         parsed_toml["kernel_ver"] = str(sys.argv[1])
     usr_config = lr.config_setup(parsed_toml)
-    usr_config.insn_set_list = [{"BPF_JLT_32"}]
+    usr_config.insn_set_list = [{"BPF_JLT"}]
 
     synthesize_bugs(usr_config)
 
