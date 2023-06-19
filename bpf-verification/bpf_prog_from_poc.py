@@ -1,6 +1,7 @@
 import json
 from pprint import pprint
 import sys
+from collections import OrderedDict
 
 bpf_alu_ops = [
     "BPF_ADD",
@@ -122,7 +123,7 @@ def jsonfile_to_array(json_filepath):
 def print_bpf_prog(bpf_prog):
     print("-------------------------------")
     for prog in bpf_prog.items():
-        print("{}".format(prog[1]))
+        print("{:2} {}".format(prog[0], prog[1]))
     print("-------------------------------")
 
 ############################################################
@@ -141,12 +142,13 @@ reg_unknown_macro_template_2 = "BPF_ALU64_IMM(BPF_NEG, BPF_REG_{dst_reg}, 0),"
 exit_macro_template_0 = "BPF_MOV64_IMM(BPF_REG_0, 1),"
 exit_macro_template_1 = "BPF_EXIT_INSN(),"
 
-bpf_prog = {}
+bpf_prog = OrderedDict()
 bpf_prog_line_num = 0
 
 poc_from_synthesis = jsonfile_to_array(
-    "/home/harishankarv/rutgers/srinivas/bpf_synthesis/jsons/5.9_and32_s32.json")
+    "/home/harishankarv/rutgers/srinivas/bpf_synthesis/jsons/3_jmp_2.json")
 
+jump_insn_stack = []
 
 def handle_reg_is_singleton(reg_states_dict, conc64, is_reg_dst):
     global bpf_prog_line_num
@@ -205,12 +207,66 @@ def handle_reg_is_from_prev_insn(poc_insn_num, reg_states_dict, is_reg_dst):
         return j
 
 
+def is_jump_true_or_false(opcode, reg_sts_dict):
+
+    # unsigned less/greater
+    if (opcode == "BPF_JLE_32"):
+        return reg_sts_dict["dst_inp"]["conc32"] <= reg_sts_dict["src_inp"]["conc32"]
+    if (opcode == "BPF_JLE"):
+        return reg_sts_dict["dst_inp"]["conc64"] <= reg_sts_dict["src_inp"]["conc64"]
+
+    if (opcode == "BPF_JLT_32"):
+        return reg_sts_dict["dst_inp"]["conc32"] < reg_sts_dict["src_inp"]["conc32"]
+    if (opcode == "BPF_JLT"):
+        return reg_sts_dict["dst_inp"]["conc64"] < reg_sts_dict["src_inp"]["conc64"]
+
+    if (opcode == "BPF_JGE_32"):
+        return reg_sts_dict["dst_inp"]["conc32"] >= reg_sts_dict["src_inp"]["conc32"]
+    if (opcode == "BPF_JGE"):
+        return reg_sts_dict["dst_inp"]["conc64"] >= reg_sts_dict["src_inp"]["conc64"]
+
+    if (opcode == "BPF_JGT_32"):
+        return reg_sts_dict["dst_inp"]["conc32"] > reg_sts_dict["src_inp"]["conc32"]
+    if (opcode == "BPF_JGT"):
+        return reg_sts_dict["dst_inp"]["conc64"] > reg_sts_dict["src_inp"]["conc64"]
+
+    # signed less/greater
+    if (opcode == "BPF_JSLE_32"):
+        return reg_sts_dict["dst_inp"]["conc32"] <= reg_sts_dict["src_inp"]["conc32"]
+    if (opcode == "BPF_JSLE"):
+        return reg_sts_dict["dst_inp"]["conc64"] <= reg_sts_dict["src_inp"]["conc64"]
+
+    if (opcode == "BPF_JSLT_32"):
+        return reg_sts_dict["dst_inp"]["conc32"] < reg_sts_dict["src_inp"]["conc32"]
+    if (opcode == "BPF_JSLT"):
+        return reg_sts_dict["dst_inp"]["conc64"] < reg_sts_dict["src_inp"]["conc64"]
+
+    if (opcode == "BPF_JSGE_32"):
+        return reg_sts_dict["dst_inp"]["conc32"] >= reg_sts_dict["src_inp"]["conc32"]
+    if (opcode == "BPF_JSGE"):
+        return reg_sts_dict["dst_inp"]["conc64"] >= reg_sts_dict["src_inp"]["conc64"]
+
+    if (opcode == "BPF_JSGT_32"):
+        return reg_sts_dict["dst_inp"]["conc32"] > reg_sts_dict["src_inp"]["conc32"]
+    if (opcode == "BPF_JSGT"):
+        return reg_sts_dict["dst_inp"]["conc64"] > reg_sts_dict["src_inp"]["conc64"]
+
+    # equal/not equal
+    if (opcode == "BPF_JNE_32"):
+        return reg_sts_dict["dst_inp"]["conc32"] != reg_sts_dict["src_inp"]["conc32"]
+    if (opcode == "BPF_JNE"):
+        return reg_sts_dict["dst_inp"]["conc64"] != reg_sts_dict["src_inp"]["conc64"]
+    if (opcode == "BPF_JEQ_32"):
+        return reg_sts_dict["dst_inp"]["conc32"] == reg_sts_dict["src_inp"]["conc32"]
+    if (opcode == "BPF_JEQ"):
+        return reg_sts_dict["dst_inp"]["conc64"] == reg_sts_dict["src_inp"]["conc64"]
+
+
 for i, reg_sts_dict_i in enumerate(poc_from_synthesis):
-    print("----------")
-    print("insn: {}".format(i))
-    # pprint(dict_i)
     bitness_is_32 = "_32" in reg_sts_dict_i["insn"]
     opcode = reg_sts_dict_i["insn"].strip("_32")
+    print("insn: {}; opcode: {}; bitness: {}".format(
+        i, opcode, "32" if bitness_is_32 else "64"))
     dst_inp = reg_sts_dict_i["dst_inp"]
     src_inp = reg_sts_dict_i["src_inp"]
     dst_out = reg_sts_dict_i["dst_out"]
@@ -248,14 +304,80 @@ for i, reg_sts_dict_i in enumerate(poc_from_synthesis):
         ####################################################
 
     if is_alu_op(opcode):
-        insn_macro = alu_macro_template.format(
+        bpf_prog[bpf_prog_line_num] = alu_macro_template.format(
             bitness="32" if bitness_is_32 else "",
             bpf_alu_op=opcode,
             dst_reg=str(reg_sts_dict_i["dst_reg_num"]),
             src_reg=str(reg_sts_dict_i["src_reg_num"])
         )
-        bpf_prog[bpf_prog_line_num] = insn_macro
         bpf_prog_line_num += 1
         # pprint(dict_i)
 
+    # jump_macro_template = "BPF_JMP{bitness}_REG({bpf_jmp_op}, BPF_REG_{dst_reg}, BPF_REG_{src_reg}, {offset}),"
+    elif is_jump_op(opcode):
+        
+        # if this is the last instruction, both true and false paths lead to exit
+        if i == len(poc_from_synthesis) - 1:
+            print("last instruction")
+            bpf_prog[bpf_prog_line_num] = jump_macro_template.format(
+                bitness="32" if bitness_is_32 else "",
+                bpf_jmp_op = opcode,
+                dst_reg = str(reg_sts_dict_i["dst_reg_num"]),
+                src_reg = str(reg_sts_dict_i["src_reg_num"]),
+                offset = "2"
+            )
+            bpf_prog_line_num += 1
+            bpf_prog[bpf_prog_line_num] = exit_macro_template_0
+            bpf_prog_line_num += 1
+            bpf_prog[bpf_prog_line_num] = exit_macro_template_1
+            bpf_prog_line_num += 1
+            bpf_prog[bpf_prog_line_num] = exit_macro_template_0
+            bpf_prog_line_num += 1
+            bpf_prog[bpf_prog_line_num] = exit_macro_template_1
+            bpf_prog_line_num += 1
+        else:
+            jump_outcome = is_jump_true_or_false(opcode, reg_sts_dict_i)
+            if jump_outcome == True:
+                print("jump outcome is True")
+                bpf_prog[bpf_prog_line_num] = jump_macro_template.format(
+                    bitness="32" if bitness_is_32 else "",
+                    bpf_jmp_op = opcode,
+                    dst_reg = str(reg_sts_dict_i["dst_reg_num"]),
+                    src_reg = str(reg_sts_dict_i["src_reg_num"]),
+                    offset = "2"
+                )
+                bpf_prog_line_num += 1
+
+                # False branch leads to exit
+                bpf_prog[bpf_prog_line_num] = exit_macro_template_0
+                bpf_prog_line_num += 1
+                bpf_prog[bpf_prog_line_num] = exit_macro_template_1
+                bpf_prog_line_num += 1
+
+            else:
+                print("jump outcome is False")
+                bpf_prog[bpf_prog_line_num] = jump_macro_template.format(
+                    bitness="32" if bitness_is_32 else "",
+                    bpf_jmp_op = opcode,
+                    dst_reg = str(reg_sts_dict_i["dst_reg_num"]),
+                    src_reg = str(reg_sts_dict_i["src_reg_num"]),
+                    offset = "{offset}"
+                )
+                jump_insn_stack.append(bpf_prog_line_num)
+                bpf_prog_line_num += 1
+
+        print("----------")
+
+# print(jump_insn_stack)
+# resolve jump offsets
+while len(jump_insn_stack) != 0:
+    i = jump_insn_stack.pop()
+    offset = bpf_prog_line_num - i - 1
+    bpf_prog[i] = bpf_prog[i].format(offset = str(offset))
+    bpf_prog[bpf_prog_line_num] = exit_macro_template_0
+    bpf_prog_line_num += 1
+    bpf_prog[bpf_prog_line_num] = exit_macro_template_1
+    bpf_prog_line_num += 1
+
+# pprint(bpf_prog)
 print_bpf_prog(bpf_prog)
