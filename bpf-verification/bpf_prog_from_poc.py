@@ -146,7 +146,7 @@ bpf_prog = OrderedDict()
 bpf_prog_line_num = 0
 
 poc_from_synthesis = jsonfile_to_array(
-    "/home/harishankarv/rutgers/srinivas/bpf_synthesis/jsons/3_jmp_2.json")
+    "/home/harishankarv/rutgers/srinivas/cav23/cav23-artifact/bpf-verification/jsle_32_5_7rc1.json")
 
 jump_insn_stack = []
 
@@ -275,14 +275,17 @@ for i, reg_sts_dict_i in enumerate(poc_from_synthesis):
     # figure out dst input
     if is_singleton(dst_inp):
         handle_reg_is_singleton(reg_sts_dict_i, dst_inp["conc64"], True)
-        print("src reg is singleton")
+        print("dst reg is singleton")
     elif is_completely_unknown(dst_inp):
         handle_reg_is_completely_unknown(
             reg_sts_dict_i, dst_inp["conc64"], True)
-        print("src reg is unknown")
+        print("dst reg is unknown")
     else:
+        # TODO, handle_reg_is_from_prev_insn *before* singleton/unknown?
+        # it is might be possible to use an existing register instead of 
+        # assigning a new one. 
         prev_insn = handle_reg_is_from_prev_insn(i, reg_sts_dict_i, True)
-        print("src reg is from prev insn {}".format(prev_insn))
+        print("dst reg is from prev insn {}".format(prev_insn))
     if "dst_reg_num" not in reg_sts_dict_i:
         raise RuntimeError("Unable to find reg to assign to.\n"
                            "POC insn number: {}, opcode: {}, dst_inp".format(str(i), opcode))
@@ -290,14 +293,14 @@ for i, reg_sts_dict_i in enumerate(poc_from_synthesis):
     # figure out src input
     if is_singleton(src_inp):
         handle_reg_is_singleton(reg_sts_dict_i, src_inp["conc64"], False)
-        print("dst reg is singleton")
+        print("src reg is singleton")
     elif is_completely_unknown(src_inp):
         handle_reg_is_completely_unknown(
             reg_sts_dict_i, src_inp["conc64"], False)
-        print("dst reg is unknown")
+        print("src reg is unknown")
     else:
         prev_insn = handle_reg_is_from_prev_insn(i, reg_sts_dict_i, False)
-        print("dst reg is from prev insn {}".format(prev_insn))
+        print("src reg is from prev insn {}".format(prev_insn))
     if "src_reg_num" not in reg_sts_dict_i:
         raise RuntimeError("Unable to find reg to assign to.\n"
                            "POC insn number: {}, opcode: {}, src_inp".format(str(i), opcode))
@@ -311,6 +314,14 @@ for i, reg_sts_dict_i in enumerate(poc_from_synthesis):
             src_reg=str(reg_sts_dict_i["src_reg_num"])
         )
         bpf_prog_line_num += 1
+
+        # if this is the last instruction, exit
+        if i == len(poc_from_synthesis) - 1:
+            print("last instruction")
+            bpf_prog[bpf_prog_line_num] = exit_macro_template_0
+            bpf_prog_line_num += 1
+            bpf_prog[bpf_prog_line_num] = exit_macro_template_1
+            bpf_prog_line_num += 1
         # pprint(dict_i)
 
     # jump_macro_template = "BPF_JMP{bitness}_REG({bpf_jmp_op}, BPF_REG_{dst_reg}, BPF_REG_{src_reg}, {offset}),"
