@@ -1151,7 +1151,7 @@ class verification_synth_module:
                 # self.print_synthesis_model()
                 self.print_synthesized_program(p)
                 self.write_synthesis_bug_model(usr_config, p)
-                self.generate_json_model(usr_config)
+                self.generate_json_model(usr_config, p)
 
                 self.write_counter += 1
                 
@@ -1237,17 +1237,19 @@ class verification_synth_module:
             # 	print(colored(str(self.prog[i]) + "({}, {})".format(m[self.input_dst_reg_list[i].conc64], m[self.input_src_reg_list[i].conc64],  m[self.output_dst_reg_list[i].conc64]), "green"))
 
 
-    def generate_json_model(self, usr_config):
+    def generate_json_model(self, usr_config, bug_type):
         m = self.solver.model()
         reg_headers = ["conc64", "conc32", "var_off_value", "var_off_mask", "smin_value", "smax_value", "umin_value", "umax_value",  "s32_min_value", "s32_max_value", "u32_min_value", "u32_max_value"]
+        signed64_doms = ["smin_value", "smax_value"]
+        signed32_doms = ["s32_min_value", "s32_max_value"]
         prog_names = []
         json_dict = {}
         
         #create sub dictionaries
-        for i in self.prog:
+        for i, ele in enumerate(self.prog):
             #make a list of program names which are entries in dict
             prog_names.append(i)
-            json_dict[i] = {"inst_num": None, "dst_inp": {}, "src_inp": {}, "dst_out": {}, "src_out": {}}
+            json_dict[i] = {"insn": ele, "dst_inp": {}, "src_inp": {}, "dst_out": {}, "src_out": {}}
 
         for i in range(len(self.prog)):
             inp_dst_dict = vars(self.input_dst_reg_list[i])
@@ -1257,17 +1259,40 @@ class verification_synth_module:
 
             json_dict[prog_names[i]]["inst_num"] = i
             for j in reg_headers:
+                
+                if j in signed64_doms:
+                    json_dict[prog_names[i]]["dst_inp"][j] = ctypes.c_int64(m[inp_dst_dict[j]].as_long()).value
+                    json_dict[prog_names[i]]["dst_out"][j] = ctypes.c_int64(m[out_dst_dict[j]].as_long()).value
+                    json_dict[prog_names[i]]["src_inp"][j] = ctypes.c_int64(m[inp_src_dict[j]].as_long()).value
+                    json_dict[prog_names[i]]["src_out"][j] = ctypes.c_int64(m[out_dst_dict[j]].as_long()).value
 
-                json_dict[prog_names[i]]["dst_inp"][j] = m[inp_dst_dict[j]].as_long()
-                json_dict[prog_names[i]]["dst_out"][j] = m[out_dst_dict[j]].as_long()
-                json_dict[prog_names[i]]["src_inp"][j] = m[inp_src_dict[j]].as_long()
-                json_dict[prog_names[i]]["src_out"][j] = m[out_dst_dict[j]].as_long()
+                elif j in signed32_doms:
+                    json_dict[prog_names[i]]["dst_inp"][j] = ctypes.c_int32(m[inp_dst_dict[j]].as_long()).value
+                    json_dict[prog_names[i]]["dst_out"][j] = ctypes.c_int32(m[out_dst_dict[j]].as_long()).value
+                    json_dict[prog_names[i]]["src_inp"][j] = ctypes.c_int32(m[inp_src_dict[j]].as_long()).value
+                    json_dict[prog_names[i]]["src_out"][j] = ctypes.c_int32(m[out_dst_dict[j]].as_long()).value
+                
+                else:
+                    json_dict[prog_names[i]]["dst_inp"][j] = m[inp_dst_dict[j]].as_long()
+                    json_dict[prog_names[i]]["dst_out"][j] = m[out_dst_dict[j]].as_long()
+                    json_dict[prog_names[i]]["src_inp"][j] = m[inp_src_dict[j]].as_long()
+                    json_dict[prog_names[i]]["src_out"][j] = m[out_dst_dict[j]].as_long()
 
         directory = usr_config.write_path +"/bug_log_" + usr_config.kernel_ver + "/"
         if not os.path.exists(directory):
             os.makedirs(directory)
         
-        with open(directory + str(self.write_counter) + ".json", "w") as f:
+        filename = directory + str(usr_config.kernel_ver) + "_" + str(self.prog[-1]) + "_" + str(bug_type) + ".json"
+        filename = filename = filename.replace("unsigned_64", "u64")
+        filename = filename = filename.replace("Tnum", "tnum")
+        filename = filename = filename.replace("unsigned_32", "u32")
+        filename = filename = filename.replace("signed_64", "s64")
+        filename = filename = filename.replace("signed_32", "s32")
+        filename = filename.replace("BPF_", "")
+        filename = filename.replace("_32", "32")
+        filename = filename.lower()
+
+        with open(filename, "w") as f:
             json.dump(json_dict, f)
 
 
