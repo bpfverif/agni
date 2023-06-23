@@ -7,7 +7,7 @@ from pprint import pprint, pformat
 import sys
 from collections import OrderedDict
 import struct
-
+import os
 
 class BPF_PROG:
 
@@ -65,6 +65,10 @@ class BPF_PROG:
         for line_num, insn_macro in self.bpf_prog.items():
             s = s + "{}\n".format(insn_macro)
         return s.rstrip()
+    
+    def write_to_file(self, file):
+        with open(file, "w") as f:
+            f.write(str(self))
 
     def __jsonfile_to_array(self, json_filepath):
         f = open(json_filepath, "r")
@@ -404,14 +408,14 @@ if __name__ == "__main__":
                         default=1,
                         type=int)
     parser.add_argument("--jsonfile",
-                       help="single json POC file",
-                       type=str,
-                       required=False)
+                        help="single json POC file",
+                        type=str,
+                        required=False)
     args = parser.parse_args()
 
     if args.jsonfile:
         if args.debug_level == 2:
-                print(args.jsonfile)
+            print(args.jsonfile)
         bpf_prog_i = BPF_PROG(args.jsonfile, debug_level=args.debug_level)
         if args.debug_level == 2:
             print(pformat(bpf_prog_i.jsonpoc))
@@ -420,13 +424,16 @@ if __name__ == "__main__":
     elif args.jsondir:
         file_pattern = "{}/*.json".format(args.jsondir)
         file_list = glob.glob(file_pattern)
-        for json_poc_filepath in file_list:
+        for i, json_poc_filepath in enumerate(file_list):
+            poc_str = os.path.splitext(os.path.basename(json_poc_filepath))[0]
             if args.debug_level == 2:
                 print(json_poc_filepath)
-            bpf_prog_i = BPF_PROG(json_poc_filepath, debug_level=args.debug_level)
+            bpf_prog_i = BPF_PROG(
+                json_poc_filepath, debug_level=args.debug_level)
             if args.debug_level == 2:
                 print(pformat(bpf_prog_i.jsonpoc))
             bpf_prog_i.generate_bpf_prog()
+            bpf_prog_i.write_to_file(args.jsondir + "/prog_{}.txt".format(poc_str))
             print(bpf_prog_i)
             print("")
     else:
