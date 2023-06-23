@@ -343,7 +343,7 @@ class BPF_PROG:
                                    "POC insn number: {}, opcode: {}, src_inp".format(str(i), opcode))
 
             if self.is_alu_op(opcode):
-                self.emit_alu_insn("32" if bitness == 32 else "",
+                self.emit_alu_insn("32" if bitness == 32 else "64",
                                    opcode,
                                    str(reg_sts_dict_i["dst_reg_num"]),
                                    str(reg_sts_dict_i["src_reg_num"]))
