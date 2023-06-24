@@ -219,16 +219,16 @@ class BPF_PROG:
                 prev_reg_st["src_out"], curr_reg_st)
             if equal_to_prev_dst_out and reg_st_type == "dst":
                 insn_reg_sts_dict["dst_reg_num"] = prev_reg_st["dst_reg_num"]
-                return j, "dst"
+                return j, prev_reg_st["dst_reg_num"], "dst"
             elif equal_to_prev_dst_out and reg_st_type == "src":
                 insn_reg_sts_dict["src_reg_num"] = prev_reg_st["dst_reg_num"]
-                return j, "dst"
+                return j, prev_reg_st["dst_reg_num"], "dst"
             elif equal_to_prev_src_out and reg_st_type == "dst":
                 insn_reg_sts_dict["dst_reg_num"] = prev_reg_st["src_reg_num"]
-                return j, "src"
+                return j, prev_reg_st["src_reg_num"], "src"
             elif equal_to_prev_src_out and reg_st_type == "src":
                 insn_reg_sts_dict["src_reg_num"] = prev_reg_st["src_reg_num"]
-                return j, "src"
+                return j, prev_reg_st["src_reg_num"], "src"
 
     def emit_insn_singleton(self, assigned_reg, conc64):
         self.bpf_prog[self.bpf_prog_line_num] = BPF_PROG.reg_singleton_macro_template.format(
@@ -297,26 +297,28 @@ class BPF_PROG:
             opcode = reg_sts_dict_i["insn"].strip("_32")
             self.debug_print("insn: {}; opcode: {}; bitness: {}".format(
                 i, opcode, str(bitness)))
+            
+            assert (self.is_alu_op(opcode) or self.is_jump_op(opcode))
 
             # figure out dst input
             dst_inp_reg_st = reg_sts_dict_i["dst_inp"]
             dst_inp_conc64 = dst_inp_reg_st["conc64"]
             if self.reg_st_is_singleton(dst_inp_reg_st):
-                assigned_reg = self.assign_reg_singleton("dst", reg_sts_dict_i)
-                self.emit_insn_singleton(assigned_reg, dst_inp_conc64)
+                assigned_reg_dst = self.assign_reg_singleton("dst", reg_sts_dict_i)
+                self.emit_insn_singleton(assigned_reg_dst, dst_inp_conc64)
                 self.debug_print(
-                    "dst reg is singleton, assigned_reg: {}".format(assigned_reg))
+                    "dst reg is singleton, assigned reg: {}".format(assigned_reg_dst))
             elif self.reg_st_is_completely_unknown(dst_inp_reg_st):
-                assigned_reg = self.assign_reg_completely_unknown(
+                assigned_reg_dst = self.assign_reg_completely_unknown(
                     "dst", reg_sts_dict_i)
-                self.emit_insn_completely_unknown(assigned_reg, dst_inp_conc64)
+                self.emit_insn_completely_unknown(assigned_reg_dst, dst_inp_conc64)
                 self.debug_print(
-                    "dst reg is unknown, assigned_reg: {}".format(assigned_reg))
+                    "dst reg is unknown, assigned reg: {}".format(assigned_reg_dst))
             else:
-                prev_insn = self.assign_reg_from_prev_insn(
+                prev_insn_num, assigned_reg_dst, prev_insn_reg_type = self.assign_reg_from_prev_insn(
                     "dst", i, reg_sts_dict_i)
                 self.debug_print(
-                    "dst reg is from prev insn {}, {}".format(prev_insn[0], prev_insn[1]))
+                    "dst reg is from prev insn (#{}, {} reg), assigned reg: {}".format(prev_insn_num, prev_insn_reg_type, assigned_reg_dst))
             if "dst_reg_num" not in reg_sts_dict_i:
                 raise RuntimeError("Unable to find reg to assign to.\n"
                                    "POC insn number: {}, opcode: {}, dst_inp".format(str(i), opcode))
@@ -325,25 +327,26 @@ class BPF_PROG:
             src_inp_reg_st = reg_sts_dict_i["src_inp"]
             src_inp_conc64 = src_inp_reg_st["conc64"]
             if self.reg_st_is_singleton(src_inp_reg_st):
-                assigned_reg = self.assign_reg_singleton("src", reg_sts_dict_i)
-                self.emit_insn_singleton(assigned_reg, src_inp_conc64)
+                assigned_reg_src = self.assign_reg_singleton("src", reg_sts_dict_i)
+                self.emit_insn_singleton(assigned_reg_src, src_inp_conc64)
                 self.debug_print(
-                    "src reg is singleton, assigned_reg: {}".format(assigned_reg))
+                    "src reg is singleton, assigned reg: {}".format(assigned_reg_src))
             elif self.reg_st_is_completely_unknown(src_inp_reg_st):
-                assigned_reg = self.assign_reg_completely_unknown(
+                assigned_reg_src = self.assign_reg_completely_unknown(
                     "src", reg_sts_dict_i)
-                self.emit_insn_completely_unknown(assigned_reg, src_inp_conc64)
+                self.emit_insn_completely_unknown(assigned_reg_src, src_inp_conc64)
                 self.debug_print(
-                    "src reg is unknown, assigned_reg: {}".format(assigned_reg))
+                    "src reg is unknown, assigned reg: {}".format(assigned_reg_src))
             else:
-                prev_insn = self.assign_reg_from_prev_insn(
+                prev_insn_num, assigned_reg_src, prev_insn_reg_type = self.assign_reg_from_prev_insn(
                     "src", i, reg_sts_dict_i)
                 self.debug_print(
-                    "src reg is from prev insn {}, {}".format(prev_insn[0], prev_insn[1]))
+                    "src reg is from prev insn (#{}, {} reg), assigned reg: {}".format(prev_insn_num, prev_insn_reg_type, assigned_reg_src))
             if "src_reg_num" not in reg_sts_dict_i:
                 raise RuntimeError("Unable to find reg to assign to.\n"
                                    "POC insn number: {}, opcode: {}, src_inp".format(str(i), opcode))
 
+            # emit ALU instruction macros
             if self.is_alu_op(opcode):
                 self.emit_alu_insn("32" if bitness == 32 else "64",
                                    opcode,
@@ -353,7 +356,9 @@ class BPF_PROG:
                 if i == len(self.jsonpoc) - 1:
                     self.debug_print("last instruction")
                     self.emit_exit_insns()
-            elif self.is_jump_op(opcode):
+
+            # emit JUMP instruction macros
+            if self.is_jump_op(opcode):
                 # if this is the last instruction, both true and false paths lead to exit
                 if i == len(self.jsonpoc) - 1:
                     self.debug_print("last instruction")
@@ -382,11 +387,21 @@ class BPF_PROG:
                                             str(reg_sts_dict_i["dst_reg_num"]),
                                             str(reg_sts_dict_i["src_reg_num"]),
                                             offset="{offset}")
+                        
+            # if this is the last instruction, save the reg numbers
+            if i == len(self.jsonpoc) - 1:
+                self.final_insn_dst_reg = assigned_reg_dst
+                self.final_insn_src_reg = assigned_reg_src
+                self.debug_print("reg numbers: dst {}, src {}".format(self.final_insn_dst_reg, self.final_insn_src_reg))
 
-                self.debug_print("----------")
+            self.debug_print("----------")
 
         # now resolve jump offsets if any
         self.resolve_jump_insn_offsets()
+
+    def setup_bpf(self):
+        pass
+
 
     def __init__(self, json_poc_filepath, debug_level):
         self.reg_pool = set([1, 2, 3, 4, 5, 6, 7, 8, 9])
@@ -395,6 +410,8 @@ class BPF_PROG:
         self.jump_insn_stack = []
         self.jsonpoc = self.__jsonfile_to_array(json_poc_filepath)
         self.debug_level = debug_level
+        self.final_insn_dst_reg = -1
+        self.final_insn_src_reg = -1
 
 
 if __name__ == "__main__":
@@ -407,7 +424,7 @@ if __name__ == "__main__":
     parser.add_argument("--debug_level",
                         help="Debug level: 1 or 2",
                         required=False,
-                        default=1,
+                        default=2,
                         type=int)
     parser.add_argument("--jsonfile",
                         help="single json POC file",
