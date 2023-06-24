@@ -235,14 +235,16 @@ class BPF_PROG:
             dst_reg=str(assigned_reg),
             imm_value=conc64
         )
-        self.bpf_prog_line_num += 1
+        # BPF_LD_IMM64 is a two instruction macro
+        self.bpf_prog_line_num += 2
 
     def emit_insn_completely_unknown(self, assigned_reg, conc64):
         self.bpf_prog[self.bpf_prog_line_num] = BPF_PROG.reg_unknown_macro_template_0.format(
             dst_reg=str(assigned_reg),
             imm_value=conc64
         )
-        self.bpf_prog_line_num += 1
+        # BPF_LD_IMM64 is a two instruction macro
+        self.bpf_prog_line_num += 2
         self.bpf_prog[self.bpf_prog_line_num] = BPF_PROG.reg_unknown_macro_template_1.format(
             dst_reg=str(assigned_reg)
         )
