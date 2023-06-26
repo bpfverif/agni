@@ -1264,19 +1264,19 @@ class verification_synth_module:
                     json_dict[prog_names[i]]["dst_inp"][j] = ctypes.c_int64(m[inp_dst_dict[j]].as_long()).value
                     json_dict[prog_names[i]]["dst_out"][j] = ctypes.c_int64(m[out_dst_dict[j]].as_long()).value
                     json_dict[prog_names[i]]["src_inp"][j] = ctypes.c_int64(m[inp_src_dict[j]].as_long()).value
-                    json_dict[prog_names[i]]["src_out"][j] = ctypes.c_int64(m[out_dst_dict[j]].as_long()).value
+                    json_dict[prog_names[i]]["src_out"][j] = ctypes.c_int64(m[out_src_dict[j]].as_long()).value
 
                 elif j in signed32_doms:
                     json_dict[prog_names[i]]["dst_inp"][j] = ctypes.c_int32(m[inp_dst_dict[j]].as_long()).value
                     json_dict[prog_names[i]]["dst_out"][j] = ctypes.c_int32(m[out_dst_dict[j]].as_long()).value
                     json_dict[prog_names[i]]["src_inp"][j] = ctypes.c_int32(m[inp_src_dict[j]].as_long()).value
-                    json_dict[prog_names[i]]["src_out"][j] = ctypes.c_int32(m[out_dst_dict[j]].as_long()).value
+                    json_dict[prog_names[i]]["src_out"][j] = ctypes.c_int32(m[out_src_dict[j]].as_long()).value
                 
                 else:
                     json_dict[prog_names[i]]["dst_inp"][j] = m[inp_dst_dict[j]].as_long()
                     json_dict[prog_names[i]]["dst_out"][j] = m[out_dst_dict[j]].as_long()
                     json_dict[prog_names[i]]["src_inp"][j] = m[inp_src_dict[j]].as_long()
-                    json_dict[prog_names[i]]["src_out"][j] = m[out_dst_dict[j]].as_long()
+                    json_dict[prog_names[i]]["src_out"][j] = m[out_src_dict[j]].as_long()
 
         directory = usr_config.write_path +"/bug_log_" + usr_config.kernel_ver + "/"
         if not os.path.exists(directory):
