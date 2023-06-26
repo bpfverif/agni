@@ -377,12 +377,13 @@ class BPF_PROG:
                                    opcode,
                                    str(reg_sts_dict_i["dst_reg_num"]),
                                    str(reg_sts_dict_i["src_reg_num"]))
-                # if this is the last instruction, (save registers to stack and) exit
+                # if this is the last instruction, exit
                 if i == len(self.jsonpoc) - 1:
-                    self.emit_store_reg_to_stack_insns(assigned_reg_dst)
-                    self.emit_store_reg_to_stack_insns(assigned_reg_src)
-                    self.emit_map_store_insn(assigned_reg_dst)
-                    self.emit_map_store_insn(assigned_reg_src)
+                    if self.save_regs: # save regs first if necessary
+                        self.emit_store_reg_to_stack_insns(assigned_reg_dst)
+                        self.emit_store_reg_to_stack_insns(assigned_reg_src)
+                        self.emit_map_store_insn(assigned_reg_dst)
+                        self.emit_map_store_insn(assigned_reg_src)
                     self.emit_exit_insns()
 
             # emit JUMP instruction macros
@@ -397,31 +398,29 @@ class BPF_PROG:
                             str(reg_sts_dict_i["dst_reg_num"]),
                             str(reg_sts_dict_i["src_reg_num"]),
                             offset="2")
-                        # false path: exit
-                        self.emit_exit_insns()  
-                        # true path: save regs, then exit
-                        self.emit_store_reg_to_stack_insns(assigned_reg_dst)
-                        self.emit_store_reg_to_stack_insns(assigned_reg_src)
-                        self.emit_map_store_insn(assigned_reg_dst)
-                        self.emit_map_store_insn(assigned_reg_src)
-                        self.emit_exit_insns()
+                        self.emit_exit_insns()  # false path: exit
+                        if self.save_regs:  # true path: save regs first if necessary
+                            self.emit_store_reg_to_stack_insns(assigned_reg_dst)
+                            self.emit_store_reg_to_stack_insns(assigned_reg_src)
+                            self.emit_map_store_insn(assigned_reg_dst)
+                            self.emit_map_store_insn(assigned_reg_src)
+                        self.emit_exit_insns() # true path: exit
                     else:
                         self.debug_print("jump outcome is False")
                         self.emit_jump_insn("32" if bitness == 32 else "",
                             opcode,
                             str(reg_sts_dict_i["dst_reg_num"]),
                             str(reg_sts_dict_i["src_reg_num"]),
-                            offset="24")
-                        # false path: save regs, then exit
-                        self.emit_store_reg_to_stack_insns(assigned_reg_dst)
-                        self.emit_store_reg_to_stack_insns(assigned_reg_src)
-                        self.emit_map_store_insn(assigned_reg_dst)
-                        self.emit_map_store_insn(assigned_reg_src)
-                        self.emit_exit_insns()
-                        # true path, exit
-                        self.emit_exit_insns()
-                        
+                            offset="24" if self.save_regs else "2")  # NOTE: jump offset varies
+                        if self.save_regs: # false path: save regs first if necessary
+                            self.emit_store_reg_to_stack_insns(assigned_reg_dst)
+                            self.emit_store_reg_to_stack_insns(assigned_reg_src)
+                            self.emit_map_store_insn(assigned_reg_dst)
+                            self.emit_map_store_insn(assigned_reg_src)
+                        self.emit_exit_insns() # false path: exit
+                        self.emit_exit_insns() # true path: exit         
                 else:
+                    # if this is the not the last instruction
                     if jump_outcome == True:
                         self.debug_print("jump outcome is True")
                         self.emit_jump_insn("32" if bitness == 32 else "",
@@ -436,7 +435,8 @@ class BPF_PROG:
                                             opcode,
                                             str(reg_sts_dict_i["dst_reg_num"]),
                                             str(reg_sts_dict_i["src_reg_num"]),
-                                            offset="{offset}")
+                                            offset="{offset}") # jump offset will be resolved later
+                        # NOTE: go-to (true) case should lead to exit; those instructions will be added later, when jump offsets are resolved.
                         
             self.debug_print("----------")
 
@@ -447,11 +447,12 @@ class BPF_PROG:
         pass
 
 
-    def __init__(self, json_poc_filepath, debug_level):
+    def __init__(self, json_poc_filepath, debug_level, save_regs):
         self.reg_pool = set([1, 2, 3, 4, 5, 6, 7, 8, 9])
         self.bpf_prog = OrderedDict()
         self.bpf_prog_line_num = 0
         self.jump_insn_stack = []
+        self.save_regs= save_regs
         self.jsonpoc = self.__jsonfile_to_array(json_poc_filepath)
         self.debug_level = debug_level
         self.final_insn_dst_reg = -1
@@ -474,12 +475,15 @@ if __name__ == "__main__":
                         help="single json POC file",
                         type=str,
                         required=False)
+    parser.add_argument("--save_regs",
+                        help="emit additional instructions in the eBPF program to save registers to map before exiting",
+                        action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     if args.jsonfile:
         if args.debug_level == 2:
             print(args.jsonfile)
-        bpf_prog_i = BPF_PROG(args.jsonfile, debug_level=args.debug_level)
+        bpf_prog_i = BPF_PROG(args.jsonfile, debug_level=args.debug_level, save_regs=args.save_regs)
         if args.debug_level == 2:
             print(pformat(bpf_prog_i.jsonpoc))
         bpf_prog_i.generate_bpf_prog()
