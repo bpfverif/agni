@@ -49,6 +49,8 @@ class BPF_PROG:
     reg_unknown_macro_template_2 = "BPF_ALU64_IMM(BPF_NEG, BPF_REG_{dst_reg}, 0),"
     exit_macro_template_0 = "BPF_MOV64_IMM(BPF_REG_0, 1),"
     exit_macro_template_1 = "BPF_EXIT_INSN(),"
+    store_reg_to_stack_macro_template = "BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_{src_reg}, -{src_reg_plus_one} * size),"
+    map_store_macro_template = "MAP_STORE({reg_num})"
 
     def debug_print(self, s):
         if self.debug_level == 2:
@@ -275,6 +277,19 @@ class BPF_PROG:
             self.jump_insn_stack.append(self.bpf_prog_line_num)
         self.bpf_prog_line_num += 1
 
+    def emit_store_reg_to_stack_insns(self, reg_num):
+        self.bpf_prog[self.bpf_prog_line_num] = BPF_PROG.store_reg_to_stack_macro_template.format(
+            src_reg = str(reg_num),
+            src_reg_plus_one = str(reg_num + 1)
+        )
+        self.bpf_prog_line_num += 1
+
+    def emit_map_store_insn(self,reg_num):
+        self.bpf_prog[self.bpf_prog_line_num] = BPF_PROG.map_store_macro_template.format(
+            reg_num = str(reg_num)
+        )
+        self.bpf_prog_line_num += 10
+
     def emit_exit_insns(self):
         self.bpf_prog[self.bpf_prog_line_num] = BPF_PROG.exit_macro_template_0
         self.bpf_prog_line_num += 1
@@ -293,6 +308,8 @@ class BPF_PROG:
 
     def generate_bpf_prog(self):
         for i, reg_sts_dict_i in enumerate(self.jsonpoc):
+            self.debug_print("----------")
+
             bitness = 32 if "_32" in reg_sts_dict_i["insn"] else 64
             opcode = reg_sts_dict_i["insn"].strip("_32")
             self.debug_print("insn: {}; opcode: {}; bitness: {}".format(
@@ -345,6 +362,14 @@ class BPF_PROG:
             if "src_reg_num" not in reg_sts_dict_i:
                 raise RuntimeError("Unable to find reg to assign to.\n"
                                    "POC insn number: {}, opcode: {}, src_inp".format(str(i), opcode))
+            
+            # if this is the last instruction, save the reg numbers
+            if i == len(self.jsonpoc) - 1:
+                self.debug_print("last instruction")
+                self.final_insn_dst_reg = assigned_reg_dst
+                self.final_insn_src_reg = assigned_reg_src
+                self.debug_print("reg numbers: dst {}, src {}".format(self.final_insn_dst_reg, self.final_insn_src_reg))
+
 
             # emit ALU instruction macros
             if self.is_alu_op(opcode):
@@ -352,26 +377,51 @@ class BPF_PROG:
                                    opcode,
                                    str(reg_sts_dict_i["dst_reg_num"]),
                                    str(reg_sts_dict_i["src_reg_num"]))
-                # if this is the last instruction, exit
+                # if this is the last instruction, (save registers to stack and) exit
                 if i == len(self.jsonpoc) - 1:
-                    self.debug_print("last instruction")
+                    self.emit_store_reg_to_stack_insns(assigned_reg_dst)
+                    self.emit_store_reg_to_stack_insns(assigned_reg_src)
+                    self.emit_map_store_insn(assigned_reg_dst)
+                    self.emit_map_store_insn(assigned_reg_src)
                     self.emit_exit_insns()
 
             # emit JUMP instruction macros
             if self.is_jump_op(opcode):
+                jump_outcome = self.is_jump_true_or_false(opcode, reg_sts_dict_i)
                 # if this is the last instruction, both true and false paths lead to exit
                 if i == len(self.jsonpoc) - 1:
-                    self.debug_print("last instruction")
-                    self.emit_jump_insn("32" if bitness == 32 else "",
-                                        opcode,
-                                        str(reg_sts_dict_i["dst_reg_num"]),
-                                        str(reg_sts_dict_i["src_reg_num"]),
-                                        offset="2")
-                    self.emit_exit_insns()  # false path exit
-                    self.emit_exit_insns()  # true path exit
+                    if jump_outcome == True:
+                        self.debug_print("jump outcome is True")
+                        self.emit_jump_insn("32" if bitness == 32 else "",
+                            opcode,
+                            str(reg_sts_dict_i["dst_reg_num"]),
+                            str(reg_sts_dict_i["src_reg_num"]),
+                            offset="2")
+                        # false path: exit
+                        self.emit_exit_insns()  
+                        # true path: save regs, then exit
+                        self.emit_store_reg_to_stack_insns(assigned_reg_dst)
+                        self.emit_store_reg_to_stack_insns(assigned_reg_src)
+                        self.emit_map_store_insn(assigned_reg_dst)
+                        self.emit_map_store_insn(assigned_reg_src)
+                        self.emit_exit_insns()
+                    else:
+                        self.debug_print("jump outcome is False")
+                        self.emit_jump_insn("32" if bitness == 32 else "",
+                            opcode,
+                            str(reg_sts_dict_i["dst_reg_num"]),
+                            str(reg_sts_dict_i["src_reg_num"]),
+                            offset="24")
+                        # false path: save regs, then exit
+                        self.emit_store_reg_to_stack_insns(assigned_reg_dst)
+                        self.emit_store_reg_to_stack_insns(assigned_reg_src)
+                        self.emit_map_store_insn(assigned_reg_dst)
+                        self.emit_map_store_insn(assigned_reg_src)
+                        self.emit_exit_insns()
+                        # true path, exit
+                        self.emit_exit_insns()
+                        
                 else:
-                    jump_outcome = self.is_jump_true_or_false(
-                        opcode, reg_sts_dict_i)
                     if jump_outcome == True:
                         self.debug_print("jump outcome is True")
                         self.emit_jump_insn("32" if bitness == 32 else "",
@@ -388,12 +438,6 @@ class BPF_PROG:
                                             str(reg_sts_dict_i["src_reg_num"]),
                                             offset="{offset}")
                         
-            # if this is the last instruction, save the reg numbers
-            if i == len(self.jsonpoc) - 1:
-                self.final_insn_dst_reg = assigned_reg_dst
-                self.final_insn_src_reg = assigned_reg_src
-                self.debug_print("reg numbers: dst {}, src {}".format(self.final_insn_dst_reg, self.final_insn_src_reg))
-
             self.debug_print("----------")
 
         # now resolve jump offsets if any
