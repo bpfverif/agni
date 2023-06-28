@@ -138,58 +138,51 @@ class BPF_PROG:
                  reg_st["u32_max_value"])
         )
 
-    def is_jump_true_or_false(self, opcode, reg_sts_dict):
+    def is_jump_true_or_false(self, opcode, bitness, reg_sts_dict):
         # unsigned less/greater
-        if (opcode == "BPF_JLE_32"):
-            return reg_sts_dict["dst_inp"]["conc32"] <= reg_sts_dict["src_inp"]["conc32"]
-        if (opcode == "BPF_JLE"):
-            return reg_sts_dict["dst_inp"]["conc64"] <= reg_sts_dict["src_inp"]["conc64"]
+        if opcode == "BPF_JLE":
+            return ((reg_sts_dict["dst_inp"]["conc32"] <= reg_sts_dict["src_inp"]["conc32"]) if bitness == 32 else
+                    (reg_sts_dict["dst_inp"]["conc64"] <= reg_sts_dict["src_inp"]["conc64"]))
 
-        if (opcode == "BPF_JLT_32"):
-            return reg_sts_dict["dst_inp"]["conc32"] < reg_sts_dict["src_inp"]["conc32"]
-        if (opcode == "BPF_JLT"):
-            return reg_sts_dict["dst_inp"]["conc64"] < reg_sts_dict["src_inp"]["conc64"]
+        if opcode == "BPF_JLT":
+            return ((reg_sts_dict["dst_inp"]["conc32"] < reg_sts_dict["src_inp"]["conc32"]) if bitness == 32 else
+                    (reg_sts_dict["dst_inp"]["conc64"] < reg_sts_dict["src_inp"]["conc64"]))
 
-        if (opcode == "BPF_JGE_32"):
-            return reg_sts_dict["dst_inp"]["conc32"] >= reg_sts_dict["src_inp"]["conc32"]
-        if (opcode == "BPF_JGE"):
-            return reg_sts_dict["dst_inp"]["conc64"] >= reg_sts_dict["src_inp"]["conc64"]
+        if opcode == "BPF_JGE":
+            return ((reg_sts_dict["dst_inp"]["conc32"] >= reg_sts_dict["src_inp"]["conc32"]) if bitness == 32 else
+                    (reg_sts_dict["dst_inp"]["conc64"] >= reg_sts_dict["src_inp"]["conc64"]))
 
-        if (opcode == "BPF_JGT_32"):
-            return reg_sts_dict["dst_inp"]["conc32"] > reg_sts_dict["src_inp"]["conc32"]
-        if (opcode == "BPF_JGT"):
-            return reg_sts_dict["dst_inp"]["conc64"] > reg_sts_dict["src_inp"]["conc64"]
+        if opcode == "BPF_JGT":
+            return ((reg_sts_dict["dst_inp"]["conc32"] > reg_sts_dict["src_inp"]["conc32"]) if bitness == 32 else
+                    (reg_sts_dict["dst_inp"]["conc64"] > reg_sts_dict["src_inp"]["conc64"]))
 
         # signed less/greater
-        if (opcode == "BPF_JSLE_32"):
-            return reg_sts_dict["dst_inp"]["conc32"] <= reg_sts_dict["src_inp"]["conc32"]
-        if (opcode == "BPF_JSLE"):
-            return reg_sts_dict["dst_inp"]["conc64"] <= reg_sts_dict["src_inp"]["conc64"]
+        if opcode == "BPF_JSLE":
+            return ((reg_sts_dict["dst_inp"]["conc32"] <= reg_sts_dict["src_inp"]["conc32"]) if bitness == 32 else
+                    (reg_sts_dict["dst_inp"]["conc64"] <= reg_sts_dict["src_inp"]["conc64"]))
 
-        if (opcode == "BPF_JSLT_32"):
-            return reg_sts_dict["dst_inp"]["conc32"] < reg_sts_dict["src_inp"]["conc32"]
-        if (opcode == "BPF_JSLT"):
-            return reg_sts_dict["dst_inp"]["conc64"] < reg_sts_dict["src_inp"]["conc64"]
+        if opcode == "BPF_JSLT":
+            return ((reg_sts_dict["dst_inp"]["conc32"] < reg_sts_dict["src_inp"]["conc32"]) if bitness == 32 else
+                    (reg_sts_dict["dst_inp"]["conc64"] < reg_sts_dict["src_inp"]["conc64"]))
 
-        if (opcode == "BPF_JSGE_32"):
-            return reg_sts_dict["dst_inp"]["conc32"] >= reg_sts_dict["src_inp"]["conc32"]
-        if (opcode == "BPF_JSGE"):
-            return reg_sts_dict["dst_inp"]["conc64"] >= reg_sts_dict["src_inp"]["conc64"]
+        if opcode == "BPF_JSGE":
+            return ((reg_sts_dict["dst_inp"]["conc32"] >= reg_sts_dict["src_inp"]["conc32"]) if bitness == 32 else
+                    (reg_sts_dict["dst_inp"]["conc64"] >= reg_sts_dict["src_inp"]["conc64"]))
 
-        if (opcode == "BPF_JSGT_32"):
-            return reg_sts_dict["dst_inp"]["conc32"] > reg_sts_dict["src_inp"]["conc32"]
-        if (opcode == "BPF_JSGT"):
-            return reg_sts_dict["dst_inp"]["conc64"] > reg_sts_dict["src_inp"]["conc64"]
+        if opcode == "BPF_JSGT":
+            return ((reg_sts_dict["dst_inp"]["conc32"] > reg_sts_dict["src_inp"]["conc32"]) if bitness == 32 else
+                    (reg_sts_dict["dst_inp"]["conc64"] > reg_sts_dict["src_inp"]["conc64"]))
 
-        # equal/not equal
-        if (opcode == "BPF_JNE_32"):
-            return reg_sts_dict["dst_inp"]["conc32"] != reg_sts_dict["src_inp"]["conc32"]
-        if (opcode == "BPF_JNE"):
-            return reg_sts_dict["dst_inp"]["conc64"] != reg_sts_dict["src_inp"]["conc64"]
-        if (opcode == "BPF_JEQ_32"):
-            return reg_sts_dict["dst_inp"]["conc32"] == reg_sts_dict["src_inp"]["conc32"]
-        if (opcode == "BPF_JEQ"):
-            return reg_sts_dict["dst_inp"]["conc64"] == reg_sts_dict["src_inp"]["conc64"]
+        # equal
+        if opcode == "BPF_JNE":
+            return ((reg_sts_dict["dst_inp"]["conc32"] != reg_sts_dict["src_inp"]["conc32"]) if bitness == 32 else
+                    (reg_sts_dict["dst_inp"]["conc64"] != reg_sts_dict["src_inp"]["conc64"]))
+
+        # not equal
+        if opcode == "BPF_JEQ":
+            return ((reg_sts_dict["dst_inp"]["conc32"] == reg_sts_dict["src_inp"]["conc32"]) if bitness == 32 else
+                    (reg_sts_dict["dst_inp"]["conc64"] == reg_sts_dict["src_inp"]["conc64"]))
+
 
     def assign_reg_singleton(self, reg_st_type, insn_reg_sts_dict):
         assigned_reg = self.reg_pool.pop()
@@ -388,7 +381,7 @@ class BPF_PROG:
 
             # emit JUMP instruction macros
             if self.is_jump_op(opcode):
-                jump_outcome = self.is_jump_true_or_false(opcode, reg_sts_dict_i)
+                jump_outcome = self.is_jump_true_or_false(opcode, bitness, reg_sts_dict_i)
                 # if this is the last instruction, both true and false paths lead to exit
                 if i == len(self.jsonpoc) - 1:
                     if jump_outcome == True:
@@ -488,6 +481,9 @@ if __name__ == "__main__":
             print(pformat(bpf_prog_i.jsonpoc))
         bpf_prog_i.generate_bpf_prog()
         print(bpf_prog_i)
+        poc_str = os.path.splitext((os.path.basename(os.path.abspath(args.jsonfile))))[0]
+        json_dir = os.path.dirname(os.path.abspath(args.jsonfile))
+        bpf_prog_i.write_to_file(json_dir + "/bpf_prog_{}.txt".format(poc_str))
     elif args.jsondir:
         file_pattern = "{}/*.json".format(args.jsondir)
         file_list = glob.glob(file_pattern)
@@ -496,11 +492,11 @@ if __name__ == "__main__":
             if args.debug_level == 2:
                 print(json_poc_filepath)
             bpf_prog_i = BPF_PROG(
-                json_poc_filepath, debug_level=args.debug_level)
+                json_poc_filepath, debug_level=args.debug_level, save_regs=args.save_regs)
             if args.debug_level == 2:
                 print(pformat(bpf_prog_i.jsonpoc))
             bpf_prog_i.generate_bpf_prog()
-            bpf_prog_i.write_to_file(args.jsondir + "/prog_{}.txt".format(poc_str))
+            bpf_prog_i.write_to_file(args.jsondir + "/bpf_prog_{}.txt".format(poc_str))
             print(bpf_prog_i)
             print("")
     else:
