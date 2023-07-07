@@ -66,7 +66,7 @@ class BPF_PROG:
         s = ""
         for line_num, insn_macro in self.bpf_prog.items():
             s = s + "{}\n".format(insn_macro)
-        return s.rstrip()
+        return s
     
     def write_to_file(self, file):
         with open(file, "w") as f:
@@ -298,6 +298,10 @@ class BPF_PROG:
             self.bpf_prog_line_num += 1
             self.bpf_prog[self.bpf_prog_line_num] = BPF_PROG.exit_macro_template_1
             self.bpf_prog_line_num += 1
+    
+    def add_comments(self):
+        self.bpf_prog[self.bpf_prog_line_num] = "/* " + str(self.last_insn_num) + ";" + str(self.jump_outcome) + " */"
+        self.bpf_prog_line_num += 1
 
     def generate_bpf_prog(self):
         for i, reg_sts_dict_i in enumerate(self.jsonpoc):
@@ -366,24 +370,32 @@ class BPF_PROG:
 
             # emit ALU instruction macros
             if self.is_alu_op(opcode):
-                self.emit_alu_insn("32" if bitness == 32 else "64",
-                                   opcode,
-                                   str(reg_sts_dict_i["dst_reg_num"]),
-                                   str(reg_sts_dict_i["src_reg_num"]))
                 # if this is the last instruction, exit
                 if i == len(self.jsonpoc) - 1:
+                    self.last_insn_num = self.bpf_prog_line_num # save insn num
+                    self.emit_alu_insn("32" if bitness == 32 else "64",
+                        opcode,
+                        str(reg_sts_dict_i["dst_reg_num"]),
+                        str(reg_sts_dict_i["src_reg_num"]))
                     if self.save_regs: # save regs first if necessary
                         self.emit_store_reg_to_stack_insns(assigned_reg_dst)
                         self.emit_store_reg_to_stack_insns(assigned_reg_src)
                         self.emit_map_store_insn(assigned_reg_dst)
                         self.emit_map_store_insn(assigned_reg_src)
-                    self.emit_exit_insns()
+                    self.emit_exit_insns() # exit 
+                else:
+                    # if this is the not the last instruction
+                    self.emit_alu_insn("32" if bitness == 32 else "64",
+                        opcode,
+                        str(reg_sts_dict_i["dst_reg_num"]),
+                        str(reg_sts_dict_i["src_reg_num"]))
 
             # emit JUMP instruction macros
             if self.is_jump_op(opcode):
                 jump_outcome = self.is_jump_true_or_false(opcode, bitness, reg_sts_dict_i)
                 # if this is the last instruction, both true and false paths lead to exit
                 if i == len(self.jsonpoc) - 1:
+                    self.last_insn_num = self.bpf_prog_line_num # save insn num
                     if jump_outcome == True:
                         self.debug_print("jump outcome is True")
                         self.emit_jump_insn("32" if bitness == 32 else "",
@@ -392,6 +404,7 @@ class BPF_PROG:
                             str(reg_sts_dict_i["src_reg_num"]),
                             offset="2")
                         self.emit_exit_insns()  # false path: exit
+                        self.jump_outcome = 1
                         if self.save_regs:  # true path: save regs first if necessary
                             self.emit_store_reg_to_stack_insns(assigned_reg_dst)
                             self.emit_store_reg_to_stack_insns(assigned_reg_src)
@@ -400,6 +413,7 @@ class BPF_PROG:
                         self.emit_exit_insns() # true path: exit
                     else:
                         self.debug_print("jump outcome is False")
+                        self.jump_outcome = 0
                         self.emit_jump_insn("32" if bitness == 32 else "",
                             opcode,
                             str(reg_sts_dict_i["dst_reg_num"]),
@@ -435,6 +449,8 @@ class BPF_PROG:
 
         # now resolve jump offsets if any
         self.resolve_jump_insn_offsets()
+        # now add a comment about which line number is the last instruction
+        self.add_comments()
 
     def setup_bpf(self):
         pass
@@ -450,6 +466,8 @@ class BPF_PROG:
         self.debug_level = debug_level
         self.final_insn_dst_reg = -1
         self.final_insn_src_reg = -1
+        self.last_insn_num = -1
+        self.jump_outcome = -1
 
 
 if __name__ == "__main__":
