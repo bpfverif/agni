@@ -514,7 +514,11 @@ if __name__ == "__main__":
             if args.debug_level == 2:
                 print(pformat(bpf_prog_i.jsonpoc))
             bpf_prog_i.generate_bpf_prog()
-            bpf_prog_i.write_to_file(args.jsondir + "/bpf_prog_{}.txt".format(poc_str))
+            if not args.save_regs:
+                outfile_path = args.jsondir + "/bpf_prog_minimal_{}.txt".format(poc_str)
+            else:
+                outfile_path = args.jsondir + "/bpf_prog_{}.txt".format(poc_str)
+            bpf_prog_i.write_to_file(outfile_path)
             print(bpf_prog_i)
             print("")
     else:
