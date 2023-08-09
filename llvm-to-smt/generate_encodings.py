@@ -44,6 +44,9 @@ bpf_jmp_ops = [
     "BPF_JSLT"
 ]
 
+bpf_sync_op = [
+    "BPF_SYNC"
+]
 
 def insert_sync_wrapper(verifier_c_filepath, kernver):
     wrapper_sync = ''
@@ -326,10 +329,15 @@ def mark_reg_unknown_memset_remove(verifier_c_filepath):
     func_start_found = False
     memset_removal_done = False
     input_file_line_iter = iter(input_file_lines)
-    for line in input_file_line_iter:
+    for i, line in enumerate(input_file_line_iter):
         if not memset_removal_done:
-            if r"void __mark_reg_unknown(" in line:
-                func_start_found = True
+            if r"static void __mark_reg_unknown(const struct bpf_verifier_env *env," in line:
+                next_line = next(input_file_line_iter)
+                line += next_line
+                next_next_line = next(input_file_line_iter)
+                line += next_next_line
+                if "struct bpf_reg_state *reg)" in next_line and "{" in next_next_line:
+                    func_start_found = True
             if func_start_found and "memset" in line:
                 line = r'//' + line
                 num_parens_open = line.count("(")
@@ -373,6 +381,7 @@ if __name__ == "__main__":
                         type=str, required=False, default="/home/cav23-artifact/llvm-to-smt/llvm-passes")
     parser.add_argument("--specific-op", dest='specific_op',
                         help='single specific BPF op to encode',
+                        choices= bpf_alu_ops + bpf_jmp_ops,
                         type=str, required=False)
 
     args = parser.parse_args()
@@ -389,8 +398,12 @@ if __name__ == "__main__":
     if args.specific_op is not None:
         if args.specific_op in bpf_alu_ops:
             bpf_alu_ops = [args.specific_op]
+            bpf_jmp_ops = []
+            bpf_sync_op = []
         elif args.specific_op in bpf_jmp_ops:
             bpf_jmp_ops = [args.specific_op]
+            bpf_alu_ops = []
+            bpf_sync_op = []
         else:
             raise RuntimeError(
                 'Unsupported BPF op {}'.format(args.specific_op))
@@ -658,7 +671,7 @@ if __name__ == "__main__":
             print(colored(" ... done", 'green'))
 
     # SYNC
-    for i, op in enumerate(["BPF_SYNC"], start=idx+1):
+    for i, op in enumerate(bpf_sync_op, start=idx+1):
         idx = i
         print(colored("Getting encoding for {}".format(
             op), 'green'), flush=True, end="")
