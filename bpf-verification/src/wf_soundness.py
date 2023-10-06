@@ -13,6 +13,7 @@ import itertools
 import argparse
 import json
 import toml
+from multiprocessing import Pool
 
 
 #function to check soundness of a bpf instruction using all wellformed
@@ -31,8 +32,15 @@ def check_wf_soundness(usr_config):
     wf_ver_set = set()
     
     #enumerate product of given insn sets by taking product of all sets given
+    pool = Pool()
+    results = []
+    i = 1
     for prog in itertools.product(*usr_config.insn_set_list):
-        prog_execution_time, violated_prop_list = check_wf_soundness_insn(usr_config, prog, wf_stats)
+        results.append(pool.apply_async(check_wf_soundness_insn, (i, usr_config, prog, wf_stats)))
+        i += 1
+
+    for result in results:
+        prog, prog_execution_time, violated_prop_list = result.get()
         nb_violated_prop = len(violated_prop_list)
         check_output = "sat" if nb_violated_prop > 0 else "unsat"
         wf_stats.eval_dict[",".join(prog)] = list((prog_execution_time, check_output, violated_prop_list))
@@ -52,7 +60,7 @@ def check_wf_soundness(usr_config):
     return wf_ver_set
 
 
-def check_wf_soundness_insn(usr_config, prog, wf_stats):
+def check_wf_soundness_insn(iteration, usr_config, prog, wf_stats):
     #initialize construct for wf verification
     wf_module = lr.verification_synth_module(usr_config)
 
@@ -117,20 +125,19 @@ def check_wf_soundness_insn(usr_config, prog, wf_stats):
     ############################################################################
     # Solve
     ############################################################################
-    print(str(wf_stats.iteration) + "/" + str(wf_stats.total_progs), "Verifying " + str(prog[0]) + " ... ", end =" ", flush=True)
+    print(str(iteration) + "/" + str(wf_stats.total_progs), "Verifying " + str(prog[0]) + "...")
     #set spec in object for printing purposes
     wf_module.set_spec(f_gen_const, f_pre_cond, f_post_cond)
     #check violated bounds for current instruction
     wf_module.check_bug_violations()
-    print(colored("Done.", "green")) #"Bounds violated: ", wf_module.violated_prop_list)
+    print(str(iteration) + "/" + str(wf_stats.total_progs) + " " + str(prog[0]) + " " + colored("Done.", "green"))
 
     wf_stats.end_time = time.time()
     wf_stats.set_execution_time()
 
     #wf_stats.set_elapsed_time()
     #wf_stats.print_verification_stats()
-    wf_stats.iteration += 1
-    return wf_stats.prog_execution_time, copy.deepcopy(wf_module.violated_prop_list)
+    return prog, wf_stats.prog_execution_time, copy.deepcopy(wf_module.violated_prop_list)
 
 
 # test
