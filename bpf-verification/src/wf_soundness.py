@@ -116,7 +116,7 @@ def check_wf_soundness(usr_config):
             usr_config.gen_unsound_insn += 1
         
 
-        wf_stats.set_elapsed_time()
+        #wf_stats.set_elapsed_time()
         #wf_stats.print_verification_stats()
         wf_stats.iteration += 1
     print(colored("gen Verification Complete", "green"))
