@@ -27,13 +27,14 @@ def check_wf_soundness(usr_config):
     #keep track of verification stats
     wf_stats = lr.process_stats()
     wf_stats.total_progs = str(len(list(itertools.product(*usr_config.insn_set_list))))
-    #initialize construct for wf verification
-    wf_module = lr.verification_synth_module(usr_config)
     #structures specific to wf verification
     wf_ver_set = set()
     
     #enumerate product of given insn sets by taking product of all sets given
     for prog in itertools.product(*usr_config.insn_set_list):
+        #initialize construct for wf verification
+        wf_module = lr.verification_synth_module(usr_config)
+
         wf_module.prog = prog
         wf_module.prog_size = len(prog)
         wf_stats.start_time = time.time()
