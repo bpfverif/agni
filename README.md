@@ -89,25 +89,22 @@ known issues to report.
 
 ### Dependencies
 
-Our software has the following dependencies
+Our software has the following dependencies:
 ```
 clang-12
 llvm-12
 llvm-12-tools
 python3
+python3-pip
 make
 cmake
 libjsoncpp-dev
 libz3-dev
 ```
 
-It also depends on the following python packages:
+It also requires a few Python packages:
 ```
-packaging
-prettytable
-termcolor
-toml
-z3-solver
+pip install requirements.txt
 ```
 
 Finally, the `lib_reg_bounds_tracking` package must be installed from sources:
