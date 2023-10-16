@@ -20,7 +20,8 @@ def main():
 
     #setup argparse and customized options
     bpf_instructions_set = ["BPF_AND", "BPF_OR", "BPF_LSH", "BPF_RSH", "BPF_JLT", "BPF_JLE", "BPF_JEQ", "BPF_JNE", "BPF_JGE", "BPF_JGT", "BPF_JSGE", "BPF_JSGT", "BPF_JSLT", "BPF_JSLE", "BPF_ADD", "BPF_SUB", "BPF_XOR", "BPF_ARSH", "BPF_OR_32", "BPF_AND_32", "BPF_LSH_32", "BPF_RSH_32", "BPF_ADD_32", "BPF_SUB_32", "BPF_XOR_32", "BPF_ARSH_32", "BPF_JLT_32", "BPF_JLE_32", "BPF_JSLT_32", "BPF_JSLE_32", "BPF_JEQ_32", "BPF_JNE_32", "BPF_JGE_32", "BPF_JGT_32", "BPF_JSGE_32", "BPF_JSGT_32"]
-    parser = argp.ArgumentParser(prog="eBPF Verification and Synthesis", epilog="Possible bpf instructions: {BPF_AND,BPF_OR,BPF_LSH,BPF_RSH,BPF_JLT,BPF_JLE,BPF_JEQ,BPF_JNE,BPF_JGE,BPF_JGT,BPF_JSGE,BPF_JSGT,BPF_JSLT,BPF_JSLE,BPF_ADD,BPF_SUB,BPF_XOR,BPF_ARSH,BPF_OR_32,BPF_AND_32,BPF_LSH_32,BPF_RSH_32,BPF_ADD_32,BPF_SUB_32,BPF_XOR_32,BPF_ARSH_32,BPF_JLT_32,BPF_JLE_32,BPF_JSLT_32,BPF_JSLE_32,BPF_JEQ_32,BPF_JNE_32,BPF_JGE_32,BPF_JGT_32,BPF_JSGE_32,BPF_JSGT_32}")
+    epilog = "Possible bpf instructions: %s" % ", ".join(bpf_instructions_set)
+    parser = argp.ArgumentParser(prog="eBPF Verification and Synthesis", epilog=epilog)
     parser.add_argument('--kernver', type=str, required=True, help="kernel version")
     parser.add_argument('--json_offset', type=int, help="offset for mapping bpf_reg_states, should be set to 4 for v4.14, 5 for v4.15–v6.2, and 3 for v6.3+", default=3)
     parser.add_argument('--encodings_path', type=str, required=True, help="set path to bpf encodings produced by llvm-to-smt")
