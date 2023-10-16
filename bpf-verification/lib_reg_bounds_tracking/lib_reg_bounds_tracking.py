@@ -579,13 +579,11 @@ class config_setup:
                 verification_set.add(i)
             self.insn_set_list = [verification_set]
         else:
-            self.insn_set_list = [self.OPS_set] 
-        #bug type per instruction dictionary - should be empty by default
-        if len(config_file["bug_dict"]) == 0 :
-            self.bugs_dict = {}
-            self.set_bug_type_dict()
-        else:
-            self.bugs_dict = config_file["bug_dict"]
+            self.insn_set_list = [self.OPS_set]
+        
+            self.insn_set_list = [self.OPS_set]
+        self.bugs_dict = {}
+        self.set_bug_type_dict()
         
 
     #setting which bpf_ops to use 32/64 or some specific
