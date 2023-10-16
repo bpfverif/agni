@@ -36,6 +36,9 @@ def main():
     parsed_config["kernel_ver"] = args.kernver
     parsed_config["json_offset"] = args.json_offset
     parsed_config["bpf_encodings_path"] = args.encodings_path
+    if not os.path.isdir(args.res_path):
+        print("'%s' does not exist or is not a directory" % args.res_path, file=sys.stderr)
+        exit(1)
     parsed_config["write_dir_path"] = args.res_path
     parsed_config["num_synthesis_iter"] = args.synth_iter
     parsed_config["insn_set"] = args.synth_set
