@@ -110,6 +110,12 @@ toml
 z3-solver
 ```
 
+Finally, the `lib_reg_bounds_tracking` package must be installed from sources:
+```
+cd bpf-verification
+pip install .
+```
+
 --------------------------------------------------------------------------------
 
 ## (1.) Automatically extracting the semantics of the Linux kernel's C code to SMT (30 minutes)
