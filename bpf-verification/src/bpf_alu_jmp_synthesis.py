@@ -11,6 +11,7 @@ import time
 import itertools
 import argparse as argp
 import json
+from packaging import version
 
 
 ###############################################################################
@@ -23,7 +24,7 @@ def main():
     epilog = "Possible bpf instructions: %s" % ", ".join(bpf_instructions_set)
     parser = argp.ArgumentParser(prog="eBPF Verification and Synthesis", epilog=epilog)
     parser.add_argument('--kernver', type=str, required=True, help="kernel version")
-    parser.add_argument('--json_offset', type=int, help="offset for mapping bpf_reg_states, should be set to 4 for v4.14, 5 for v4.15–v6.2, and 3 for v6.3+", default=3)
+    parser.add_argument('--json_offset', type=int, help="offset for mapping bpf_reg_states, should be set to 4 for v4.14, 5 for v4.15–v6.2, and 3 for v6.3+")
     parser.add_argument('--encodings_path', type=str, required=True, help="set path to bpf encodings produced by llvm-to-smt")
     parser.add_argument('--res_path', type=str, required=True, help="set path to directory where results will be written")
     parser.add_argument('--synth_iter', type=int, help="set sequence length to synthesize", default=3)
@@ -34,6 +35,14 @@ def main():
     #update config options based on user inputs
     parsed_config = {}
     parsed_config["kernel_ver"] = args.kernver
+    if not args.json_offset:
+        kernver = version.parse(args.kernver)
+        if kernver < version.parse("4.15"):
+            args.json_offset = 4
+        elif kernver >= version.parse("6.3"):
+            args.json_offset = 3
+        else:
+            args.json_offset = 5
     parsed_config["json_offset"] = args.json_offset
     parsed_config["bpf_encodings_path"] = args.encodings_path
     if not os.path.isdir(args.res_path):
