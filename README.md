@@ -123,13 +123,7 @@ verifier's C code as described in our paper (§5). Our tool
 produces the first-order logic formula (in
 [SMT-LIB](https://smtlib.cs.uiowa.edu/papers/smt-lib-reference-v2.6-r2021-05-12.pdf)
 format) for the abstract semantics defined in Linux Kernel
-for each eBPF instruction. 
-
-### Load and run the docker image
-```
-docker load < cav23-artifact-docker.tar  
-docker run -it cav23-artifact:publish
-```
+for each eBPF instruction.
 
 ### Clone the Linux git repository (15 minutes)
 ```
