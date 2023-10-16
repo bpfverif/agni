@@ -579,6 +579,14 @@ if __name__ == "__main__":
     logfile.flush()
     logfile_err.flush()
 
+    ########################################
+    # Prepare .config file for llvm-to-smt #
+    ########################################
+    config_fullpath = scriptsdir_fullpath.joinpath(".config")
+    with open(config_fullpath, "w") as config_file:
+        config_file.write("LLVM_DIR=\"%s\"\n" % llvmdir_fullpath)
+        config_file.write("BASE_DIR=\"%s\"\n" % scriptsdir_fullpath)
+
     # ###################################
     # # Run llvm passes and llvm-to-smt #
     # ###################################
