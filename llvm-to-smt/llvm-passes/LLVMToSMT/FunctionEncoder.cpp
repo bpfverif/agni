@@ -472,6 +472,56 @@ void FunctionEncoder::handleSelectInst(SelectInst &i) {
   BBAsstVecIter->second.push_back(selectEncoding);
 }
 
+void FunctionEncoder::handleSwitchInst(SwitchInst &i) {
+  std::unordered_map<BasicBlock *, z3::expr> successors;
+  z3::expr cond = BitVecHelper::getBitVecSingValType(i.getCondition());
+
+  /* If there exists a path condition for currentBB, we will need to conjunct it */
+  z3::expr currentBBPathCond = ctx.bool_val(true);
+  if (pathConditionsMap.find(currentBB) != pathConditionsMap.end())
+    currentBBPathCond = pathConditionsMap.at(currentBB);
+
+  /* Iterate over switch cases and conjunct cases with the same basic block destination */
+  for (auto caseIt = i.case_begin(); caseIt != i.case_end(); caseIt++) {
+    BasicBlock *dst = caseIt->getCaseSuccessor();
+    auto it = successors.find(dst);
+    z3::expr caseVal = BitVecHelper::getBitVecSingValType(caseIt->getCaseValue());
+    if (it == successors.end()) {
+      successors.insert({dst, cond == caseVal});
+    } else {
+      it->second = it->second || (cond == caseVal);
+    }
+  }
+
+  for (auto it = successors.begin(); it != successors.end(); it++) {
+    /* Conjunct with any path condition for currentBB */
+    auto pathCond = currentBBPathCond && it->second;
+
+    /* First update EdgeAssertionsMap */
+    BBPair bbPair = std::make_pair(currentBB, it->first);
+    assert(EdgeAssertionsMap.find(bbPair) == EdgeAssertionsMap.end());
+    EdgeAssertionsMap.insert({bbPair, pathCond});
+
+    /* Now update PathConditionsMap. If there exists a path condition for the
+     * destBB disjunct it and finally, update pathConditionsMap */
+    auto PCIter1 = pathConditionsMap.find(it->first);
+    if (PCIter1 != pathConditionsMap.end()) {
+      PCIter1->second = (pathCond || pathConditionsMap.at(it->first));
+    } else {
+      pathConditionsMap.insert({it->first, pathCond});
+    }
+
+    outs() << "[handleSwitchInst] " << it->first->getName() << ": "
+           << pathConditionsMap.at(it->first).to_string().c_str() << "\n";
+    outs() << "[handleSwitchInst] "
+           << "<" << bbPair.first->getName() << ", "
+           << bbPair.second->getName()
+           << "> :" << EdgeAssertionsMap.at(bbPair).to_string().c_str()
+           << "\n";
+  }
+
+}
+
 void FunctionEncoder::handleBranchInst(BranchInst &i) {
   outs() << "[handleBranchInst] "
          << "EdgeAssertionsMap:\n";
@@ -1027,6 +1077,8 @@ void FunctionEncoder::populatePathConditionsMap(BasicBlock &B) {
            << "-------------------\n";
     if (isa<BranchInst>(&I)) {
       handleBranchInst(*(dyn_cast<BranchInst>(&I)));
+    } else if (isa<SwitchInst>(&I)) {
+      handleSwitchInst(*(dyn_cast<SwitchInst>(&I)));
     } else {
       continue;
     }
