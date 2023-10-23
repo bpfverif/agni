@@ -151,6 +151,7 @@ public:
   void handleICmpInst(ICmpInst &i);
   void handleSelectInst(SelectInst &i);
   void handleBranchInst(BranchInst &i, FunctionEncoderPassType passID);
+  void handleSwitchInst(SwitchInst &i, FunctionEncoderPassType passID);
   void handlePhiNode(PHINode &inst, int passID);
   void handlePhiNodeSetupBitVecs(PHINode &inst);
   void handlePhiNodeResolvePathConditions(PHINode &inst);
