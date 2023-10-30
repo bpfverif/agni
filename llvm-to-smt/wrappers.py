@@ -290,12 +290,91 @@ void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 '''
 
 # 5.1-rc1 to 5.3-rc1
-wrapper32_jmp_2 = wrapper_jmp_2.replace(
+wrapper_jmp_3 = '''
+
+void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
+			       struct bpf_reg_state *src_reg,
+			       struct bpf_reg_state *other_branch_dst_reg,
+			       struct bpf_reg_state *other_branch_src_reg)
+{{
+	struct bpf_insn insn;
+	u8 opcode;
+	bool is_jmp32;
+	int pred = -1;
+
+	/* Set BPF insn */
+	insn = BPF_JMP_REG({}, BPF_REG_1, BPF_REG_2, 0);
+	opcode = BPF_OP(insn.code);
+	dst_reg->type = SCALAR_VALUE;
+	src_reg->type = SCALAR_VALUE;
+
+	/* Perform custom push_stack to make sure we have don't have garbage values
+	 * for other_branch_regs in case pred != -1
+	 */
+	push_stack___(other_branch_dst_reg, dst_reg);
+	push_stack___(other_branch_src_reg, src_reg);
+
+	/* Kernel copy-pasted code begins */
+	is_jmp32 = BPF_CLASS(insn.code) == BPF_JMP32;
+
+	if (BPF_SRC(insn.code) == BPF_K) {{
+		pred = is_branch_taken(dst_reg, insn.imm,
+				       opcode, is_jmp32);
+		if (pred == 1) {{
+			return;
+		}} else if (pred == 0) {{
+			return;
+		}}
+	}}
+
+	if (BPF_SRC(insn.code) == BPF_X) {{
+		struct bpf_reg_state lo_reg0 = *dst_reg;
+		struct bpf_reg_state lo_reg1 = *src_reg;
+		struct bpf_reg_state *src_lo, *dst_lo;
+
+		dst_lo = &lo_reg0;
+		src_lo = &lo_reg1;
+		coerce_reg_to_size(dst_lo, 4);
+		coerce_reg_to_size(src_lo, 4);
+
+		if (dst_reg->type == SCALAR_VALUE &&
+		    src_reg->type == SCALAR_VALUE) {{
+			if (tnum_is_const(src_reg->var_off) ||
+			    (is_jmp32 && tnum_is_const(src_lo->var_off)))
+				reg_set_min_max(other_branch_dst_reg,
+						dst_reg,
+						is_jmp32
+						? src_lo->var_off.value
+						: src_reg->var_off.value,
+						opcode, is_jmp32);
+			else if (tnum_is_const(dst_reg->var_off) ||
+				 (is_jmp32 && tnum_is_const(dst_lo->var_off)))
+				reg_set_min_max_inv(other_branch_src_reg,
+						    src_reg,
+						    is_jmp32
+						    ? dst_lo->var_off.value
+						    : dst_reg->var_off.value,
+						    opcode, is_jmp32);
+			else if (!is_jmp32 &&
+				 (opcode == BPF_JEQ || opcode == BPF_JNE))
+				reg_combine_min_max(other_branch_src_reg,
+						    other_branch_dst_reg,
+						    src_reg, dst_reg, opcode);
+		}}
+	}} else if (dst_reg->type == SCALAR_VALUE) {{
+		reg_set_min_max(other_branch_dst_reg,
+				dst_reg, insn.imm, opcode, is_jmp32);
+	}}
+}}
+
+'''
+
+wrapper32_jmp_3 = wrapper_jmp_3.replace(
     "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
-wrapper32_jmp_2 = wrapper32_jmp_2.replace("BPF_JMP_REG", "BPF_JMP32_REG")
+wrapper32_jmp_3 = wrapper32_jmp_3.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
 # 5.3-rc1 to 5.7-rc1
-wrapper_jmp_3 = '''
+wrapper_jmp_4 = '''
 
 void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 			       struct bpf_reg_state *src_reg,
@@ -378,12 +457,12 @@ void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 
 '''
 
-wrapper32_jmp_3 = wrapper_jmp_3.replace(
+wrapper32_jmp_4 = wrapper_jmp_4.replace(
     "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
-wrapper32_jmp_3 = wrapper32_jmp_3.replace("BPF_JMP_REG", "BPF_JMP32_REG")
+wrapper32_jmp_4 = wrapper32_jmp_4.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
 # 5.7-rc1+
-wrapper_jmp_4 = '''
+wrapper_jmp_5 = '''
 
 void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 			       struct bpf_reg_state *src_reg,
@@ -466,9 +545,9 @@ void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 
 '''
 
-wrapper32_jmp_4 = wrapper_jmp_4.replace(
+wrapper32_jmp_5 = wrapper_jmp_5.replace(
     "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
-wrapper32_jmp_4 = wrapper32_jmp_4.replace("BPF_JMP_REG", "BPF_JMP32_REG")
+wrapper32_jmp_5 = wrapper32_jmp_5.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
 wrapper_sync_1 = r'''
 

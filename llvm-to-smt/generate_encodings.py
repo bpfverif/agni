@@ -98,16 +98,16 @@ def get_all_jmp_wrappers_concatenated(kernver):
     wrapper_jmp32 = ''
     if version.parse(kernver) >= version.parse("5.7-rc1"):
         # Starting with v5.7-rc1~146^2~10^2~1^2~5.
-        wrapper_jmp = wrapper_jmp_4
-        wrapper_jmp32 = wrapper32_jmp_4
+        wrapper_jmp = wrapper_jmp_5
+        wrapper_jmp32 = wrapper32_jmp_5
     elif version.parse(kernver) >= version.parse("5.3-rc1"):
         # Starting with v5.3-rc1~140^2~179^2^2~6.
-        wrapper_jmp = wrapper_jmp_3
-        wrapper_jmp32 = wrapper32_jmp_3
+        wrapper_jmp = wrapper_jmp_4
+        wrapper_jmp32 = wrapper32_jmp_4
     elif version.parse(kernver) >= version.parse("5.1-rc1"):
         # Starting with v5.1-rc1~178^2~404^2~4^2~13.
-        wrapper_jmp = wrapper_jmp_2
-        wrapper_jmp32 = wrapper32_jmp_2
+        wrapper_jmp = wrapper_jmp_3
+        wrapper_jmp32 = wrapper32_jmp_3
     # no 32-bit jumps before 5.1-rc1
     elif version.parse(kernver) >= version.parse("4.20-rc6"):
         # Starting with v4.20-rc6~1^2~12^2^2~1.
