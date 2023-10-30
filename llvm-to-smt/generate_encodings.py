@@ -96,7 +96,11 @@ def insert_sync_wrapper(verifier_c_filepath, kernver):
 def get_all_jmp_wrappers_concatenated(kernver):
     wrapper_jmp = ''
     wrapper_jmp32 = ''
-    if version.parse(kernver) >= version.parse("5.7-rc1"):
+    if version.parse(kernver) >= version.parse("6.4-rc1"):
+        # Starting with v6.4-rc1~77^2~118^2~26^2~1.
+        wrapper_jmp = wrapper_jmp_6
+        wrapper_jmp32 = wrapper32_jmp_6
+    elif version.parse(kernver) >= version.parse("5.7-rc1"):
         # Starting with v5.7-rc1~146^2~10^2~1^2~5.
         wrapper_jmp = wrapper_jmp_5
         wrapper_jmp32 = wrapper32_jmp_5

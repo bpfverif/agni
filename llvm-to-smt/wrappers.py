@@ -549,6 +549,107 @@ wrapper32_jmp_5 = wrapper_jmp_5.replace(
     "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
 wrapper32_jmp_5 = wrapper32_jmp_5.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
+# 6.4-rc1+
+wrapper_jmp_6 = '''
+
+void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
+			       struct bpf_reg_state *src_reg,
+			       struct bpf_reg_state *other_branch_dst_reg,
+			       struct bpf_reg_state *other_branch_src_reg)
+{{
+	/* Setup */
+	struct bpf_insn insn;
+	u8 opcode;
+	bool is_jmp32;
+	int pred = -1;
+
+	insn = BPF_JMP_REG({}, BPF_REG_1, BPF_REG_2, 0);
+	opcode = BPF_OP(insn.code);
+	dst_reg->type = SCALAR_VALUE;
+	src_reg->type = SCALAR_VALUE;
+
+	/* Perform custom push_stack to make sure we have don't have garbage values
+	 * for other_branch_regs in case pred != -1
+	 */
+	push_stack___(other_branch_dst_reg, dst_reg);
+	push_stack___(other_branch_src_reg, src_reg);
+
+	/* Kernel copy-pasted code begins */
+	is_jmp32 = BPF_CLASS(insn.code) == BPF_JMP32;
+
+	if (BPF_SRC(insn.code) == BPF_K) {{
+		pred = is_branch_taken(dst_reg, insn.imm, opcode, is_jmp32);
+	}} else if (src_reg->type == SCALAR_VALUE &&
+		   is_jmp32 && tnum_is_const(tnum_subreg(src_reg->var_off))) {{
+		pred = is_branch_taken(dst_reg,
+				       tnum_subreg(src_reg->var_off).value,
+				       opcode,
+				       is_jmp32);
+	}} else if (src_reg->type == SCALAR_VALUE &&
+		   !is_jmp32 && tnum_is_const(src_reg->var_off)) {{
+		pred = is_branch_taken(dst_reg,
+				       src_reg->var_off.value,
+				       opcode,
+				       is_jmp32);
+	}} else if (dst_reg->type == SCALAR_VALUE &&
+		   is_jmp32 && tnum_is_const(tnum_subreg(dst_reg->var_off))) {{
+		pred = is_branch_taken(src_reg,
+				       tnum_subreg(dst_reg->var_off).value,
+				       flip_opcode(opcode),
+				       is_jmp32);
+	}} else if (dst_reg->type == SCALAR_VALUE &&
+		   !is_jmp32 && tnum_is_const(dst_reg->var_off)) {{
+		pred = is_branch_taken(src_reg,
+				       dst_reg->var_off.value,
+				       flip_opcode(opcode),
+				       is_jmp32);
+	}}
+
+	if (pred == 1) {{
+		return;
+	}} else if (pred == 0) {{
+		return;
+	}}
+
+
+	if (BPF_SRC(insn.code) == BPF_X) {{
+		if (dst_reg->type == SCALAR_VALUE &&
+		    src_reg->type == SCALAR_VALUE) {{
+			if (tnum_is_const(src_reg->var_off) ||
+			    (is_jmp32 &&
+			     tnum_is_const(tnum_subreg(src_reg->var_off))))
+				reg_set_min_max(
+					other_branch_dst_reg, dst_reg,
+					src_reg->var_off.value,
+					tnum_subreg(src_reg->var_off).value,
+					opcode, is_jmp32);
+			else if (tnum_is_const(dst_reg->var_off) ||
+				 (is_jmp32 &&
+				  tnum_is_const(tnum_subreg(dst_reg->var_off))))
+				reg_set_min_max_inv(
+					other_branch_src_reg, src_reg,
+					dst_reg->var_off.value,
+					tnum_subreg(dst_reg->var_off).value,
+					opcode, is_jmp32);
+			else if (!is_jmp32 &&
+				 (opcode == BPF_JEQ || opcode == BPF_JNE))
+				/* Comparing for equality, we can combine knowledge */
+				reg_combine_min_max(other_branch_src_reg,
+						    other_branch_dst_reg,
+						    src_reg, dst_reg, opcode);
+		}}
+	}} else if (dst_reg->type == SCALAR_VALUE) {{
+		reg_set_min_max(other_branch_dst_reg, dst_reg, insn.imm,
+				(u32)insn.imm, opcode, is_jmp32);
+	}}
+}}
+
+'''
+
+wrapper32_jmp_6 = wrapper_jmp_6.replace(
+    "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
+wrapper32_jmp_6 = wrapper32_jmp_6.replace("BPF_JMP_REG", "BPF_JMP32_REG")
+
 wrapper_sync_1 = r'''
 
 void sync___(struct bpf_reg_state *dst_reg)
