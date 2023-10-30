@@ -104,7 +104,7 @@ wrapper_alu32 = wrapper_alu.replace(
     "adjust_scalar_min_max_vals_wrapper", "adjust_scalar_min_max_vals_wrapper_32")
 wrapper_alu32 = wrapper_alu32.replace("BPF_ALU64_REG", "BPF_ALU32_REG")
 
-# 4.14
+# 4.14.214 to 4.16-rc1
 wrapper_jmp_0 = '''
 
 void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
@@ -165,7 +165,7 @@ void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 
 '''
 
-# 4.17
+# 4.16-rc1 to 4.20-rc6
 wrapper_jmp_1 = '''
 
 void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
@@ -229,7 +229,7 @@ void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 
 '''
 
-# v5.0
+# 4.20-rc6 to 5.3-rc1
 wrapper_jmp_2 = '''
 
 void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
@@ -289,11 +289,12 @@ void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 
 '''
 
+# 5.1-rc1 to 5.3-rc1
 wrapper32_jmp_2 = wrapper_jmp_2.replace(
     "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
 wrapper32_jmp_2 = wrapper32_jmp_2.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
-# v5.6, v5.3
+# 5.3-rc1 to 5.7-rc1
 wrapper_jmp_3 = '''
 
 void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
@@ -381,7 +382,7 @@ wrapper32_jmp_3 = wrapper_jmp_3.replace(
     "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
 wrapper32_jmp_3 = wrapper32_jmp_3.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
-# v5.13, v5.10, v5.7,
+# 5.7-rc1+
 wrapper_jmp_4 = '''
 
 void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
