@@ -650,6 +650,60 @@ wrapper32_jmp_6 = wrapper_jmp_6.replace(
     "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
 wrapper32_jmp_6 = wrapper32_jmp_6.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
+# Andrii's patchset
+wrapper_jmp_7 = '''
+
+void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
+			       struct bpf_reg_state *src_reg,
+			       struct bpf_reg_state *other_branch_dst_reg,
+			       struct bpf_reg_state *other_branch_src_reg)
+{{
+	/* Setup */
+	struct bpf_insn insn;
+	u8 opcode;
+	bool is_jmp32;
+	int pred = -1;
+
+	insn = BPF_JMP_REG({}, BPF_REG_1, BPF_REG_2, 0);
+	opcode = BPF_OP(insn.code);
+	dst_reg->type = SCALAR_VALUE;
+	src_reg->type = SCALAR_VALUE;
+
+	/* Perform custom push_stack to make sure we have don't have garbage values
+	 * for other_branch_regs in case pred != -1
+	 */
+	push_stack___(other_branch_dst_reg, dst_reg);
+	push_stack___(other_branch_src_reg, src_reg);
+
+	/* Kernel copy-pasted code begins */
+	is_jmp32 = BPF_CLASS(insn.code) == BPF_JMP32;
+	pred = is_branch_taken(dst_reg, src_reg, opcode, is_jmp32);
+
+	if (pred == 1)
+		return;
+	else if (pred == 0)
+		return;
+
+	if (BPF_SRC(insn.code) == BPF_X) {{
+		reg_set_min_max(NULL,
+				other_branch_dst_reg,
+				other_branch_src_reg,
+				dst_reg, src_reg, opcode, is_jmp32);
+	}} else /* BPF_SRC(insn->code) == BPF_K */ {{
+		reg_set_min_max(NULL,
+				other_branch_dst_reg,
+				src_reg /* fake one */,
+				dst_reg, src_reg /* same fake one */,
+				opcode, is_jmp32);
+	}}
+}}
+
+'''
+
+wrapper32_jmp_7 = wrapper_jmp_7.replace(
+    "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
+wrapper32_jmp_7 = wrapper32_jmp_7.replace("BPF_JMP_REG", "BPF_JMP32_REG")
+
 wrapper_sync_1 = r'''
 
 void sync___(struct bpf_reg_state *dst_reg)
@@ -680,6 +734,26 @@ void sync___(struct bpf_reg_state *dst_reg)
 	__reg_deduce_bounds(dst_reg);
 	__reg_bound_offset(dst_reg);
 	__update_reg_bounds(dst_reg);
+}
+
+'''
+
+wrapper_sync_4 = r'''
+
+void sync___(struct bpf_reg_state *reg)
+{
+	/* We might have learned new bounds from the var_off. */
+	__update_reg_bounds(reg);
+	/* We might have learned something about the sign bit. */
+	__reg_deduce_bounds(reg);
+	__reg_deduce_bounds(reg);
+	/* We might have learned some bits from the bounds. */
+	__reg_bound_offset(reg);
+	/* Intersecting with the old var_off might have improved our bounds
+	 * slightly, e.g. if umax was 0x7f...f and var_off was (0; 0xf...fc),
+	 * then new var_off is (0; 0x7f...fc) which improves our umax.
+	 */
+	__update_reg_bounds(reg);
 }
 
 '''

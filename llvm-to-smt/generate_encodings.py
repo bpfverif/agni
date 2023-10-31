@@ -50,6 +50,9 @@ bpf_sync_op = [
 
 def insert_sync_wrapper(verifier_c_filepath, kernver):
     wrapper_sync = ''
+    if version.parse(kernver) >= version.parse("6.7-rc1"):
+        # Andrii's patchset
+        wrapper_sync = wrapper_sync_4
     if version.parse(kernver) >= version.parse("5.19"):
         wrapper_sync = wrapper_sync_3
     elif version.parse(kernver) >= version.parse("5.7-rc1"):
@@ -96,7 +99,11 @@ def insert_sync_wrapper(verifier_c_filepath, kernver):
 def get_all_jmp_wrappers_concatenated(kernver):
     wrapper_jmp = ''
     wrapper_jmp32 = ''
-    if version.parse(kernver) >= version.parse("6.4-rc1"):
+    if version.parse(kernver) >= version.parse("6.7-rc1"):
+        # Andrii's patchset
+        wrapper_jmp = wrapper_jmp_7
+        wrapper_jmp32 = wrapper32_jmp_7
+    elif version.parse(kernver) >= version.parse("6.4-rc1"):
         # Starting with v6.4-rc1~77^2~118^2~26^2~1.
         wrapper_jmp = wrapper_jmp_6
         wrapper_jmp32 = wrapper32_jmp_6
