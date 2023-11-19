@@ -397,7 +397,10 @@ if __name__ == "__main__":
                         type=str, required=False, default="/home/cav23-artifact/llvm-to-smt/llvm-passes")
     parser.add_argument("--specific-op", dest='specific_op',
                         help='single specific BPF op to encode',
-                        choices= bpf_alu_ops + bpf_jmp_ops,
+                        choices= bpf_alu_ops + bpf_jmp_ops + bpf_sync_op,
+                        type=str, required=False)
+    parser.add_argument("--commit", 
+                        help="Specific kernel commit, instead of a kernel version",
                         type=str, required=False)
 
     args = parser.parse_args()
@@ -420,6 +423,9 @@ if __name__ == "__main__":
             bpf_jmp_ops = [args.specific_op]
             bpf_alu_ops = []
             bpf_sync_op = []
+        elif args.specific_op in bpf_sync_op:
+            bpf_alu_ops = []
+            bpf_jmp_ops = []
         else:
             raise RuntimeError(
                 'Unsupported BPF op {}'.format(args.specific_op))
@@ -465,7 +471,7 @@ if __name__ == "__main__":
     # checkout kernel #
     ###################
     print_and_log("Checkout kernel version v{}".format(args.kernver), pend="")
-    cmd_checkout = ['git', 'checkout', '-f', 'v{}'.format(args.kernver)]
+    cmd_checkout = ['git', 'checkout', '-f', '{}'.format(args.commit)]
     subprocess.run(cmd_checkout, stdout=logfile, stderr=logfile_err,
                    check=True, text=True, bufsize=1)
     print_and_log(" ... done")
@@ -505,7 +511,7 @@ if __name__ == "__main__":
     # cmdout_make_verifier = subprocess.check_output(
     #     ['make', 'CC={}'.format(str(clang_fullpath)), 'V=1', 'kernel/bpf/verifier.o'], text=True, bufsize=1)
     cmd_make_verifier = ['make', 'CC={}'.format(
-        str(clang_fullpath)), 'V=1', 'kernel/bpf/verifier.o']
+        str(clang_fullpath)), 'V=1', 'KCFLAGS="-Wno-error"', 'kernel/bpf/verifier.o']
     cmdout_make_verifier = subprocess.run(
         cmd_make_verifier, stdout=subprocess.PIPE, stderr=logfile_err, text=True, bufsize=1, check=True)
     logfile.write("cmdout_verifier:\n")
@@ -589,6 +595,10 @@ if __name__ == "__main__":
                 'verifier.ll', '-o', 'verifier.ll']
     cmdout_link = subprocess.run(
         cmd_link, stdout=logfile, stderr=logfile_err, text=True, bufsize=1, check=True)
+    # backup 
+    cmd_backup = ['cp', 'verifier.ll', 'verifier.ll.bak']
+    cmdout_backup = subprocess.run(
+        cmd_backup, stdout=logfile, stderr=logfile_err, text=True, bufsize=1, check=True)
     print_and_log(" ... done")
     os.chdir(old_curdir)
 
