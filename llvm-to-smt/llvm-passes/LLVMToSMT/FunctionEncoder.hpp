@@ -4,11 +4,11 @@
 #include <llvm/Analysis/MemorySSA.h>
 #include <llvm/IR/Argument.h>
 #include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Type.h>
 #include <llvm/Support/Casting.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/Instructions.h>
 
 #include <stdexcept>
 #include <string>
@@ -53,7 +53,7 @@ public:
     this->outputValueBVTreeMap = new ValueBVTreeMap();
   };
 
-  std::unordered_set<Value*> FunctionArgs;
+  std::unordered_set<Value *> FunctionArgs;
 
   /* Maps a BasicBlock to a list of Z3 expressions which correspond the encoding
    * of the Instructions in the BasicBlock. Populated in the 1st Pass. */
@@ -69,7 +69,7 @@ public:
   std::unordered_map<BBPair, z3::expr, pair_hash<BasicBlock *, BasicBlock *>>
       EdgeAssertionsMap;
 
-  /* Maps a "view" of Memory, i.e., a MemoryDef i.e., a MemoryAccess to a map ot
+  /* Maps a "view" of Memory, i.e., a MemoryDef i.e., a MemoryAccess to a map of
    * type ValueBVTreeMap. The ValueBVTreeMap maps a Value* to a BVTree (~ vector
    * of bitvectors). We begin with the MemoryDef "liveOnEntry", and its
    * ValueBVTreeMap containing all the functions arguments as keys. eg.
@@ -111,6 +111,9 @@ public:
    * Also used for handling struct return types. */
   std::unordered_map<BasicBlock *, ValueBVTreeMap *> BBValueBVTreeMap;
 
+  std::unordered_map<Value *, ValuePair> SelectMap;
+  std::unordered_map<Value *, ValueIndicesPair> SelectGEPMap;
+
   /* Functions to print things */
   void printEdgeAssertionsMap();
   void printPathConditionsMap();
@@ -120,6 +123,8 @@ public:
   void printMemoryAccessValueBVTreeMap();
   void printPhiResolutionMap();
   void printGEPMap();
+  void printSelectMap();
+  void printSelectGEPMap();
   std::string GEPMapSingleElementToString(Value *v0, Value *v1,
                                           std::vector<int> *gepIndices);
   std::string stdVectorIntToString(std::vector<int> &vec);
@@ -139,6 +144,12 @@ public:
   void handleStoreInst(StoreInst &i);
   void handleMemoryPhiNode(MemoryPhi &mphi, int passID);
   void handleCallInst(CallInst &i);
+  void handleGEPInstFromSelect(GetElementPtrInst &i);
+  void handleLoadFromSelect(LoadInst &i, GetElementPtrInst &GEP,
+                            SelectInst &selectInst);
+  void indexIntoBVTree(LoadInst &loadInst, BVTree *subTree);
+  void handleStoreFromSelect(StoreInst &i, GetElementPtrInst &GEP,
+                             SelectInst &selectInst);
 
   /* Json output related functions */
   void populateInputAndOutputJsonDict();

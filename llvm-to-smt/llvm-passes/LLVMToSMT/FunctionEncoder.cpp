@@ -1,4 +1,6 @@
 #include "FunctionEncoder.hpp"
+#include <llvm/IR/Instructions.h>
+#include <stdexcept>
 
 std::string FunctionEncoder::toString() {
   z3::expr f = z3::mk_and(this->functionEncodingZ3ExprVec);
@@ -52,6 +54,8 @@ void FunctionEncoder::printPathConditionsMap() {
 }
 
 void FunctionEncoder::printBBAssertionsMap(BasicBlock *BB) {
+  outs() << "[printBBAssertionsMap] "
+         << "\n";
   if (BB) {
     for (auto Z3Expr : BBAssertionsMap.at(BB)) {
       outs() << "  " << Z3Expr.to_string().c_str() << "\n";
@@ -62,7 +66,8 @@ void FunctionEncoder::printBBAssertionsMap(BasicBlock *BB) {
   for (auto KeyValue : BBAssertionsMap) {
     BasicBlock *BB = KeyValue.first;
     z3::expr_vector Z3ExprVec = KeyValue.second;
-    outs() << BB->getName() << ", " << Z3ExprVec.size() << "\n";
+    outs() << "BasicBlock: " << BB->getName() << ", Size:" << Z3ExprVec.size()
+           << "\n";
     for (auto Z3Expr : Z3ExprVec) {
       outs() << "  " << Z3Expr.to_string().c_str() << "\n";
     }
@@ -127,6 +132,26 @@ void FunctionEncoder::printGEPMap() {
     Value *v1 = kv.second.first;
     std::vector<int> *gepIndices = kv.second.second;
     outs() << GEPMapSingleElementToString(v0, v1, gepIndices);
+    outs() << "\n";
+  }
+}
+
+void FunctionEncoder::printSelectGEPMap() {
+  for (auto kv : SelectGEPMap) {
+    Value *v0 = kv.first;
+    Value *v1 = kv.second.first;
+    std::vector<int> *gepIndices = kv.second.second;
+    outs() << GEPMapSingleElementToString(v0, v1, gepIndices);
+    outs() << "\n";
+  }
+}
+
+void FunctionEncoder::printSelectMap() {
+  for (auto kv : SelectMap) {
+    Value *v0 = kv.first;
+    Value *v1 = kv.second.first;
+    Value *v2 = kv.second.second;
+    outs() << v0->getName() << "," << v1->getName() << "," << v2->getName();
     outs() << "\n";
   }
 }
@@ -448,28 +473,64 @@ void FunctionEncoder::handleICmpInst(ICmpInst &i) {
 void FunctionEncoder::handleSelectInst(SelectInst &i) {
   outs() << "[handleSelectInst]\n";
 
-  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
-  Value *res = dyn_cast<Value>(&i);
+  outs() << "[handleSelectInst]"
+         << "mostRecentMemoryDef: " << *mostRecentMemoryDef << "\n";
 
-  auto z3_exp_sel_op1 = BitVecHelper::getBitVecSingValType(i.getOperand(0));
-  auto z3_exp_sel_op2 = BitVecHelper::getBitVecSingValType(i.getOperand(1));
-  auto z3_exp_sel_op3 = BitVecHelper::getBitVecSingValType(i.getOperand(2));
-  auto z3_exp_res = BitVecHelper::getBitVecSingValType(res);
+  Value *selectInstValue = dyn_cast<Value>(&i);
+  Value *selectOp1 = i.getOperand(0);
+  Value *selectOp2 = i.getOperand(1);
+  Value *selectOp3 = i.getOperand(2);
 
-  outs() << "[handleSelectInst] z3_exp_sel_op1: " << z3_exp_sel_op1.to_string()
-         << "\n";
-  outs() << "[handleSelectInst] z3_exp_sel_op2: " << z3_exp_sel_op2.to_string()
-         << "\n";
-  outs() << "[handleSelectInst] z3_exp_sel_op3: " << z3_exp_sel_op3.to_string()
-         << "\n";
-  outs() << "[handleSelectInst] z3_exp_res: " << z3_exp_res.to_string() << "\n";
-  outs().flush();
-  z3::expr selectEncoding =
-      (z3::ite((z3_exp_sel_op1 == 1), (z3_exp_res == z3_exp_sel_op2),
-               (z3_exp_res == z3_exp_sel_op3)));
-  outs() << "[handleSelectInst]" << selectEncoding.to_string().c_str() << "\n";
+  if (!selectInstValue->getType()->isPointerTy()) {
+    auto z3ExprSelectOp1 = BitVecHelper::getBitVecSingValType(selectOp1);
+    auto z3ExprSelectOp2 = BitVecHelper::getBitVecSingValType(selectOp2);
+    auto z3ExprSelectOp3 = BitVecHelper::getBitVecSingValType(selectOp3);
+    auto z3ExprRes = BitVecHelper::getBitVecSingValType(selectInstValue);
 
-  BBAsstVecIter->second.push_back(selectEncoding);
+    auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+
+    outs() << "[handleSelectInst] z3ExprSelectOp1: "
+           << z3ExprSelectOp1.to_string() << "\n";
+    outs() << "[handleSelectInst] z3ExprSelectOp2: "
+           << z3ExprSelectOp2.to_string() << "\n";
+    outs() << "[handleSelectInst] z3ExprSelectOp3: "
+           << z3ExprSelectOp3.to_string() << "\n";
+    outs() << "[handleSelectInst] z3ExprRes: " << z3ExprRes.to_string() << "\n";
+    outs().flush();
+    z3::expr selectEncoding =
+        (z3::ite((z3ExprSelectOp1 == 1), (z3ExprRes == z3ExprSelectOp2),
+                 (z3ExprRes == z3ExprSelectOp3)));
+    outs() << "[handleSelectInst]" << selectEncoding.to_string().c_str()
+           << "\n";
+
+    BBAsstVecIter->second.push_back(selectEncoding);
+  } else {
+    /* Select instruction is a pointer type. This should be an argument to the
+    function */
+    ValueBVTreeMap selectInstValueBVTreeMap =
+        MemoryAccessValueBVTreeMap.at(mostRecentMemoryDef);
+    printValueBVTreeMap(selectInstValueBVTreeMap);
+    // exit(0);
+
+    /*
+    %spec.select = select i1 %i9.i19.i, %struct.bpf_reg_state* %src_reg,
+    %struct.bpf_reg_state* %dst_reg
+
+    - get bitvector tree for pointers from mostrecentmemorydef
+    (src_reg and dst_reg)
+    - create new bitvector tree for value
+    (for spec.select)
+    - to bbiter, add: if select == 1 then first equiv vector, else second equiv
+    vector
+
+    formula:
+    if select op1 == 1
+    */
+    ValuePair selectOperandsValuePair = std::make_pair(selectOp2, selectOp3);
+    SelectMap.insert({selectInstValue, selectOperandsValuePair});
+    printSelectMap();
+    // exit(0);
+  }
 }
 
 void FunctionEncoder::handleBranchInst(BranchInst &i) {
@@ -621,6 +682,70 @@ void FunctionEncoder::handlePhiNode(PHINode &inst, int passID) {
   }
 }
 
+void populateGEPIndices(GetElementPtrInst &i, std::vector<int> &GEPIndices) {
+
+  outs() << "[populateGEPIndices] "
+         << "\n";
+
+  if (i.getNumOperands() == 3) {
+    int idx;
+    /* assume GEP index is 0 if it is not a constant */
+    if (BitVecHelper::isValueConstantInt(i.getOperand(2))) {
+      idx = BitVecHelper::getConstantIntValue(i.getOperand(2));
+    } else {
+      idx = 0;
+    }
+    GEPIndices.push_back(idx);
+    outs() << "[populateGEPIndices] "
+           << "idx: " << idx << "\n";
+  } else if (i.getNumOperands() == 4) {
+    int idx0, idx1;
+    /* assume GEP index is 0 if it is not a constant */
+    if (BitVecHelper::isValueConstantInt(i.getOperand(2))) {
+      idx0 = BitVecHelper::getConstantIntValue(i.getOperand(2));
+    } else {
+      idx0 = 0;
+    }
+    if (BitVecHelper::isValueConstantInt(i.getOperand(3))) {
+      idx1 = BitVecHelper::getConstantIntValue(i.getOperand(3));
+    } else {
+      idx1 = 0;
+    }
+    GEPIndices.push_back(idx0);
+    GEPIndices.push_back(idx1);
+    outs() << "[populateGEPIndices] "
+           << "idx0: " << idx0 << ", idx1: " << idx1 << "\n";
+  } else {
+    throw std::invalid_argument("Unsupported number of GEP indices\n");
+  }
+}
+
+void FunctionEncoder::handleGEPInstFromSelect(GetElementPtrInst &i) {
+
+  outs() << "[handleGEPInstFromSelect] "
+         << "\n";
+
+  Value *argVal = i.getOperand(0);
+  Value *resVal = dyn_cast<Value>(&i);
+
+  if (SelectMap.find(argVal) == SelectMap.end()) {
+    throw std::runtime_error("[handleGEPInstFromSelect]"
+                             "argVal not found in SelectMap\n");
+  }
+
+  std::vector<int> *GEPIndices = new std::vector<int>;
+  ValueIndicesPair valueIndicesPairGEP;
+
+  valueIndicesPairGEP = std::make_pair(argVal, GEPIndices);
+  GEPMap.insert({resVal, valueIndicesPairGEP});
+
+  populateGEPIndices(i, *GEPIndices);
+
+  outs() << "[handleGEPInstFromSelect] "
+         << "GEPMap: \n";
+  printGEPMap();
+}
+
 /*
 GEP instructions are only used to update the GEPMap, which stores the base type
 pointer of the GEP, and offset operands. Every GEP is resolved to be associated
@@ -639,7 +764,7 @@ Here, we store {%i: [%dst_reg, 5, 0]} in the GEPMap.
 
 For the above two instructions we store, {%j: [%dst_reg, 5]}, and {%k:
 [%dst_reg, 5, 1]} in the GEPMap respectively. Essentially, all GEP's have been
-resolved to offset into dst_reg. 
+resolved to offset into dst_reg.
 
 */
 void FunctionEncoder::handleGEPInst(GetElementPtrInst &i) {
@@ -664,15 +789,24 @@ void FunctionEncoder::handleGEPInst(GetElementPtrInst &i) {
       BitVecHelper::getConstantIntValue(offsetOperandValue);
   assert(offsetOperandValueInt == 0);
 
+  /* First, check if this GEP uses an argument that came from a select inst.
+  If yes, handle it separately, using the SelectMap */
+  if (isa<SelectInst>(argVal)) {
+    handleGEPInstFromSelect(i);
+    return;
+  }
+
   std::vector<int> *GEPIndices = new std::vector<int>;
   ValueIndicesPair valueIndicesPairGEP;
 
   /* If the GEP is looking into a pointer which isn't a function argument (e.g.
-   * dst_reg), then it should be looking at a pointer which has been derived
+   * tnum), then it should be looking at a pointer which has been derived
    * from a function argument (e.g. dst_reg).
    */
-  if (FunctionArgs.find(argVal) == FunctionArgs.end()) {
-    assert(GEPMap.find(argVal) != GEPMap.end());
+
+  if (FunctionArgs.find(argVal) != FunctionArgs.end()) {
+    valueIndicesPairGEP = std::make_pair(argVal, GEPIndices);
+  } else if (GEPMap.find(argVal) != GEPMap.end()) {
     Value *oldGEPMapValue = GEPMap.at(argVal).first;
     std::vector<int> *oldGEPIndices = GEPMap.at(argVal).second;
     for (int i : *oldGEPIndices) {
@@ -680,42 +814,12 @@ void FunctionEncoder::handleGEPInst(GetElementPtrInst &i) {
     }
     valueIndicesPairGEP = std::make_pair(oldGEPMapValue, GEPIndices);
   } else {
-    valueIndicesPairGEP = std::make_pair(argVal, GEPIndices);
+    throw std::runtime_error("[handleGEPInst]"
+                             "argVal not found in GEPMap\n");
   }
 
   GEPMap.insert({resVal, valueIndicesPairGEP});
-
-  if (i.getNumOperands() == 3) {
-    int idx;
-    /* assume GEP index is 0 if it is not a constant */
-    if (BitVecHelper::isValueConstantInt(i.getOperand(2))) {
-      idx = BitVecHelper::getConstantIntValue(i.getOperand(2));
-    } else {
-      idx = 0;
-    }
-    GEPIndices->push_back(idx);
-    outs() << "[handleGEPInst] "
-           << "idx: " << idx << "\n";
-  } else if (i.getNumOperands() == 4) {
-    int idx0, idx1;
-    /* assume GEP index is 0 if it is not a constant */
-    if (BitVecHelper::isValueConstantInt(i.getOperand(2))) {
-      idx0 = BitVecHelper::getConstantIntValue(i.getOperand(2));
-    } else {
-      idx0 = 0;
-    }
-    if (BitVecHelper::isValueConstantInt(i.getOperand(3))) {
-      idx1 = BitVecHelper::getConstantIntValue(i.getOperand(3));
-    } else {
-      idx1 = 0;
-    }
-    GEPIndices->push_back(idx0);
-    GEPIndices->push_back(idx1);
-    outs() << "[handleGEPInst] "
-           << "idx0: " << idx0 << ", idx1: " << idx1 << "\n";
-  } else {
-    throw std::invalid_argument("Unsupported number of GEP indices\n");
-  }
+  populateGEPIndices(i, *GEPIndices);
 
   outs() << "[handleGEPInst] "
          << "MemoryAccessValueBVTreeMap\n";
@@ -723,6 +827,155 @@ void FunctionEncoder::handleGEPInst(GetElementPtrInst &i) {
   outs() << "[handleGEPInst] "
          << "GEPMap: \n";
   printGEPMap();
+}
+
+bool loadOrStorePointerCameFromSelect(Value *pointerValue) {
+
+  if (!isa<GetElementPtrInst>(pointerValue)) {
+    throw std::runtime_error(
+        "[loadOrStorePointerCameFromSelect] load/store "
+        "pointer did not come from a GEP, this is not supported.\n");
+  }
+  GetElementPtrInst &GEPInst = *dyn_cast<GetElementPtrInst>(pointerValue);
+  outs() << "[loadOrStorePointerCameFromSelect] the GEP inst:" << GEPInst
+         << "\n";
+  outs().flush();
+  Value *GEPargVal = GEPInst.getOperand(0);
+  outs() << "[loadOrStorePointerCameFromSelect] GEPargVal:" << *GEPargVal
+         << "\n";
+  outs().flush();
+  if (isa<SelectInst>(GEPargVal)) {
+    outs() << "[loadOrStorePointerCameFromSelect] "
+           << "pointerValue is a GEP, that came from a select\n";
+    SelectInst &selectInst = *dyn_cast<SelectInst>(GEPargVal);
+    outs() << "[loadOrStorePointerCameFromSelect] the select:" << selectInst
+           << "\n";
+    return true;
+  } else {
+    outs() << "[loadOrStorePointerCameFromSelect] "
+           << "pointerValue is a GEP, but did NOT come from a select\n";
+    return false;
+  }
+}
+
+// void FunctionEncoder::indexIntoBVTree(SelectInst &selectInst,
+//                                       ValueBVTreeMap &valueBVTreeMap) {
+//   /* First*/
+//   Value *SelectMapValueFirst = SelectMap.at(&selectInst).first;
+//   Value *SelectMapValueSecond = SelectMap.at(&selectInst).second;
+//   outs() << "[handleLoadFromSelect] "
+//          << "SelectMapValues: " << SelectMapValueFirst->getName() << ", "
+//          << SelectMapValueSecond->getName() << "\n";
+//   BVTree *parentBVTreeFirst = valueBVTreeMap.at(SelectMapValueFirst);
+//   outs() << "[handleLoadInst] "
+//          << "parentBVTree: " << parentBVTreeFirst->toString() << "\n";
+//   BVTree *subTree;
+//   if (SelectMapIndices->size() == 1) {
+//     int idx = SelectMapIndices->at(0);
+//     subTree = parentBVTreeFirst->getSubTree(idx);
+//   } else if (SelectMapIndices->size() == 2) {
+//     int idx0 = SelectMapIndices->at(0);
+//     int idx1 = SelectMapIndices->at(1);
+//     subTree = parentBVTreeFirst->getSubTree(idx0)->getSubTree(idx1);
+//   } else {
+//     throw std::runtime_error("Unexpected GEPMapIndices size\n");
+//   }
+// }
+
+void FunctionEncoder::handleLoadFromSelect(LoadInst &i, GetElementPtrInst &GEP,
+                                           SelectInst &selectInst) {
+  outs() << "[handleLoadFromSelect] "
+         << "\n";
+  printSelectMap();
+  outs() << "[handleLoadFromSelect] "
+         << "\n";
+  Value *loadInstValue = dyn_cast<Value>(&i);
+  outs() << "[handleLoadFromSelect] "
+         << "loadInstValue: " << *loadInstValue << "\n";
+  Value *pointerValue = i.getOperand(0);
+  outs() << "[handleLoadFromSelect] "
+         << "pointerValue: " << *pointerValue << "\n";
+  Type *pointerType = pointerValue->getType();
+  outs() << "[handleLoadFromSelect] "
+         << "pointerType: " << *pointerType << "\n";
+  Type *pointerBaseType = pointerType->getPointerElementType();
+  outs() << "[handleLoadFromSelect] "
+         << "pointerBaseType: " << *pointerBaseType << "\n";
+  MemoryAccess *oldMemoryAccess =
+      currentMemorySSA->getMemoryAccess(&i)->getDefiningAccess();
+  outs() << "[handleLoadFromSelect] "
+         << "definingAccess: " << *oldMemoryAccess << "\n";
+
+  Value *selectOp1 = selectInst.getOperand(0);
+  auto z3ExprSelectOp1 = BitVecHelper::getBitVecSingValType(selectOp1);
+
+  z3::expr loadBV = BitVecHelper::getBitVecSingValType(loadInstValue);
+  ValueBVTreeMap oldValueBVTreeMap =
+      MemoryAccessValueBVTreeMap.at(oldMemoryAccess);
+  outs() << "[handleLoadFromSelect] "
+         << "oldValueBVTreeMap:\n";
+  printValueBVTreeMap(oldValueBVTreeMap);
+
+  std::vector<int> *SelectMapIndices = GEPMap.at(pointerValue).second;
+  outs() << "[handleLoadInst] "
+         << "SelectMapIndices: " << stdVectorIntToString(*SelectMapIndices)
+         << "\n";
+
+  /* First*/
+  Value *SelectMapValueFirst = SelectMap.at(&selectInst).first;
+  outs() << "[handleLoadFromSelect] "
+         << "SelectMapValues: " << SelectMapValueFirst->getName() << "\n";
+  BVTree *parentBVTreeFirst = oldValueBVTreeMap.at(SelectMapValueFirst);
+  outs() << "[handleLoadInst] "
+         << "parentBVTree: " << parentBVTreeFirst->toString() << "\n";
+  BVTree *subTreeFirst;
+  if (SelectMapIndices->size() == 1) {
+    int idx = SelectMapIndices->at(0);
+    subTreeFirst = parentBVTreeFirst->getSubTree(idx);
+  } else if (SelectMapIndices->size() == 2) {
+    int idx0 = SelectMapIndices->at(0);
+    int idx1 = SelectMapIndices->at(1);
+    subTreeFirst = parentBVTreeFirst->getSubTree(idx0)->getSubTree(idx1);
+  } else {
+    throw std::runtime_error("Unexpected GEPMapIndices size\n");
+  }
+
+  z3::expr loadEncodingFirst =
+      z3::implies(z3ExprSelectOp1 == 1, subTreeFirst->bv == loadBV);
+  outs() << "[handleLoadInst] " << loadEncodingFirst.to_string().c_str()
+         << "\n";
+
+  /* Second*/
+  Value *SelectMapValueSecond = SelectMap.at(&selectInst).second;
+  outs() << "[handleLoadFromSelect] "
+         << "SelectMapValues: " << SelectMapValueSecond->getName() << "\n";
+  BVTree *parentBVTreeSecond = oldValueBVTreeMap.at(SelectMapValueSecond);
+  outs() << "[handleLoadInst] "
+         << "parentBVTree: " << parentBVTreeSecond->toString() << "\n";
+  BVTree *subTreeSecond;
+  if (SelectMapIndices->size() == 1) {
+    int idx = SelectMapIndices->at(0);
+    subTreeSecond = parentBVTreeSecond->getSubTree(idx);
+  } else if (SelectMapIndices->size() == 2) {
+    int idx0 = SelectMapIndices->at(0);
+    int idx1 = SelectMapIndices->at(1);
+    subTreeSecond = parentBVTreeSecond->getSubTree(idx0)->getSubTree(idx1);
+  } else {
+    throw std::runtime_error("Unexpected GEPMapIndices size\n");
+  }
+
+  z3::expr loadEncodingSecond =
+      z3::implies(z3ExprSelectOp1 == 1, subTreeSecond->bv == loadBV);
+  outs() << "[handleLoadInst] " << loadEncodingSecond.to_string().c_str()
+         << "\n";
+
+  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+  BBAsstVecIter->second.push_back(loadEncodingFirst);
+  BBAsstVecIter->second.push_back(loadEncodingSecond);
+  printBBAssertionsMap();
+  outs().flush();
+
+  // exit(0);
 }
 
 void FunctionEncoder::handleLoadInst(LoadInst &i) {
@@ -757,6 +1010,16 @@ void FunctionEncoder::handleLoadInst(LoadInst &i) {
     throw std::runtime_error("[handleCallInst]"
                              "load instruction with pointer that is a pointer "
                              "to an aggregate type is not supported\n");
+    return;
+  }
+
+  outs().flush();
+
+  if (loadOrStorePointerCameFromSelect(pointerValue)) {
+    GetElementPtrInst &GEPInst = *dyn_cast<GetElementPtrInst>(pointerValue);
+    Value *GEPargVal = GEPInst.getOperand(0);
+    SelectInst &selectInst = *dyn_cast<SelectInst>(GEPargVal);
+    handleLoadFromSelect(i, GEPInst, selectInst);
     return;
   }
 
@@ -800,6 +1063,15 @@ void FunctionEncoder::handleLoadInst(LoadInst &i) {
   auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
   BBAsstVecIter->second.push_back(loadEncoding);
   printBBAssertionsMap();
+}
+
+void FunctionEncoder::handleStoreFromSelect(StoreInst &i,
+                                            GetElementPtrInst &GEP,
+                                            SelectInst &selectInst) {
+  outs() << "[handleStoreFromSelect] "
+         << "\n";
+  outs().flush();
+  exit(0);
 }
 
 void FunctionEncoder::handleStoreInst(StoreInst &i) {
@@ -853,6 +1125,15 @@ void FunctionEncoder::handleStoreInst(StoreInst &i) {
   std::vector<int> *GEPMapIndices = GEPMap.at(destPointerValue).second;
   outs() << "[handleStoreInst] "
          << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices) << "\n";
+  outs().flush();
+
+  if (loadOrStorePointerCameFromSelect(destPointerValue)) {
+    GetElementPtrInst &GEPInst = *dyn_cast<GetElementPtrInst>(destPointerValue);
+    Value *GEPargVal = GEPInst.getOperand(0);
+    SelectInst &selectInst = *dyn_cast<SelectInst>(GEPargVal);
+    handleStoreFromSelect(i, GEPInst, selectInst);
+    return;
+  }
 
   BVTree *parentBVTree = newValueBVTreeMap.at(GEPMapValue);
   BVTree *subTree;
