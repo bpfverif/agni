@@ -149,7 +149,8 @@ public:
                             SelectInst &selectInst);
   void indexIntoBVTree(LoadInst &loadInst, BVTree *subTree);
   void handleStoreFromSelect(StoreInst &i, GetElementPtrInst &GEP,
-                             SelectInst &selectInst);
+                             SelectInst &selectInst,
+                             ValueBVTreeMap *newValueBVTreeMap);
 
   /* Json output related functions */
   void populateInputAndOutputJsonDict();

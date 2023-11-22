@@ -505,31 +505,17 @@ void FunctionEncoder::handleSelectInst(SelectInst &i) {
 
     BBAsstVecIter->second.push_back(selectEncoding);
   } else {
-    /* Select instruction is a pointer type. This should be an argument to the
-    function */
+    /* Select instruction is a pointer type */
     ValueBVTreeMap selectInstValueBVTreeMap =
         MemoryAccessValueBVTreeMap.at(mostRecentMemoryDef);
     printValueBVTreeMap(selectInstValueBVTreeMap);
-    // exit(0);
 
-    /*
-    %spec.select = select i1 %i9.i19.i, %struct.bpf_reg_state* %src_reg,
-    %struct.bpf_reg_state* %dst_reg
-
-    - get bitvector tree for pointers from mostrecentmemorydef
-    (src_reg and dst_reg)
-    - create new bitvector tree for value
-    (for spec.select)
-    - to bbiter, add: if select == 1 then first equiv vector, else second equiv
-    vector
-
-    formula:
-    if select op1 == 1
-    */
     ValuePair selectOperandsValuePair = std::make_pair(selectOp2, selectOp3);
     SelectMap.insert({selectInstValue, selectOperandsValuePair});
+    outs() << "[handleSelectInst]"
+           << "SelectMap:"
+           << "\n";
     printSelectMap();
-    // exit(0);
   }
 }
 
@@ -858,34 +844,55 @@ bool loadOrStorePointerCameFromSelect(Value *pointerValue) {
   }
 }
 
-// void FunctionEncoder::indexIntoBVTree(SelectInst &selectInst,
-//                                       ValueBVTreeMap &valueBVTreeMap) {
-//   /* First*/
-//   Value *SelectMapValueFirst = SelectMap.at(&selectInst).first;
-//   Value *SelectMapValueSecond = SelectMap.at(&selectInst).second;
-//   outs() << "[handleLoadFromSelect] "
-//          << "SelectMapValues: " << SelectMapValueFirst->getName() << ", "
-//          << SelectMapValueSecond->getName() << "\n";
-//   BVTree *parentBVTreeFirst = valueBVTreeMap.at(SelectMapValueFirst);
-//   outs() << "[handleLoadInst] "
-//          << "parentBVTree: " << parentBVTreeFirst->toString() << "\n";
-//   BVTree *subTree;
-//   if (SelectMapIndices->size() == 1) {
-//     int idx = SelectMapIndices->at(0);
-//     subTree = parentBVTreeFirst->getSubTree(idx);
-//   } else if (SelectMapIndices->size() == 2) {
-//     int idx0 = SelectMapIndices->at(0);
-//     int idx1 = SelectMapIndices->at(1);
-//     subTree = parentBVTreeFirst->getSubTree(idx0)->getSubTree(idx1);
-//   } else {
-//     throw std::runtime_error("Unexpected GEPMapIndices size\n");
-//   }
-// }
+/*
+Consider the following instruction sequence:
 
+%select_on_ptrs = select i1 %select_value, %bpf_reg_state* %src_reg,
+                  %struct.bpf_reg_state* %dst_reg
+%gep_ptr = getelementptr %bpf_reg_state, %bpf_reg_state* %select_on_ptrs,
+                  i64 0, i32 0
+%load_value = load i32, i32* %gep, align 8
+
+On the first select instruction, we update the SelectMap, to just hold
+information about the select. SelectMap: {[%select_ptr, %src_reg, %dst_reg]}
+
+On the GEP instruction, we handle this same as before: we store the details of
+the GEP in our usual GEPMap. GEPMap: {[%gep_ptr, %select_on_ptrs, 0, 0]}
+
+The idea is that on encountering the load instruction, we can resolve it to a
+bitvector formula, conditioned on the result of the select. We have our memory
+view of bitvector trees, let's say it is populated as follows before the load.
+MemoryViewMap:
+{%src_reg: [s1_bv, s2_bv, ...]
+%dst_reg: [d1_bv, d2_bv, ...]
+}
+
+When we encounter the load.
+* We check that the pointer type of the load came from a select, (not from a GEP
+  as it usually does)
+* Using GEPMap, we figure out that it is associated with %select_on_ptrs.
+* We also see that the GEP indexes into the `0`th element of select_on_ptrs, so
+we need to access the 0th bitvector in both the bitvector trees in the
+MemoryViewMap (s1_bv, d1_bv).
+* Using SelectMap, we figure out that the true case of the select is %src_reg,
+and the false case is %dst_reg.
+* So the 0th bitvector from src_reg is accessed in the true case, and the 0th
+  bitvector from dst_reg is accessed in the false case.
+* Using the select instruction, we obtain the bitvector that conditions the
+select: select_value_bv
+
+We finally make the following assertions for the current basic block:
+
+(ite (= select_value_bv #b1)
+     (= load_value_bv s1_bv)
+     (= load_value_bv d1_bv))
+
+*/
 void FunctionEncoder::handleLoadFromSelect(LoadInst &i, GetElementPtrInst &GEP,
                                            SelectInst &selectInst) {
   outs() << "[handleLoadFromSelect] "
          << "\n";
+  outs() << "[handleLoadFromSelect] SelectMap: ";
   printSelectMap();
   outs() << "[handleLoadFromSelect] "
          << "\n";
@@ -895,12 +902,6 @@ void FunctionEncoder::handleLoadFromSelect(LoadInst &i, GetElementPtrInst &GEP,
   Value *pointerValue = i.getOperand(0);
   outs() << "[handleLoadFromSelect] "
          << "pointerValue: " << *pointerValue << "\n";
-  Type *pointerType = pointerValue->getType();
-  outs() << "[handleLoadFromSelect] "
-         << "pointerType: " << *pointerType << "\n";
-  Type *pointerBaseType = pointerType->getPointerElementType();
-  outs() << "[handleLoadFromSelect] "
-         << "pointerBaseType: " << *pointerBaseType << "\n";
   MemoryAccess *oldMemoryAccess =
       currentMemorySSA->getMemoryAccess(&i)->getDefiningAccess();
   outs() << "[handleLoadFromSelect] "
@@ -916,66 +917,60 @@ void FunctionEncoder::handleLoadFromSelect(LoadInst &i, GetElementPtrInst &GEP,
          << "oldValueBVTreeMap:\n";
   printValueBVTreeMap(oldValueBVTreeMap);
 
-  std::vector<int> *SelectMapIndices = GEPMap.at(pointerValue).second;
-  outs() << "[handleLoadInst] "
-         << "SelectMapIndices: " << stdVectorIntToString(*SelectMapIndices)
+  std::vector<int> *GEPMapIndices = GEPMap.at(pointerValue).second;
+  outs() << "[handleLoadFromSelect] "
+         << "SelectMapIndices: " << stdVectorIntToString(*GEPMapIndices)
          << "\n";
 
   /* First*/
+  BVTree *subTreeFirst = nullptr;
   Value *SelectMapValueFirst = SelectMap.at(&selectInst).first;
   outs() << "[handleLoadFromSelect] "
          << "SelectMapValues: " << SelectMapValueFirst->getName() << "\n";
   BVTree *parentBVTreeFirst = oldValueBVTreeMap.at(SelectMapValueFirst);
-  outs() << "[handleLoadInst] "
+  outs() << "[handleLoadFromSelect] "
          << "parentBVTree: " << parentBVTreeFirst->toString() << "\n";
-  BVTree *subTreeFirst;
-  if (SelectMapIndices->size() == 1) {
-    int idx = SelectMapIndices->at(0);
+
+  if (GEPMapIndices->size() == 1) {
+    int idx = GEPMapIndices->at(0);
     subTreeFirst = parentBVTreeFirst->getSubTree(idx);
-  } else if (SelectMapIndices->size() == 2) {
-    int idx0 = SelectMapIndices->at(0);
-    int idx1 = SelectMapIndices->at(1);
+  } else if (GEPMapIndices->size() == 2) {
+    int idx0 = GEPMapIndices->at(0);
+    int idx1 = GEPMapIndices->at(1);
     subTreeFirst = parentBVTreeFirst->getSubTree(idx0)->getSubTree(idx1);
   } else {
     throw std::runtime_error("Unexpected GEPMapIndices size\n");
   }
-
-  z3::expr loadEncodingFirst =
-      z3::implies(z3ExprSelectOp1 == 1, subTreeFirst->bv == loadBV);
-  outs() << "[handleLoadInst] " << loadEncodingFirst.to_string().c_str()
-         << "\n";
 
   /* Second*/
   Value *SelectMapValueSecond = SelectMap.at(&selectInst).second;
   outs() << "[handleLoadFromSelect] "
          << "SelectMapValues: " << SelectMapValueSecond->getName() << "\n";
   BVTree *parentBVTreeSecond = oldValueBVTreeMap.at(SelectMapValueSecond);
-  outs() << "[handleLoadInst] "
+  outs() << "[handleLoadFromSelect] "
          << "parentBVTree: " << parentBVTreeSecond->toString() << "\n";
   BVTree *subTreeSecond;
-  if (SelectMapIndices->size() == 1) {
-    int idx = SelectMapIndices->at(0);
+  if (GEPMapIndices->size() == 1) {
+    int idx = GEPMapIndices->at(0);
     subTreeSecond = parentBVTreeSecond->getSubTree(idx);
-  } else if (SelectMapIndices->size() == 2) {
-    int idx0 = SelectMapIndices->at(0);
-    int idx1 = SelectMapIndices->at(1);
+  } else if (GEPMapIndices->size() == 2) {
+    int idx0 = GEPMapIndices->at(0);
+    int idx1 = GEPMapIndices->at(1);
     subTreeSecond = parentBVTreeSecond->getSubTree(idx0)->getSubTree(idx1);
   } else {
     throw std::runtime_error("Unexpected GEPMapIndices size\n");
   }
 
-  z3::expr loadEncodingSecond =
-      z3::implies(z3ExprSelectOp1 == 1, subTreeSecond->bv == loadBV);
-  outs() << "[handleLoadInst] " << loadEncodingSecond.to_string().c_str()
-         << "\n";
+  z3::expr loadEncoding =
+      (z3::ite((z3ExprSelectOp1 == 1), (loadBV == subTreeFirst->bv),
+               (loadBV == subTreeSecond->bv)));
+
+  outs() << "[handleLoadInst] " << loadEncoding.to_string().c_str() << "\n";
 
   auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
-  BBAsstVecIter->second.push_back(loadEncodingFirst);
-  BBAsstVecIter->second.push_back(loadEncodingSecond);
+  BBAsstVecIter->second.push_back(loadEncoding);
   printBBAssertionsMap();
   outs().flush();
-
-  // exit(0);
 }
 
 void FunctionEncoder::handleLoadInst(LoadInst &i) {
@@ -1003,14 +998,12 @@ void FunctionEncoder::handleLoadInst(LoadInst &i) {
     throw std::runtime_error("[handleCallInst]"
                              "load instruction with pointer that is a pointer "
                              "to a pointer is not supported\n");
-    return;
   }
 
   if (loadInstValue->getType()->isAggregateType()) {
     throw std::runtime_error("[handleCallInst]"
                              "load instruction with pointer that is a pointer "
                              "to an aggregate type is not supported\n");
-    return;
   }
 
   outs().flush();
@@ -1065,13 +1058,199 @@ void FunctionEncoder::handleLoadInst(LoadInst &i) {
   printBBAssertionsMap();
 }
 
-void FunctionEncoder::handleStoreFromSelect(StoreInst &i,
-                                            GetElementPtrInst &GEP,
-                                            SelectInst &selectInst) {
+/* Consider the following function foo: */
+
+#if 0
+%struct.bpf_reg_state = type { i64, i64, i64, i64, i64, i64, i64, i64}
+; Function Attrs: noinline nounwind uwtable
+define dso_local void @foo(%struct.bpf_reg_state* %dst_reg, %struct.bpf_reg_state* %src_reg) local_unnamed_addr #0 align 16 {
+  %umin = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 4
+  %umin_load = load i64, i64* %umin, align 8
+  %umin_is_zero = icmp eq i64 %umin_load, 0
+  %select_false_reg = select i1 %umin_is_zero, %struct.bpf_reg_state* %src_reg, %struct.bpf_reg_state* %dst_reg
+  %umax_false_reg = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %select_false_reg, i64 0, i32 5
+  store i64 %umin_load, i64* %umax_false_reg, align 8
+  ret void
+}
+#endif
+
+/*
+With the following MemoryViewMap on entry:
+(liveOnEntry):
+{%src_reg: [s0_bv, s1_bv, s2_bv, s3_bv, s4_bv, s5_bv]
+%dst_reg: [d0_bv, d1_bv, d2_bv, d3_bv, d4_bv, d5_bv]
+}
+
+Before we encounter the 2nd GEP, we have:
+GEPMap: umin, src_reg, [4]
+(= s4_bv umin_load_bv) ; from load
+(ite (= umin_load_bv #x0000000000000000) ; from icmp
+     (= umin_is_zero_bv #b1)
+     (= umin_is_zero_bv #b0))
+SelectMap: select_false_reg,src_reg,dst_reg
+
+On the 2nd GEP, we update GEPMap:
+umax_false_reg, select_false_reg, [5]
+umin, src_reg, [4]
+
+Now, we encouter the store. We see that the store instruction is storing to
+a pointer that comes from a select on pointers.
+* Because this is a store that modifies the MemoryViewMap, we first make a copy
+of the defining MemoryViewMap (liveOnEntry) to associate with the MemoryDef (1)
+corresponding to this store. We need to modify this MemoryViewMap.
+* We create two new bitvectors that we will store in our MemoryViewMap. Each
+of these bitvectors will be stored in the index obtained from the previous
+GEP (index 5).
+
+MemoryViewMap:
+1 = MemoryDef(liveOnEntry):
+{%src_reg: [s0_bv, s1_bv, s2_bv, s3_bv, s4_bv, select_resolve_bv_1]
+%dst_reg: [d0_bv, d1_bv, d2_bv, d3_bv, d4_bv, select_resolve_bv_2]
+}
+
+* We now need to assert that the MemoryViewMap at each location (src_reg[5] and
+dst_reg[5]) changes, if the boolean of the comparison that the select was based
+on is true. Else it is unchanged.
+That is if umin_is_zero is true, src_reg[5] will be updated, else it will remain
+unchanged. And if umin_is_zero is false, dst_reg[5] will be updated, else it
+will remain unchanged.
+
+(ite (= umin_is_zero_bv #b1)
+     (= select_resolve_bv_1 umin_load_bv)
+     (= select_resolve_bv_1 s5_bv))
+(ite (= umin_is_zero_bv #b0)
+    (= select_resolve_bv_2 umin_load_1_76)
+    (= select_resolve_bv_2 d5_bv))
+*/
+
+void FunctionEncoder::handleStoreFromSelect(StoreInst &storeInst,
+                                            GetElementPtrInst &GEPInst,
+                                            SelectInst &selectInst,
+                                            ValueBVTreeMap *newValueBVTreeMap) {
   outs() << "[handleStoreFromSelect] "
          << "\n";
+  outs() << storeInst << "\n";
+  outs() << GEPInst << "\n";
+  outs() << selectInst << "\n";
   outs().flush();
-  exit(0);
+
+  Value *selectConditionOp = selectInst.getOperand(0);
+  auto z3ExprSelectConditionOp =
+      BitVecHelper::getBitVecSingValType(selectConditionOp);
+
+  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+
+  Value *valueStored = storeInst.getValueOperand();
+  z3::expr z3ExprStoreValue = BitVecHelper::getBitVecSingValType(valueStored);
+
+  /* get MemoryAccess corresponding to this store */
+  MemoryUseOrDef *storeMemoryAccess =
+      currentMemorySSA->getMemoryAccess(&storeInst);
+  outs() << "[handleStoreFromSelect] "
+         << "storeMemoryAccess: " << *storeMemoryAccess << "\n";
+  assert(isa<MemoryDef>(storeMemoryAccess));
+
+  outs() << "[handleStoreFromSelect] "
+         << "newValueBVTreeMap (copied from oldValueBVTreeMap):\n"
+         << ValueBVTreeMapToString(*newValueBVTreeMap);
+
+  /* First */
+  Value *selectInstOp1 = selectInst.getOperand(1);
+  BVTree *parentBVTree1 = newValueBVTreeMap->at(selectInstOp1);
+  outs() << parentBVTree1->toString() << "\n";
+
+  z3::expr selectStoreResolveBV1 = BitVecHelper::getBitVec(
+      valueStored->getType()->getIntegerBitWidth(), "select_resolve");
+
+  std::vector<int> *GEPMapIndices1 =
+      GEPMap.at(storeInst.getPointerOperand()).second;
+  outs() << "[handleStoreFromSelect] "
+         << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices1) << "\n";
+  outs().flush();
+
+  BVTree *subTree1;
+  if (GEPMapIndices1->size() == 1) {
+    int idx = GEPMapIndices1->at(0);
+    subTree1 = parentBVTree1->getSubTree(idx);
+  } else if (GEPMapIndices1->size() == 2) {
+    int idx0 = GEPMapIndices1->at(0);
+    int idx1 = GEPMapIndices1->at(1);
+    subTree1 = parentBVTree1->getSubTree(idx0)->getSubTree(idx1);
+  } else {
+    throw std::runtime_error("Unexpected GEPMapIndices size\n");
+  }
+
+  outs() << "[handleStoreFromSelect] "
+         << "subTree1: " << subTree1->toString() << "\n";
+  z3::expr oldStoreBV1 = subTree1->bv;
+  assert(oldStoreBV1);
+  subTree1->bv = selectStoreResolveBV1;
+  outs() << "[handleStoreFromSelect] "
+         << "subTree1 updated: " << subTree1->toString() << "\n";
+
+  z3::expr storeFromSelectEncoding1 = z3::ite(
+      z3ExprSelectConditionOp == 1, selectStoreResolveBV1 == z3ExprStoreValue,
+      selectStoreResolveBV1 == oldStoreBV1);
+
+  outs() << "[handleStoreFromSelect] "
+         << "storeFromSelectEncoding1: " << storeFromSelectEncoding1.to_string()
+         << "\n";
+
+  BBAsstVecIter->second.push_back(storeFromSelectEncoding1);
+
+  /* Second */
+  Value *selectInstOp2 = selectInst.getOperand(2);
+  BVTree *parentBVTree2 = newValueBVTreeMap->at(selectInstOp2);
+  outs() << parentBVTree2->toString() << "\n";
+
+  z3::expr selectStoreResolveBV2 = BitVecHelper::getBitVec(
+      valueStored->getType()->getIntegerBitWidth(), "select_resolve_");
+
+  std::vector<int> *GEPMapIndices2 =
+      GEPMap.at(storeInst.getPointerOperand()).second;
+  outs() << "[handleStoreFromSelect] "
+         << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices2) << "\n";
+  outs().flush();
+
+  BVTree *subTree2;
+  if (GEPMapIndices2->size() == 1) {
+    int idx = GEPMapIndices2->at(0);
+    subTree2 = parentBVTree2->getSubTree(idx);
+  } else if (GEPMapIndices2->size() == 2) {
+    int idx0 = GEPMapIndices2->at(0);
+    int idx1 = GEPMapIndices2->at(1);
+    subTree2 = parentBVTree2->getSubTree(idx0)->getSubTree(idx1);
+  } else {
+    throw std::runtime_error("Unexpected GEPMapIndices size\n");
+  }
+
+  outs() << "[handleStoreFromSelect] "
+         << "subTree2: " << subTree2->toString() << "\n";
+  z3::expr oldStoreBV2 = subTree2->bv;
+  assert(oldStoreBV2);
+  subTree2->bv = selectStoreResolveBV2;
+  outs() << "[handleStoreFromSelect] "
+         << "subTree2 updated: " << subTree2->toString() << "\n";
+
+  z3::expr storeFromSelectEncoding2 = z3::ite(
+      z3ExprSelectConditionOp == 0, selectStoreResolveBV2 == z3ExprStoreValue,
+      selectStoreResolveBV2 == oldStoreBV2);
+
+  outs() << "[handleStoreFromSelect] "
+         << "storeFromSelectEncoding2: " << storeFromSelectEncoding2.to_string()
+         << "\n";
+
+  BBAsstVecIter->second.push_back(storeFromSelectEncoding2);
+
+  MemoryAccessValueBVTreeMap.insert({storeMemoryAccess, *newValueBVTreeMap});
+  mostRecentMemoryDef = storeMemoryAccess;
+  outs() << "[handleStoreInst] "
+         << "MemoryAccessValueBVTreeMap:\n";
+  printMemoryAccessValueBVTreeMap();
+  printBBAssertionsMap(currentBB);
+
+  outs().flush();
+  // exit(0);
 }
 
 void FunctionEncoder::handleStoreInst(StoreInst &i) {
@@ -1084,6 +1263,14 @@ void FunctionEncoder::handleStoreInst(StoreInst &i) {
          << "\n";
   Value *valueStored = i.getValueOperand();
   z3::expr storeBV = BitVecHelper::getBitVecSingValType(valueStored);
+  outs() << "[handleStoreInst] "
+         << "storeBV: " << storeBV.to_string() << "\n";
+
+  /* Get location where value is stored */
+  Value *destPointerValue = i.getPointerOperand();
+  outs() << "[handleStoreInst] "
+         << "destPointerValue: " << destPointerValue->getName() << "\n";
+  outs().flush();
 
   /* get MemoryAccess corresponding to this store */
   MemoryUseOrDef *storeMemoryAccess = currentMemorySSA->getMemoryAccess(&i);
@@ -1112,11 +1299,13 @@ void FunctionEncoder::handleStoreInst(StoreInst &i) {
          << "newValueBVTreeMap (copied from oldValueBVTreeMap):\n"
          << ValueBVTreeMapToString(newValueBVTreeMap);
 
-  /* Get location where value is stored */
-  Value *destPointerValue = i.getPointerOperand();
-  outs() << "[handleStoreInst] "
-         << "destPointerValue: " << destPointerValue->getName() << "\n";
-  outs().flush();
+  if (loadOrStorePointerCameFromSelect(destPointerValue)) {
+    GetElementPtrInst &GEPInst = *dyn_cast<GetElementPtrInst>(destPointerValue);
+    Value *GEPargVal = GEPInst.getOperand(0);
+    SelectInst &selectInst = *dyn_cast<SelectInst>(GEPargVal);
+    handleStoreFromSelect(i, GEPInst, selectInst, &newValueBVTreeMap);
+    return;
+  }
 
   Value *GEPMapValue = GEPMap.at(destPointerValue).first;
   outs() << "[handleStoreInst] "
@@ -1126,14 +1315,6 @@ void FunctionEncoder::handleStoreInst(StoreInst &i) {
   outs() << "[handleStoreInst] "
          << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices) << "\n";
   outs().flush();
-
-  if (loadOrStorePointerCameFromSelect(destPointerValue)) {
-    GetElementPtrInst &GEPInst = *dyn_cast<GetElementPtrInst>(destPointerValue);
-    Value *GEPargVal = GEPInst.getOperand(0);
-    SelectInst &selectInst = *dyn_cast<SelectInst>(GEPargVal);
-    handleStoreFromSelect(i, GEPInst, selectInst);
-    return;
-  }
 
   BVTree *parentBVTree = newValueBVTreeMap.at(GEPMapValue);
   BVTree *subTree;
@@ -1194,9 +1375,9 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
 
     /* Iterate over all incoming BasicBlocks to a MemoryPhi block and populate
      * phiResolutionMap. phiResolutionMap contains BBPairs, one pair for each
-     * edge incoming to the memoryPhi BasicBlock. Associated to each BBpair is a
-     * list of z3 expressions that assert the bitvector equivalences for that
-     * particular edge. */
+     * edge incoming to the memoryPhi BasicBlock. Associated to each BBpair is
+     * a list of z3 expressions that assert the bitvector equivalences for
+     * that particular edge. */
     for (auto i = 0; i < mphi.getNumIncomingValues(); i++) {
 
       BasicBlock *incomingBBI = mphi.getIncomingBlock(i);
@@ -1239,8 +1420,9 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
     printPhiResolutionMap();
 
     /* In pass 3, we have the path conditions for each BBPair populated in
-     * EdgeAssertionsMap. Use them, and the phiResolutionMap, to figure what is
-     * the z3 expressions formed as a result of taking the particular edge. */
+     * EdgeAssertionsMap. Use them, and the phiResolutionMap, to figure what
+     * is the z3 expressions formed as a result of taking the particular edge.
+     */
   } else if (passID == 3) {
 
     auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
@@ -1266,7 +1448,8 @@ void FunctionEncoder::handleCallInst(CallInst &i) {
 
 // ----------------------------------------------------------------------------
 
-/* Go instruction by instruction in the BasicBlock, and build BBAssertionsMap */
+/* Go instruction by instruction in the BasicBlock, and build BBAssertionsMap
+ */
 void FunctionEncoder::populateBBAssertionsMap(BasicBlock &B) {
   for (Instruction &I : B) {
     FunctionEncoder::currentInstruction = &I;
@@ -1462,7 +1645,8 @@ BVTree *FunctionEncoder::setupBVTreeForArg(Value *argVal, std::string prefix) {
            << "\n";
     z3::expr inBV = BitVecHelper::getBitVecSingValType(argVal);
     BVTreeForArg->bv = inBV;
-  } else { /* argument is a struct type, array type or pointer to struct type */
+  } else {
+    /* argument is a struct type, array type or pointer to struct type */
     if (argType->isPointerTy()) { /* argument is a pointer type */
       /* treat pointers as their base type */
       argType = argType->getPointerElementType();
@@ -1484,9 +1668,9 @@ BVTree *FunctionEncoder::setupBVTreeForArg(Value *argVal, std::string prefix) {
   return BVTreeForArg;
 }
 
-/* Main encoding loop: get an encoding of the llvm:Function F's body. Creates a
- * new vector of expressions (z3::expr_vector) and populates the vector with the
- * encoding of F. */
+/* Main encoding loop: get an encoding of the llvm:Function F's body. Creates
+ * a new vector of expressions (z3::expr_vector) and populates the vector with
+ * the encoding of F. */
 z3::expr_vector FunctionEncoder::encodeFunctionBody(Function &F) {
 
   /* First pass: populate BBAssertionsMap */
@@ -1821,9 +2005,9 @@ void FunctionEncoder::buildSMT() {
   BBAssertionsMap.insert({this->currentBB, entryBBAsstVec});
 
   /* Iterate over all arguments of function F and build a
-   * MemoryAccessValueBVTreeMap. The only key will be 0 (liveOnEntry). The value
-   * in the map will be a vector of BVTrees corresponding to each input argument
-   * to this function. */
+   * MemoryAccessValueBVTreeMap. The only key will be 0 (liveOnEntry). The
+   * value in the map will be a vector of BVTrees corresponding to each input
+   * argument to this function. */
   for (auto argIterator = this->currentFunction->arg_begin();
        argIterator != this->currentFunction->arg_end(); argIterator++) {
     Value *argVal = dyn_cast<Value>(argIterator);
@@ -1832,11 +2016,11 @@ void FunctionEncoder::buildSMT() {
     this->inputValueBVTreeMap->insert({argVal, BVTreeForArg});
 
     /* For each bitvector b in the BVTree, assert that (b == b) in entryBB's
-     * asertions in BBAssertionsMap. This is mostly superflous, but is necessary
-     * to have the output SMT contain the bitvectors corresponding to the
-     * functions's input. It is particularly necessary when the function has
-     * just one basic block (no phi block to merge two blocks using new
-     * bitvectors)  */
+     * asertions in BBAssertionsMap. This is mostly superflous, but is
+     * necessary to have the output SMT contain the bitvectors corresponding
+     * to the functions's input. It is particularly necessary when the
+     * function has just one basic block (no phi block to merge two blocks
+     * using new bitvectors)  */
     BVTreeForArg->addBVSelfEquivalencesToExprVec(entryBBAsstVec);
 
     /* Add arg to FunctionArgs list */
