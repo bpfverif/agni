@@ -123,31 +123,25 @@ verifier's C code as described in our paper (§5). Our tool
 produces the first-order logic formula (in
 [SMT-LIB](https://smtlib.cs.uiowa.edu/papers/smt-lib-reference-v2.6-r2021-05-12.pdf)
 format) for the abstract semantics defined in Linux Kernel
-for each eBPF instruction. 
-
-### Load and run the docker image
-```
-docker load < cav23-artifact-docker.tar  
-docker run -it cav23-artifact:publish
-```
+for each eBPF instruction.
 
 ### Clone the Linux git repository (15 minutes)
 ```
-git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git /home/linux-stable
+git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git linux-stable
 ```
 
 ### Create the output directory and run the llvm-to-smt tool (15 minutes)
 ```
-mkdir /home/cav23-artifact/bpf-encodings-5.9
-cd /home/cav23-artifact/llvm-to-smt
-python3 generate_encodings.py --kernver 5.9 --kernbasedir /home/linux-stable --outdir /home/cav23-artifact/bpf-encodings-5.9
+mkdir ebpf-range-analysis-verification-cav23/bpf-encodings-5.9
+cd ebpf-range-analysis-verification-cav23/llvm-to-smt
+python3 generate_encodings.py --kernver 5.9 --kernbasedir ../../linux-stable --outdir ../bpf-encodings-5.9
 ```
 
 ### Expected Result 
 ```
-Log file: /home/cav23-artifact/bpf-encodings-5.9/log_21_58_27_04_2023.log
-Log error file: /home/cav23-artifact/bpf-encodings-5.9/log_err_21_58_27_04_2023.log
-Change to kernel directory: /home/linux-stable ... done
+Log file: ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/log_21_58_27_04_2023.log
+Log error file: ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/log_err_21_58_27_04_2023.log
+Change to kernel directory: linux-stable ... done
 Checkout kernel version v5.9 ... done
 Run make config and edit BPF flags ... done
 Extract compile flags for current kernel version ... done
@@ -174,10 +168,10 @@ have the semantics of 36 abstract operators corresponding to
 36 eBPF instructions.
 
 ```
-root@847d5c0f8828:/home/cav23-artifact/llvm-to-smt# ls -1 /home/cav23-artifact/bpf-encodings-5.9/*.smt2
-/home/bpf-encodings-5.9/BPF_ADD.smt2
-/home/bpf-encodings-5.9/BPF_ADD_32.smt2
-/home/bpf-encodings-5.9/BPF_AND.smt2
+root@847d5c0f8828:ebpf-range-analysis-verification-cav23/llvm-to-smt# ls -1 ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/*.smt2
+ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/BPF_ADD.smt2
+ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/BPF_ADD_32.smt2
+ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/BPF_AND.smt2
 .
 .
 .
@@ -204,12 +198,12 @@ behaviors in an actual kernel.
 
 ### Run the script to perform the verification and synthesis
 The script uses the encodings we previously generated,
-present in `/home/cav23-artifact/bpf-encodings-5.9`. 
+present in `ebpf-range-analysis-verification-cav23/bpf-encodings-5.9`.
 ```
-cd /home/cav23-artifact/bpf-verification
+cd ebpf-range-analysis-verification-cav23/bpf-verification
 mkdir results/
 cd src/
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path /home/cav23-artifact/bpf-encodings-5.9 
+python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path ebpf-range-analysis-verification-cav23/bpf-encodings-5.9
 ```
 
 ### Expected result
