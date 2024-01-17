@@ -14,7 +14,16 @@ z3::expr BitVecHelper::getBitVec(unsigned bitwidth, std::string prefix) {
                             "_" + std::to_string(BitVecHelper::unique_bv_id++);
   z3::expr ret = ctx.bv_const(unique_name.c_str(), bitwidth);
   outs() << "[getBitVec] "
-         << "returning uniq w prefix: " << ret.to_string().c_str() << "\n";
+         << "returning unique bitvector w/ prefix: " << ret.to_string().c_str() << "\n";
+  return ret;
+}
+
+z3::expr BitVecHelper::getBool(std::string prefix) {
+  std::string unique_name = prefix + "_" + BitVecHelper::global_bv_suffix +
+                            "_" + std::to_string(BitVecHelper::unique_bv_id++);
+  z3::expr ret = ctx.bool_const(unique_name.c_str());
+  outs() << "[getBool] "
+         << "returning unique bool w/ prefix: " << ret.to_string().c_str() << "\n";
   return ret;
 }
 

@@ -28,6 +28,7 @@ typedef std::pair<BasicBlock *, BasicBlock *> BBPair;
 typedef std::unordered_map<Value *, BVTree *> ValueBVTreeMap;
 typedef std::pair<Value *, Value *> ValuePair;
 typedef std::pair<Value *, std::vector<int> *> ValueIndicesPair;
+typedef std::pair<Value *, BasicBlock *> ValueBBPair;
 
 extern z3::context ctx;
 
@@ -75,9 +76,11 @@ public:
    * ValueBVTreeMap containing all the functions arguments as keys. eg.
    * liveOnEntry: [arg_a: [bv_a_1, bv_a_2, bv_a_3], arg_b: [bv_b]] */
   std::unordered_map<MemoryAccess *, ValueBVTreeMap> MemoryAccessValueBVTreeMap;
+  std::unordered_map<BBPair, z3::expr, pair_hash<BasicBlock *, BasicBlock *>>
+      PhiResolutionMap;
   std::unordered_map<BBPair, z3::expr_vector,
                      pair_hash<BasicBlock *, BasicBlock *>>
-      phiResolutionMap;
+      MemoryPhiResolutionMap;
 
   /* A list of structs relevent to the encoding. All other structs are ignored
    * when creating BVTrees. */
@@ -122,6 +125,7 @@ public:
   void printValueBVTreeMap(ValueBVTreeMap vt);
   void printMemoryAccessValueBVTreeMap();
   void printPhiResolutionMap();
+  void printMemoryPhiResolutionMap();
   void printGEPMap();
   void printSelectMap();
   void printSelectGEPMap();

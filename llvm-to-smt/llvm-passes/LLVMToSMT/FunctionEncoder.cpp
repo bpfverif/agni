@@ -116,7 +116,7 @@ FunctionEncoder::GEPMapSingleElementToString(Value *v0, Value *v1,
   std::string os;
   llvm::raw_string_ostream llvmos(os);
   llvmos << v0->getName() << ", " << v1->getName() << ", [";
-  for (int i = 0; i < gepIndices->size(); i++) {
+  for (std::vector<int>::size_type i = 0; i < gepIndices->size(); i++) {
     llvmos << gepIndices->at(i);
     if (i < gepIndices->size() - 1) {
       llvmos << ", ";
@@ -136,16 +136,6 @@ void FunctionEncoder::printGEPMap() {
   }
 }
 
-void FunctionEncoder::printSelectGEPMap() {
-  for (auto kv : SelectGEPMap) {
-    Value *v0 = kv.first;
-    Value *v1 = kv.second.first;
-    std::vector<int> *gepIndices = kv.second.second;
-    outs() << GEPMapSingleElementToString(v0, v1, gepIndices);
-    outs() << "\n";
-  }
-}
-
 void FunctionEncoder::printSelectMap() {
   for (auto kv : SelectMap) {
     Value *v0 = kv.first;
@@ -157,7 +147,17 @@ void FunctionEncoder::printSelectMap() {
 }
 
 void FunctionEncoder::printPhiResolutionMap() {
-  for (auto &bbPair : phiResolutionMap) {
+  for (auto &bbPair : PhiResolutionMap) {
+    outs() << "<" << std::get<0>(bbPair).first->getName() << ", "
+           << std::get<0>(bbPair).second->getName() << ">: ";
+    z3::expr Z3Expr = std::get<1>(bbPair);
+    outs() << Z3Expr.to_string().c_str() << "\n";
+  }
+  
+}
+
+void FunctionEncoder::printMemoryPhiResolutionMap() {
+  for (auto &bbPair : MemoryPhiResolutionMap) {
     outs() << "<" << std::get<0>(bbPair).first->getName() << ", "
            << std::get<0>(bbPair).second->getName() << "> :";
     z3::expr_vector Z3ExprVec = std::get<1>(bbPair);
@@ -629,43 +629,76 @@ void FunctionEncoder::handleBranchInst(BranchInst &i) {
   }
 }
 
-/* In the first pass, just create a bitvector for this Value. In the second
- * pass, figure out the path conditions */
+/*
+lend:
+  %c = phi i32 [ %a, %lfalse ], [ %b, %ltrue ]
+
+In the first pass,
+1. Create a bitvector for the PHI instruction: c_bv
+2. Create a boolean z3 constant for each edge coming into the basic block:
+   lfalse_lend, ltrue_lend
+3. Conditinally set c_bv to either a_bv or c_bv:
+    (=> lfalse_lend_bool (= c_bv a_bv))
+    (=> ltrue_lend_bool (= c_bv b_bv))
+
+In the second pass, the edge conditions have been figured out. Set their values:
+4. (= lfalse_lend_bool <pc for lfalse-to-lend from EdgeAssertionsMap>)
+   (= ltrue_lend_bool <pc for ltrue-to-lend from EdgeAssertionsMap>)
+*/
 void FunctionEncoder::handlePhiNode(PHINode &inst, int passID) {
   outs() << "[handlePhiNode]\n";
+  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
   if (passID == 1) {
     outs() << "[handlePhiNode] "
            << "Pass #" << passID << "\n";
-    Value *res = dyn_cast<Value>(&inst);
-    auto res_bv = BitVecHelper::getBitVecSingValType(res);
-    outs() << "[handlePhiNode] " << res_bv.to_string().c_str() << "\n";
+    Value *phiInstValue = dyn_cast<Value>(&inst);
+    auto phiInstBV = BitVecHelper::getBitVecSingValType(phiInstValue);
+    for (auto i = 0u; i < inst.getNumIncomingValues(); i++) {
+      Value *valueI = inst.getIncomingValue(i);
+      auto valueIBV = BitVecHelper::getBitVecSingValType(valueI);
+      BasicBlock *incomingBlockI = inst.getIncomingBlock(i);
+      BBPair BBPairI = std::make_pair(incomingBlockI, currentBB);
+      std::string BBPairStringI =
+          incomingBlockI->getName().str() + "_" + currentBB->getName().str();
+      z3::expr phiConditionI = BitVecHelper::getBool(BBPairStringI.c_str());
+      PhiResolutionMap.insert({BBPairI, phiConditionI});
+      outs() << "[handlePhiNode] "
+             << "phiConditionI: " << phiConditionI.to_string().c_str() << "\n";
+      z3::expr phiEncodingI = z3::implies(phiConditionI, phiInstBV == valueIBV);
+      outs() << "[handlePhiNode] "
+             << "phiEncodingI: " << phiEncodingI.to_string().c_str() << "\n";
+      BBAsstVecIter->second.push_back(phiEncodingI);
+    }
+    outs() << "[handlePhiNode] "
+           << "PhiResolutionMap: "
+           << "\n";
+    printPhiResolutionMap();
   } else if (passID == 3) {
     outs() << "[handlePhiNode] "
            << "Pass #" << passID << "\n";
-    auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
-    Value *res = dyn_cast<Value>(&inst);
-    auto res_bv = BitVecHelper::getBitVecSingValType(res);
-    outs() << "[handlePhiNode] " << res_bv.to_string().c_str() << "\n";
-
-    for (auto i = 0; i < inst.getNumIncomingValues(); i++) {
-      Value *valI = inst.getIncomingValue(i);
-      auto valI_bv = BitVecHelper::getBitVecSingValType(valI);
-      outs() << "[handlePhiNode] "
-             << "valI_bv:" << valI_bv.to_string().c_str() << "\n";
+    for (auto i = 0u; i < inst.getNumIncomingValues(); i++) {
       BasicBlock *incomingBlockI = inst.getIncomingBlock(i);
       outs() << "[handlePhiNode] "
              << "incomingBlockI " << incomingBlockI->getName() << "\n";
       BBPair BBPairI = std::make_pair(incomingBlockI, currentBB);
-      if (EdgeAssertionsMap.find(BBPairI) == EdgeAssertionsMap.end()) {
-        throw std::runtime_error(
-            "<incomingBlock, currentBB> pair not found in EdgeAssertionsMap\n");
-      }
-      z3::expr phiResolveI =
-          z3::implies(EdgeAssertionsMap.at(BBPairI), res_bv == valI_bv);
-      outs() << "[handlePhiNode] " << phiResolveI.to_string().c_str() << "\n";
+      z3::expr phiConditionI = PhiResolutionMap.at(BBPairI);
+      outs() << "[handlePhiNode] "
+             << "phiConditionI: " << phiConditionI.to_string().c_str() << "\n";
+      z3::expr phiPathConditionsI = EdgeAssertionsMap.at(BBPairI);
+      outs() << "[handlePhiNode] "
+             << "path conditions for BBPairI from EdgeAssertionsMap: "
+             << phiPathConditionsI.to_string().c_str() << "\n";
+      z3::expr phiResolveI = (phiConditionI == phiPathConditionsI);
+      outs() << "[handlePhiNode] "
+             << "phiResolveI: " << phiResolveI.to_string().c_str() << "\n";
       BBAsstVecIter->second.push_back(phiResolveI);
     }
   }
+  outs() << "[handlePhiNode] "
+         << "BBAssertionsMap: "
+         << "\n";
+  printBBAssertionsMap(currentBB);
+  outs().flush();
 }
 
 void populateGEPIndices(GetElementPtrInst &i, std::vector<int> &GEPIndices) {
@@ -1160,7 +1193,7 @@ void FunctionEncoder::handleStoreFromSelect(StoreInst &storeInst,
   outs() << parentBVTree1->toString() << "\n";
 
   z3::expr selectStoreResolveBV1 = BitVecHelper::getBitVec(
-      valueStored->getType()->getIntegerBitWidth(), "select_resolve");
+      valueStored->getType()->getIntegerBitWidth(), "select_resolve_");
 
   std::vector<int> *GEPMapIndices1 =
       GEPMap.at(storeInst.getPointerOperand()).second;
@@ -1351,7 +1384,7 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
 
   mostRecentMemoryDef = &mphi;
 
-  /* In pass 1, we populate phiResolutionMap. */
+  /* In pass 1, we populate MemoryPhiResolutionMap. */
   if (passID == 1) {
 
     /* Create new Value:BVTree Map for this MemoryPhi node, and populate it
@@ -1374,11 +1407,11 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
     printValueBVTreeMap(phiBVTreeMap);
 
     /* Iterate over all incoming BasicBlocks to a MemoryPhi block and populate
-     * phiResolutionMap. phiResolutionMap contains BBPairs, one pair for each
-     * edge incoming to the memoryPhi BasicBlock. Associated to each BBpair is
-     * a list of z3 expressions that assert the bitvector equivalences for
-     * that particular edge. */
-    for (auto i = 0; i < mphi.getNumIncomingValues(); i++) {
+     * MemoryPhiResolutionMap. MemoryPhiResolutionMap contains BBPairs, one pair
+     * for each edge incoming to the memoryPhi BasicBlock. Associated to each
+     * BBpair is a list of z3 expressions that assert the bitvector equivalences
+     * for that particular edge. */
+    for (auto i = 0u; i < mphi.getNumIncomingValues(); i++) {
 
       BasicBlock *incomingBBI = mphi.getIncomingBlock(i);
       outs() << "[handleMemoryPhiNode] "
@@ -1395,7 +1428,7 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
       printValueBVTreeMap(oldVBVTreeMapI);
 
       z3::expr_vector BBExprsI(ctx);
-      phiResolutionMap.insert({BBPairI, BBExprsI});
+      MemoryPhiResolutionMap.insert({BBPairI, BBExprsI});
 
       for (std::pair<Value *, BVTree *> kv : phiBVTreeMap) {
         Value *argValue = kv.first;
@@ -1416,24 +1449,25 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
       MemoryAccessValueBVTreeMap.insert({&mphi, phiBVTreeMap});
     }
     outs() << "[handleMemoryPhiNode] "
-           << "PhiResolutionMap:\n";
-    printPhiResolutionMap();
+           << "MemoryPhiResolutionMap:\n";
+    printMemoryPhiResolutionMap();
 
     /* In pass 3, we have the path conditions for each BBPair populated in
-     * EdgeAssertionsMap. Use them, and the phiResolutionMap, to figure what
-     * is the z3 expressions formed as a result of taking the particular edge.
+     * EdgeAssertionsMap. Use them, and the MemoryPhiResolutionMap, to figure
+     * what is the z3 expressions formed as a result of taking the particular
+     * edge.
      */
   } else if (passID == 3) {
 
     auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
 
-    for (auto i = 0; i < mphi.getNumIncomingValues(); i++) {
+    for (auto i = 0u; i < mphi.getNumIncomingValues(); i++) {
       BasicBlock *incomingBBI = mphi.getIncomingBlock(i);
       BBPair BBPairI = std::make_pair(incomingBBI, currentBB);
       assert(EdgeAssertionsMap.find(BBPairI) != EdgeAssertionsMap.end());
-      z3::expr_vector BBIExprs = phiResolutionMap.at(BBPairI);
+      z3::expr_vector BBExprsI = MemoryPhiResolutionMap.at(BBPairI);
       z3::expr phiResolveI =
-          z3::implies(EdgeAssertionsMap.at(BBPairI), z3::mk_and(BBIExprs));
+          z3::implies(EdgeAssertionsMap.at(BBPairI), z3::mk_and(BBExprsI));
       outs() << "phiResolveI (i=" << i << ") "
              << phiResolveI.to_string().c_str() << "\n";
       BBAsstVecIter->second.push_back(phiResolveI);
