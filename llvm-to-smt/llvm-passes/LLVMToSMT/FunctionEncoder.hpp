@@ -129,7 +129,7 @@ public:
   void printMemoryPhiResolutionMap();
   void printGEPMap();
   void printSelectMap();
-  void printSelectGEPMap();
+  void printPhiMap();
   std::string GEPMapSingleElementToString(Value *v0, Value *v1,
                                           std::vector<int> *gepIndices);
   std::string stdVectorIntToString(std::vector<int> &vec);
@@ -144,14 +144,19 @@ public:
   void handleSelectInst(SelectInst &i);
   void handleBranchInst(BranchInst &i);
   void handlePhiNode(PHINode &inst, int passID);
+  void handlePhiNodeSetupBitVecs(PHINode &inst);
+  void handlePhiNodeResolvePathConditions(PHINode &inst);
   void handleGEPInst(GetElementPtrInst &i);
   void handleLoadInst(LoadInst &i);
   void handleStoreInst(StoreInst &i);
   void handleMemoryPhiNode(MemoryPhi &mphi, int passID);
   void handleCallInst(CallInst &i);
   void handleGEPInstFromSelect(GetElementPtrInst &i);
+  void handleGEPInstFromPHI(GetElementPtrInst &i);
+  void handlePhiInstPointer(PHINode &inst);
   void handleLoadFromSelect(LoadInst &i, GetElementPtrInst &GEP,
                             SelectInst &selectInst);
+  void handleLoadFromPhi(LoadInst &i, GetElementPtrInst &GEP, PHINode &phiNode);
   void indexIntoBVTree(LoadInst &loadInst, BVTree *subTree);
   void handleStoreFromSelect(StoreInst &i, GetElementPtrInst &GEP,
                              SelectInst &selectInst,
