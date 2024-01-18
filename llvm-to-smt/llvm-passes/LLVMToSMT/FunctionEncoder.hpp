@@ -108,14 +108,15 @@ public:
    * preceded by a GEP */
   std::unordered_map<Value *, ValueIndicesPair> GEPMap;
 
+  std::unordered_map<Value *, ValuePair> SelectMap;
+
+  std::unordered_map<Value *, std::vector<ValueBBPair>> PhiMap;
+
   /* Associate with each BasicBlock, a ValueBVTreeMap; to resolve
    * to resolve insertValue instructions (instead of piggy-backing on the
    * MemoryAccessValueBVTreeMap). Used to store BVTrees for aggregate types.
    * Also used for handling struct return types. */
   std::unordered_map<BasicBlock *, ValueBVTreeMap *> BBValueBVTreeMap;
-
-  std::unordered_map<Value *, ValuePair> SelectMap;
-  std::unordered_map<Value *, ValueIndicesPair> SelectGEPMap;
 
   /* Functions to print things */
   void printEdgeAssertionsMap();

@@ -481,7 +481,20 @@ void FunctionEncoder::handleSelectInst(SelectInst &i) {
   Value *selectOp2 = i.getOperand(1);
   Value *selectOp3 = i.getOperand(2);
 
+  ValueBVTreeMap selectInstValueBVTreeMap =
+      MemoryAccessValueBVTreeMap.at(mostRecentMemoryDef);
+  printValueBVTreeMap(selectInstValueBVTreeMap);
+  ValuePair selectOperandsValuePair = std::make_pair(selectOp2, selectOp3);
+  SelectMap.insert({selectInstValue, selectOperandsValuePair});
+  outs() << "[handleSelectInst]"
+         << "SelectMap:"
+         << "\n";
+  printSelectMap();
+
   if (!selectInstValue->getType()->isPointerTy()) {
+    outs() << "[handleSelectInst]"
+           << "select instruction is not a pointer type:"
+           << "\n";
     auto z3ExprSelectOp1 = BitVecHelper::getBitVecSingValType(selectOp1);
     auto z3ExprSelectOp2 = BitVecHelper::getBitVecSingValType(selectOp2);
     auto z3ExprSelectOp3 = BitVecHelper::getBitVecSingValType(selectOp3);
@@ -504,18 +517,6 @@ void FunctionEncoder::handleSelectInst(SelectInst &i) {
            << "\n";
 
     BBAsstVecIter->second.push_back(selectEncoding);
-  } else {
-    /* Select instruction is a pointer type */
-    ValueBVTreeMap selectInstValueBVTreeMap =
-        MemoryAccessValueBVTreeMap.at(mostRecentMemoryDef);
-    printValueBVTreeMap(selectInstValueBVTreeMap);
-
-    ValuePair selectOperandsValuePair = std::make_pair(selectOp2, selectOp3);
-    SelectMap.insert({selectInstValue, selectOperandsValuePair});
-    outs() << "[handleSelectInst]"
-           << "SelectMap:"
-           << "\n";
-    printSelectMap();
   }
 }
 
