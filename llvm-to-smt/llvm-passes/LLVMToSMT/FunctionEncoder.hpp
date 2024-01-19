@@ -161,7 +161,8 @@ public:
   void handleStoreFromSelect(StoreInst &i, GetElementPtrInst &GEP,
                              SelectInst &selectInst,
                              ValueBVTreeMap *newValueBVTreeMap);
-
+  void handleStoreFromPhi(StoreInst &storeInst, GetElementPtrInst &GEPInst,
+                          PHINode &phiInst, ValueBVTreeMap *newValueBVTreeMap);
   /* Json output related functions */
   void populateInputAndOutputJsonDict();
   Json::Value *setupJSONDictForArg(Value *argVal);

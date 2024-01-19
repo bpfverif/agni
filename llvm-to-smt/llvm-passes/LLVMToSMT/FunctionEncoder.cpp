@@ -556,7 +556,6 @@ void FunctionEncoder::handleBranchInst(BranchInst &i) {
     assert(i.getNumSuccessors() == 2);
 
     z3::expr cond = BitVecHelper::getBitVecSingValType(i.getCondition());
-    outs() << i.getNumSuccessors() << "\n";
     BasicBlock *destBB1 = i.getSuccessor(0);
     BasicBlock *destBB2 = i.getSuccessor(1);
 
@@ -578,6 +577,15 @@ void FunctionEncoder::handleBranchInst(BranchInst &i) {
     EdgeAssertionsMap.insert({BBPair1, newPathCond1});
     EdgeAssertionsMap.insert({BBPair2, newPathCond2});
 
+    outs() << "[handleBranchInst] "
+           << "Edge Assertions:\n";
+    outs() << "<" << BBPair1.first->getName() << ", "
+           << BBPair1.second->getName() << ">"
+           << ": " << newPathCond1.to_string().c_str() << "\n";
+    outs() << "<" << BBPair2.first->getName() << ", "
+           << BBPair2.second->getName() << ">"
+           << ": " << newPathCond2.to_string().c_str() << "\n";
+
     /* Now update PathConditionsMap. If there exists a path condition for the
      * destBB disjunct it and finally, update pathConditionsMap */
     auto PCIter1 = pathConditionsMap.find(destBB1);
@@ -594,6 +602,9 @@ void FunctionEncoder::handleBranchInst(BranchInst &i) {
     } else {
       pathConditionsMap.insert({destBB2, newPathCond2});
     }
+
+    outs() << "[handleBranchInst] "
+           << "Path Conditions:\n";
 
     outs() << "[handleBranchInst] " << destBB1->getName() << ": "
            << pathConditionsMap.at(destBB1).to_string().c_str() << "\n";
@@ -617,7 +628,6 @@ void FunctionEncoder::handleBranchInst(BranchInst &i) {
     outs() << "[handleBranchInst] "
            << "destBB: " << destBB->getName() << "\n";
 
-    /* TODO should this be "true" here?  */
     z3::expr newPathCond(ctx);
     if (pathConditionsMap.find(currentBB) == pathConditionsMap.end()) {
       newPathCond = ctx.bool_val(true);
@@ -648,6 +658,12 @@ void FunctionEncoder::handleBranchInst(BranchInst &i) {
            << "> :" << EdgeAssertionsMap.at(currentBBPair).to_string().c_str()
            << "\n";
   }
+  outs() << "[handleBranchInst] "
+         << "EdgeAssertionsMap:\n";
+  printEdgeAssertionsMap();
+  outs() << "[handleBranchInst] "
+         << "PathConditionsMap:\n";
+  printPathConditionsMap();
 }
 
 void FunctionEncoder::handlePhiNodeSetupBitVecs(PHINode &phiInst) {
@@ -998,7 +1014,7 @@ GEPMap: phi_reg_tnum_mask, phi_reg, 3, 1
 - Finally, on encountering the load instruction, each incoming basic block to
 the phi node is resolved into its own encoding using GEPMap, PhiMap, and
 PhiResolutionMap. We make the following assertions for the current basic block,
-one for each incoming edge to the phi node. 
+one for each incoming edge to the phi node.
 
 (=> lfalse_lend_1_88 (= phi_reg_tnum_mask_load dst_reg_3_1_bv)
 (=> ltrue_lend_1_90 (= phi_reg_tnum_mask_load src_reg_3_1_bv))
@@ -1293,24 +1309,196 @@ void FunctionEncoder::handleLoadInst(LoadInst &i) {
   printBBAssertionsMap();
 }
 
-/* Consider the following function foo: */
+#if 0
+
+%struct.bpf_reg_state = type { i32, i64, i64, i64, i64}
+
+define dso_local void @foo(%struct.bpf_reg_state* %dst_reg, %struct.bpf_reg_state* %src_reg) local_unnamed_addr align 16 {
+entry:
+  %umin_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 1
+; MemoryUse(liveOnEntry) MayAlias
+  %umin_src_load = load i64, i64* %umin_src, align 8
+  %type_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 0
+; MemoryUse(liveOnEntry) MayAlias
+  %type_src_load = load i32, i32* %type_src, align 8
+  %type_src_is_zero = icmp eq i32 %type_src_load, 0
+  br i1 %type_src_is_zero, label %ltrue, label %lend
+
+ltrue:                                            ; preds = %entry
+  %smin_dst = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %dst_reg, i64 0, i32 3
+; 1 = MemoryDef(liveOnEntry)
+  store i64 0, i64* %smin_dst, align 8
+  br label %lend
+
+lend:                                             ; preds = %ltrue, %entry
+; 3 = MemoryPhi({entry,liveOnEntry},{ltrue,1})
+  %phi_reg = phi %struct.bpf_reg_state* [ %dst_reg, %ltrue ], [ %src_reg, %entry ]
+  %smin_phi = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %phi_reg, i64 0, i32 3
+; 2 = MemoryDef(3)
+  store i64 %umin_src_load, i64* %smin_phi, align 8
+  ret void
+}
+
+#endif
+
+/*
+Consider the above function foo. Before we encounter the store instruction, we
+have: ; GEPMap: {{umin, src_reg, [1]},{type_src, src_reg, [0],{smin_dst,
+dst_reg, [3]}, {smin_phi, phi_reg, [3]}}
+
+MemoryViewMap:
+(liveOnEntry): {
+%src_reg: [s0_bv, s1_bv, s2_bv, s3_bv, s4_bv]
+%dst_reg: [d0_bv, d1_bv, d2_bv, d3_bv, d4_bv]
+}
+
+1 = MemoryDef(liveOnEntry) : {
+%src_reg: [s0_bv, s1_bv, s2_bv, 0x0, s4_bv]
+%dst_reg: [d0_bv, d1_bv, d2_bv, d3_bv, d4_bv]
+}
+
+3 = MemoryPhi({entry,liveOnEntry},{ltrue,1}): {
+%src_reg: [s0_p_bv, s1_p_bv, s2_p_bv, s3_p_bv, s4_p_bv]
+%dst_reg: [d0_p_bv, d1_p_bv, d2_p_bv, d3_p_bv, d4_p_bv]
+}
+
+PhiMap:
+phi_reg : {<dst_reg, ltrue>, <src_reg, entry>}
+
+PhiResolutionMap:
+{{<ltrue, lend>: ltrue_lend_pc},{<entry, lend>: entry_lend_pc}}
+
+---
+
+To encode the store, we first create a copy of the MemoryDef the
+store modifies. In this case,
+
+; 2 = MemoryDef(3)
+; %src_reg: [s0_p_bv, s1_p_bv, s2_p_bv, phi_resolve_bv_1, s4_p_bv]
+; %dst_reg: [d0_p_bv, d1_p_bv, d2_p_bv, phi_resolve_bv_2, d4_p_bv]
+
+Then we encode the store:
+  ; (ite (= entry_lend_pc #b1)
+  ;      (= phi_resolve_bv_1 umin_src_load_bv)
+  ;      (= phi_resolve_bv_1 s3_p_bv))
+  ; (ite (= ltrue_lend_pc #b1)
+  ;      (= phi_resolve_bv_2 umin_src_load_bv)
+  ;      (= phi_resolve_bv_1 d3_p_bv))
+
+*/
+
+void FunctionEncoder::handleStoreFromPhi(StoreInst &storeInst,
+                                         GetElementPtrInst &GEPInst,
+                                         PHINode &phiInst,
+                                         ValueBVTreeMap *newValueBVTreeMap) {
+  outs() << "[handleStoreFromPhi] "
+         << "\n";
+
+  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+
+  Value *valueToStore = storeInst.getValueOperand();
+  z3::expr z3ExprToStore = BitVecHelper::getBitVecSingValType(valueToStore);
+
+  /* get MemoryAccess corresponding to this store */
+  MemoryUseOrDef *storeMemoryAccess =
+      currentMemorySSA->getMemoryAccess(&storeInst);
+  outs() << "[handleStoreFromPhi] "
+         << "storeMemoryAccess: " << *storeMemoryAccess << "\n";
+  assert(isa<MemoryDef>(storeMemoryAccess));
+
+  outs() << "[handleStoreFromPhi] "
+         << "newValueBVTreeMap (copied from oldValueBVTreeMap):\n"
+         << ValueBVTreeMapToString(*newValueBVTreeMap);
+
+  BasicBlock *phiBB = phiInst.getParent();
+  std::vector<ValueBBPair> phiValueBBPairs = PhiMap.at(&phiInst);
+
+  for (auto kv : phiValueBBPairs) {
+    Value *phiArgValI = kv.first;
+    BasicBlock *phiArgBBI = kv.second;
+
+    BVTree *parentBVTreeI = newValueBVTreeMap->at(phiArgValI);
+    outs() << "[handleStoreFromPhi] "
+           << "parentBVTree1:\n";
+    outs() << parentBVTreeI->toString() << "\n";
+
+    z3::expr phiStoreResolveBVI = BitVecHelper::getBitVec(
+        valueToStore->getType()->getIntegerBitWidth(), "phi_resolve_");
+
+    std::vector<int> *GEPMapIndicesI =
+        GEPMap.at(storeInst.getPointerOperand()).second;
+    outs() << "[handleStoreFromPhi] "
+           << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndicesI)
+           << "\n";
+    outs().flush();
+
+    BVTree *subTreeI;
+    if (GEPMapIndicesI->size() == 1) {
+      int idx = GEPMapIndicesI->at(0);
+      subTreeI = parentBVTreeI->getSubTree(idx);
+    } else if (GEPMapIndicesI->size() == 2) {
+      int idx0 = GEPMapIndicesI->at(0);
+      int idx1 = GEPMapIndicesI->at(1);
+      subTreeI = parentBVTreeI->getSubTree(idx0)->getSubTree(idx1);
+    } else {
+      throw std::runtime_error(
+          "[handleStoreFromPhi]: Unexpected GEPMapIndices size\n");
+    }
+
+    outs() << "[handleStoreFromPhi] "
+           << "subTreeI: " << subTreeI->toString() << "\n";
+    z3::expr oldStoreBVI = subTreeI->bv;
+    assert(oldStoreBVI);
+    subTreeI->bv = phiStoreResolveBVI;
+    outs() << "[handleStoreFromPhi] "
+           << "subTreeI updated: " << subTreeI->toString() << "\n";
+
+    // ------------------------------------------------------------------
+    BBPair BBPairI = std::make_pair(phiArgBBI, phiBB);
+    z3::expr phiConditionBoolI = PhiResolutionMap.at(BBPairI);
+    outs() << "[handleStoreFromPhi] "
+           << "phiConditionBoolI: " << phiConditionBoolI.to_string().c_str()
+           << "\n";
+    outs() << "[handleStoreFromPhi] "
+           << "phiConditionBoolI sort"
+           << phiConditionBoolI.get_sort().to_string().c_str() << "\n";
+    outs().flush();
+
+    z3::expr storeFromPhiEncodingI =
+        z3::ite(phiConditionBoolI, phiStoreResolveBVI == z3ExprToStore,
+                phiStoreResolveBVI == oldStoreBVI);
+    outs() << "[handleStoreFromPhi] "
+           << "storeFromPhiEncodingI: " << storeFromPhiEncodingI.to_string()
+           << "\n";
+
+    BBAsstVecIter->second.push_back(storeFromPhiEncodingI);
+  }
+
+  MemoryAccessValueBVTreeMap.insert({storeMemoryAccess, *newValueBVTreeMap});
+  mostRecentMemoryDef = storeMemoryAccess;
+  outs() << "[handleStoreInst] "
+         << "MemoryAccessValueBVTreeMap:\n";
+  printMemoryAccessValueBVTreeMap();
+  printBBAssertionsMap(currentBB);
+  outs().flush();
+}
 
 #if 0
-%struct.bpf_reg_state = type { i64, i64, i64, i64, i64, i64, i64, i64}
+%struct.reg_st = type { i64, i64, i64, i64, i64, i64, i64, i64}
 ; Function Attrs: noinline nounwind uwtable
-define dso_local void @foo(%struct.bpf_reg_state* %dst_reg, %struct.bpf_reg_state* %src_reg) local_unnamed_addr #0 align 16 {
-  %umin = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 4
+define dso_local void @foo(%struct.reg_st* %dst_reg, %struct.reg_st* %src_reg) local_unnamed_addr #0 align 16 {
+  %umin = getelementptr inbounds %struct.reg_st, %struct.reg_st* %src_reg, i64 0, i32 4
   %umin_load = load i64, i64* %umin, align 8
   %umin_is_zero = icmp eq i64 %umin_load, 0
-  %select_false_reg = select i1 %umin_is_zero, %struct.bpf_reg_state* %src_reg, %struct.bpf_reg_state* %dst_reg
-  %umax_false_reg = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %select_false_reg, i64 0, i32 5
+  %select_false_reg = select i1 %umin_is_zero, %struct.reg_st* %src_reg, %struct.reg_st* %dst_reg
+  %umax_false_reg = getelementptr inbounds %struct.reg_st, %struct.reg_st* %select_false_reg, i64 0, i32 5
   store i64 %umin_load, i64* %umax_false_reg, align 8
   ret void
 }
 #endif
 
 /*
-With the following MemoryViewMap on entry:
+Consider the above function foo. With the following MemoryViewMap on entry:
 (liveOnEntry):
 {%src_reg: [s0_bv, s1_bv, s2_bv, s3_bv, s4_bv, s5_bv]
 %dst_reg: [d0_bv, d1_bv, d2_bv, d3_bv, d4_bv, d5_bv]
@@ -1330,9 +1518,10 @@ umin, src_reg, [4]
 
 Now, we encouter the store. We see that the store instruction is storing to
 a pointer that comes from a select on pointers.
-* Because this is a store that modifies the MemoryViewMap, we first make a copy
-of the defining MemoryViewMap (liveOnEntry) to associate with the MemoryDef (1)
-corresponding to this store. We need to modify this MemoryViewMap.
+* Because this is a store that modifies the MemoryViewMap, we first make a
+copy of the defining MemoryViewMap (liveOnEntry) to associate with the
+MemoryDef (1) corresponding to this store. We need to modify this
+MemoryViewMap.
 * We create two new bitvectors that we will store in our MemoryViewMap. Each
 of these bitvectors will be stored in the index obtained from the previous
 GEP (index 5).
@@ -1343,18 +1532,17 @@ MemoryViewMap:
 %dst_reg: [d0_bv, d1_bv, d2_bv, d3_bv, d4_bv, select_resolve_bv_2]
 }
 
-* We now need to assert that the MemoryViewMap at each location (src_reg[5] and
-dst_reg[5]) changes, if the boolean of the comparison that the select was based
-on is true. Else it is unchanged.
-That is if umin_is_zero is true, src_reg[5] will be updated, else it will remain
-unchanged. And if umin_is_zero is false, dst_reg[5] will be updated, else it
-will remain unchanged.
+* We now need to assert that the MemoryViewMap at each location (src_reg[5]
+and dst_reg[5]) changes, if the boolean of the comparison that the select was
+based on is true. Else it is unchanged. That is if umin_is_zero is true,
+src_reg[5] will be updated, else it will remain unchanged. And if umin_is_zero
+is false, dst_reg[5] will be updated, else it will remain unchanged.
 
 (ite (= umin_is_zero_bv #b1)
      (= select_resolve_bv_1 umin_load_bv)
      (= select_resolve_bv_1 s5_bv))
 (ite (= umin_is_zero_bv #b0)
-    (= select_resolve_bv_2 umin_load_1_76)
+    (= select_resolve_bv_2 umin_load_bv)
     (= select_resolve_bv_2 d5_bv))
 */
 
@@ -1389,9 +1577,15 @@ void FunctionEncoder::handleStoreFromSelect(StoreInst &storeInst,
          << "newValueBVTreeMap (copied from oldValueBVTreeMap):\n"
          << ValueBVTreeMapToString(*newValueBVTreeMap);
 
+  // ------------------------------------------------------------------
+
   /* First */
   Value *selectInstOp1 = selectInst.getOperand(1);
+  outs() << "[handleStoreFromSelect] "
+         << "selectInstOp1:" << *selectInstOp1 << '\n';
   BVTree *parentBVTree1 = newValueBVTreeMap->at(selectInstOp1);
+  outs() << "[handleStoreFromSelect] "
+         << "parentBVTree1:\n";
   outs() << parentBVTree1->toString() << "\n";
 
   z3::expr selectStoreResolveBV1 = BitVecHelper::getBitVec(
@@ -1412,7 +1606,8 @@ void FunctionEncoder::handleStoreFromSelect(StoreInst &storeInst,
     int idx1 = GEPMapIndices1->at(1);
     subTree1 = parentBVTree1->getSubTree(idx0)->getSubTree(idx1);
   } else {
-    throw std::runtime_error("Unexpected GEPMapIndices size\n");
+    throw std::runtime_error(
+        "[handleStoreFromSelect]: Unexpected GEPMapIndices size\n");
   }
 
   outs() << "[handleStoreFromSelect] "
@@ -1432,6 +1627,8 @@ void FunctionEncoder::handleStoreFromSelect(StoreInst &storeInst,
          << "\n";
 
   BBAsstVecIter->second.push_back(storeFromSelectEncoding1);
+
+  // ------------------------------------------------------------------
 
   /* Second */
   Value *selectInstOp2 = selectInst.getOperand(2);
@@ -1479,7 +1676,7 @@ void FunctionEncoder::handleStoreFromSelect(StoreInst &storeInst,
 
   MemoryAccessValueBVTreeMap.insert({storeMemoryAccess, *newValueBVTreeMap});
   mostRecentMemoryDef = storeMemoryAccess;
-  outs() << "[handleStoreInst] "
+  outs() << "[handleStoreFromSelect] "
          << "MemoryAccessValueBVTreeMap:\n";
   printMemoryAccessValueBVTreeMap();
   printBBAssertionsMap(currentBB);
@@ -1497,9 +1694,9 @@ void FunctionEncoder::handleStoreInst(StoreInst &i) {
   outs() << "[handleStoreInst] "
          << "\n";
   Value *valueStored = i.getValueOperand();
-  z3::expr storeBV = BitVecHelper::getBitVecSingValType(valueStored);
+  z3::expr BVToStore = BitVecHelper::getBitVecSingValType(valueStored);
   outs() << "[handleStoreInst] "
-         << "storeBV: " << storeBV.to_string() << "\n";
+         << "BVToStore: " << BVToStore.to_string() << "\n";
 
   /* Get location where value is stored */
   Value *destPointerValue = i.getPointerOperand();
@@ -1542,6 +1739,14 @@ void FunctionEncoder::handleStoreInst(StoreInst &i) {
     return;
   }
 
+  if (loadOrStorePointerCameFromPhi(destPointerValue)) {
+    GetElementPtrInst &GEPInst = *dyn_cast<GetElementPtrInst>(destPointerValue);
+    Value *GEPargVal = GEPInst.getOperand(0);
+    PHINode &phiInst = *dyn_cast<PHINode>(GEPargVal);
+    handleStoreFromPhi(i, GEPInst, phiInst, &newValueBVTreeMap);
+    return;
+  }
+
   Value *GEPMapValue = GEPMap.at(destPointerValue).first;
   outs() << "[handleStoreInst] "
          << "GEPMapValue: " << GEPMapValue->getName() << "\n";
@@ -1567,7 +1772,7 @@ void FunctionEncoder::handleStoreInst(StoreInst &i) {
   outs() << "[handleStoreInst] "
          << "subTree: " << subTree->toString() << "\n";
   assert(subTree->bv);
-  subTree->bv = storeBV;
+  subTree->bv = BVToStore;
   outs() << "[handleStoreInst] "
          << "subTree updated: " << subTree->toString() << "\n";
 
@@ -1580,6 +1785,18 @@ void FunctionEncoder::handleStoreInst(StoreInst &i) {
 
 /* Note: variables defined in the given BB are visible from all BBs that are
  * dominated by the given one. */
+
+/* TODO:
+Nice to have: make handleMemoryPhiNode similar in structure to handlePhiNode.
+Get rid of MemoryPhiResolutionMap.
+
+In pass 1: Instead create a boolean z3 variable for each incoming edge to the
+phi (e.g. bool_1, bool_2). Then immediately add to BBAssertions map:
+bool_1 ==> (conjunction of all BBExprsI)
+bool_2 ==> (conjunction of all BBExprsI)
+
+In pass 3: bool_1 and bool_2 will be set according to EdgeAssertionsMap.
+*/
 void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
   outs() << "[handleMemoryPhiNode] "
          << "Pass #" << passID << "\n";
@@ -1609,10 +1826,10 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
     printValueBVTreeMap(phiBVTreeMap);
 
     /* Iterate over all incoming BasicBlocks to a MemoryPhi block and populate
-     * MemoryPhiResolutionMap. MemoryPhiResolutionMap contains BBPairs, one pair
-     * for each edge incoming to the memoryPhi BasicBlock. Associated to each
-     * BBpair is a list of z3 expressions that assert the bitvector equivalences
-     * for that particular edge. */
+     * MemoryPhiResolutionMap. MemoryPhiResolutionMap contains BBPairs, one
+     * pair for each edge incoming to the memoryPhi BasicBlock. Associated to
+     * each BBpair is a list of z3 expressions that assert the bitvector
+     * equivalences for that particular edge. */
     for (auto i = 0u; i < mphi.getNumIncomingValues(); i++) {
 
       BasicBlock *incomingBBI = mphi.getIncomingBlock(i);
@@ -1682,9 +1899,8 @@ void FunctionEncoder::handleCallInst(CallInst &i) {
                            "call instruction not supported\n");
 }
 
-// ----------------------------------------------------------------------------
-
-/* Go instruction by instruction in the BasicBlock, and build BBAssertionsMap
+/*
+Go instruction by instruction in the BasicBlock, and build BBAssertionsMap
  */
 void FunctionEncoder::populateBBAssertionsMap(BasicBlock &B) {
   for (Instruction &I : B) {
