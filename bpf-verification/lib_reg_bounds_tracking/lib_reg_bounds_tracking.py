@@ -428,12 +428,6 @@ class process_stats:
 
 
     def print_verification_stats(self):
-        #print("\n################# VERIFICATION STATS ########################")
-        #print("Iteration " + str(self.iteration) + " out of " + self.total_progs)
-        #print("\nOverall elapsed time in minutes", self.tmp_elapsed_time / 60 )
-        #print("Program execution time in minutes", self.prog_execution_time / 60)
-        #print("\nEvaluation Dictionary: time per prog (seconds), sat/unsat, bug types")
-        #pprint(self.eval_dict)
 
         table = ColorTable()
         table = ColorTable(theme=Themes.OCEAN)
@@ -451,7 +445,7 @@ class process_stats:
             table.add_row([insn_name, soundness, violations[0], violations[1], violations[2], violations[3], violations[4], round(self.eval_dict[c][0], 2)])
         
         print(table)
-        #print("###########################################################\n")
+
     
     def print_verification_aggregate(self, usr_config):
 
@@ -1292,61 +1286,6 @@ class verification_synth_module:
 
         with open(filename, "w") as f:
             json.dump(json_dict, f)
-
-
-
-    # def generate_bpf_bytcode(self):
-
-        # reg_count = 1
-        # #print model for bpf bytecode
-        # for i in range(self.prog_size):
-        # 	if m[self.input_dst_reg_list[i].var_off_mask] == 0:
-        # 		print("\n// REG_{} known".format(reg_count))
-        # 		print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_dst_reg_list[i].conc64])))
-        # 		reg_count += 1
-        # 	else:
-        # 		print("\n// REG_{} unknown".format(reg_count))
-        # 		print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_dst_reg_list[i].conc64])))
-        # 		print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
-        # 		print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
-        # 		reg_count += 1
-        # 	if m[self.input_src_reg_list[i].var_off_mask] == 0:
-        # 		print("\n// REG_{} known".format(reg_count))
-        # 		print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_src_reg_list[i].conc64])))
-        # 		reg_count += 1
-        # 	else:
-        # 		print("\n// REG_{} unknown".format(reg_count))
-        # 		print("BPF_LD_IMM64(BPF_REG_{}, {})".format(reg_count, str(m[self.input_src_reg_list[i].conc64])))
-        # 		print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
-        # 		print("BPF_ALU64_IMM(BPF_NEG, BPF_REG_{}, 0)".format(reg_count))
-        # 		reg_count += 1
-
-        # reg_count = 1
-        # #print instructions
-        # print("\n//instruction sequence begins")
-        # for i in range(self.prog_size):
-        # 	#print model for bpf bytecode
-        # 	if m[self.input_dst_reg_list[i].var_off_mask] == 0:
-        # 		dst = str(m[self.input_dst_reg_list[i].conc64])
-        # 		reg_count += 1
-        # 	else:
-        # 		dst = "REG_" + str(reg_count)
-        # 		reg_count += 1
-        # 	if m[self.input_src_reg_list[i].var_off_mask] == 0:
-        # 		src = str(m[self.input_src_reg_list[i].conc64])
-        # 		reg_count += 1
-        # 	else:
-        # 		src = "REG_" + str(reg_count)
-        # 		reg_count += 1
-        # 	if self.prog[i][4] == "J":
-        # 		print("BPF_{}_REG({}, {}, {}, X)".format("JMP?", self.prog[i], dst, src))
-        # 	else:
-        # 		print("BPF_{}_REG({}, {}, {}, X)".format("ALU?", self.prog[i], dst, src))
-            # BPF_MOV64_IMM(BPF_REG_0, 1),
-
-            # BPF_JMP32_REG(BPF_JLT, BPF_REG_1, BPF_REG_3, 3),
-
-
             
 
     #print specification for verification/synthesis

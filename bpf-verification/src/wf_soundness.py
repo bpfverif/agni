@@ -39,19 +39,20 @@ def check_wf_soundness(usr_config):
         results.append(pool.apply_async(check_wf_soundness_insn, (i, usr_config, prog, wf_stats)))
         i += 1
 
+    
     for result in results:
         prog, prog_execution_time, violated_prop_list = result.get()
         nb_violated_prop = len(violated_prop_list)
         check_output = "sat" if nb_violated_prop > 0 else "unsat"
         wf_stats.eval_dict[",".join(prog)] = list((prog_execution_time, check_output, violated_prop_list))
-
+        
         if nb_violated_prop > 0:
             #we add the violated instruction to our wf_ver list
             wf_ver_set.add(prog[0])
             #aggregate gen violations
             usr_config.gen_violations += nb_violated_prop
             usr_config.gen_unsound_insn += 1
-
+        
     print(colored("gen Verification Complete", "green"))
     wf_stats.print_verification_stats()
     #print("Set of sound instructions: ", usr_config.insn_set_list[0] - wf_ver_set)
@@ -134,9 +135,8 @@ def check_wf_soundness_insn(iteration, usr_config, prog, wf_stats):
 
     wf_stats.end_time = time.time()
     wf_stats.set_execution_time()
+    print("Instruction: {}, Execution time: {}, Violated domains: {}".format(prog[0], wf_stats.prog_execution_time, wf_module.violated_prop_list))
 
-    #wf_stats.set_elapsed_time()
-    #wf_stats.print_verification_stats()
     return prog, wf_stats.prog_execution_time, copy.deepcopy(wf_module.violated_prop_list)
 
 
