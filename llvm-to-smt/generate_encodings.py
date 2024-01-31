@@ -391,11 +391,11 @@ if __name__ == "__main__":
     parser.add_argument("--kernver", help="kernel version", type=str,
                         required=True)
     parser.add_argument("--kernbasedir", help="kernel base directory", type=str,
-                        required=False, default="/home/linux-stable")
+                        required=True)
     parser.add_argument("--outdir", help="output directory", type=str,
                         required=True)
     parser.add_argument("--scriptsdir", help="scripts directory from llvm-to-smt",
-                        type=str, required=False, default="/home/cav23-artifact/llvm-to-smt/llvm-passes")
+                        type=str, required=False, default="llvm-passes")
     parser.add_argument("--specific-op", dest='specific_op',
                         help='single specific BPF op to encode',
                         choices= bpf_alu_ops + bpf_jmp_ops + bpf_sync_op,
@@ -588,30 +588,35 @@ if __name__ == "__main__":
     # Link verifier.ll and tnum.ll to verifier.ll #
     ############################################
     print_and_log(
-        "Link verifier.ll and tnum.ll to single verifier.ll", pend="")
+        "Link verifier.ll and tnum.ll to single verifier_tnum.ll", pend="")
     os.chdir(str(outdir_fullpath))
 
     llvm_link_fullpath = llvmdir_fullpath.joinpath("bin", "llvm-link")
     cmd_link = [str(llvm_link_fullpath), '-S', 'tnum.ll',
-                'verifier.ll', '-o', 'verifier.ll']
+                'verifier.ll', '-o', 'verifier_tnum.ll']
     cmdout_link = subprocess.run(
         cmd_link, stdout=logfile, stderr=logfile_err, text=True, bufsize=1, check=True)
-    # backup 
-    cmd_backup = ['cp', 'verifier.ll', 'verifier.ll.bak']
-    cmdout_backup = subprocess.run(
-        cmd_backup, stdout=logfile, stderr=logfile_err, text=True, bufsize=1, check=True)
+
     print_and_log(" ... done")
     os.chdir(old_curdir)
 
     logfile.flush()
     logfile_err.flush()
 
+    ########################################
+    # Prepare .config file for llvm-to-smt #
+    ########################################
+    config_fullpath = scriptsdir_fullpath.joinpath(".config")
+    with open(config_fullpath, "w") as config_file:
+        config_file.write("LLVM_DIR=\"%s\"\n" % llvmdir_fullpath)
+        config_file.write("BASE_DIR=\"%s\"\n" % scriptsdir_fullpath)
+
     # ###################################
     # # Run llvm passes and llvm-to-smt #
     # ###################################
 
     idx = 0
-    input_llfile_fullpath = str(outdir_fullpath.joinpath("verifier.ll"))
+    input_llfile_fullpath = outdir_fullpath.joinpath("verifier_tnum.ll")
 
     # All ALU_64 ops
     for i, op in enumerate(bpf_alu_ops):
@@ -625,7 +630,7 @@ if __name__ == "__main__":
             llvmdir_fullpath=llvmdir_fullpath,
             inputdir_fullpath=outdir_fullpath,
             op=op,
-            input_llfile_name="verifier.ll",
+            input_llfile_fullpath=input_llfile_fullpath,
             function_name="adjust_scalar_min_max_vals_wrapper_{}".format(op),
             output_smtfile_name="{}.smt2".format(op),
             global_bv_suffix=str(i))
@@ -646,7 +651,7 @@ if __name__ == "__main__":
             llvmdir_fullpath=llvmdir_fullpath,
             inputdir_fullpath=outdir_fullpath,
             op=op32,
-            input_llfile_name="verifier.ll",
+            input_llfile_fullpath=input_llfile_fullpath,
             function_name="adjust_scalar_min_max_vals_wrapper_32_{}".format(op),
             output_smtfile_name="{}.smt2".format(op32),
             global_bv_suffix=str(i))
@@ -666,7 +671,7 @@ if __name__ == "__main__":
             llvmdir_fullpath=llvmdir_fullpath,
             inputdir_fullpath=outdir_fullpath,
             op=op,
-            input_llfile_name="verifier.ll",
+            input_llfile_fullpath=input_llfile_fullpath,
             function_name="check_cond_jmp_op_wrapper_{}".format(op),
             output_smtfile_name="{}.smt2".format(op),
             global_bv_suffix=str(i))
@@ -689,7 +694,7 @@ if __name__ == "__main__":
                 llvmdir_fullpath=llvmdir_fullpath,
                 inputdir_fullpath=outdir_fullpath,
                 op=op32,
-                input_llfile_name="verifier.ll",
+                input_llfile_fullpath=input_llfile_fullpath,
                 function_name="check_cond_jmp_op_wrapper_32_{}".format(op),
                 output_smtfile_name="{}.smt2".format(op32),
                 global_bv_suffix=str(i))
@@ -709,7 +714,7 @@ if __name__ == "__main__":
             llvmdir_fullpath=llvmdir_fullpath,
             inputdir_fullpath=outdir_fullpath,
             op=op,
-            input_llfile_name="verifier.ll",
+            input_llfile_fullpath=input_llfile_fullpath,
             function_name="sync___",
             output_smtfile_name="{}.smt2".format(op),
             global_bv_suffix=str(i))
