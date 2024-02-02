@@ -154,15 +154,19 @@ public:
   void handleGEPInstFromSelect(GetElementPtrInst &i);
   void handleGEPInstFromPHI(GetElementPtrInst &i);
   void handlePhiInstPointer(PHINode &inst);
-  void handleLoadFromSelect(LoadInst &i, GetElementPtrInst &GEP,
-                            SelectInst &selectInst);
-  void handleLoadFromPhi(LoadInst &i, GetElementPtrInst &GEP, PHINode &phiNode);
+  void handleLoadFromGEPPtrDerivedFromSelect(LoadInst &i,
+                                             SelectInst &selectInst);
+  void handleLoadFromGEPPtrDerivedFromPhi(LoadInst &i, PHINode &phiNode);
   void indexIntoBVTree(LoadInst &loadInst, BVTree *subTree);
-  void handleStoreFromSelect(StoreInst &i, GetElementPtrInst &GEP,
-                             SelectInst &selectInst,
-                             ValueBVTreeMap *newValueBVTreeMap);
-  void handleStoreFromPhi(StoreInst &storeInst, GetElementPtrInst &GEPInst,
-                          PHINode &phiInst, ValueBVTreeMap *newValueBVTreeMap);
+  void handleStoreToGEPPtrDerivedFromSelect(StoreInst &i,
+                                            SelectInst &selectInst,
+                                            ValueBVTreeMap *newValueBVTreeMap);
+  void handleStoreToGEPPtrDerivedFromPhi(StoreInst &storeInst, PHINode &phiInst,
+                                         ValueBVTreeMap *newValueBVTreeMap);
+  void handleStoreToPhiPtrDerivedFromGepPtrDerivedFromPhi(
+      StoreInst &storeInst, PHINode &phiInst,
+      ValueBVTreeMap *newValueBVTreeMap);
+
   /* Json output related functions */
   void populateInputAndOutputJsonDict();
   Json::Value *setupJSONDictForArg(Value *argVal);

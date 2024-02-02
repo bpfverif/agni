@@ -7,8 +7,8 @@ fi
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/.config
-INLINE_FUNCTION_CALLS_PASS_DIR="${BASE_DIR}/InlineFunctionCalls"
-BUILD_DIR="${INLINE_FUNCTION_CALLS_PASS_DIR}/build"
+PASS_DIR="${BASE_DIR}/InlineFunctionCalls"
+BUILD_DIR="${PASS_DIR}/build"
 
 oldpwd=$(pwd)
 inputllfile=$(readlink -f $1)
@@ -21,10 +21,11 @@ echo "outfile_final ${outfile_final}"
 echo "--------------------------------------"
 echo "build InlineFunctionCalls pass"
 echo "--------------------------------------"
-cmd="cd ${BUILD_DIR}"
+cmd="mkdir -p ${BUILD_DIR}"
+cmd="${cmd} && cd ${BUILD_DIR}"
 cmd="${cmd} && export CC=${LLVM_DIR}/bin/clang"
 cmd="${cmd} && export CXX=${LLVM_DIR}/bin/clang++"
-cmd="${cmd} && cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DLT_LLVM_INSTALL_DIR=${LLVM_DIR} ${INLINE_FUNCTION_CALLS_PASS_DIR}"
+cmd="${cmd} && cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DLT_LLVM_INSTALL_DIR=${LLVM_DIR} ${PASS_DIR}"
 cmd="${cmd} && make"
 echo $cmd
 eval $cmd || exit 1
@@ -39,12 +40,6 @@ cmd="$LLVM_DIR/bin/opt -load-pass-plugin ${BUILD_DIR}/libInlineFunctionCalls.so 
 
 echo $cmd
 eval $cmd || exit 1
-
-# cmd="${LLVM_DIR}/bin/opt -S --strip-debug ${outfile_final} -o ${outfile_final}.ll"
-# cmd="${cmd} && mv ${outfile_final}.ll ${outfile_final}"
-
-# echo $cmd
-# eval $cmd || exit 1
 
 # echo "--------------------------------------"
 # echo "running verify pass "

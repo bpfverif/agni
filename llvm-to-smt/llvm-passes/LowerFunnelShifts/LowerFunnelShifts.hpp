@@ -1,5 +1,5 @@
-#ifndef LLVM2SMT_PROMOTE_MEMCPY_H
-#define LLVM2SMT_PROMOTE_MEMCPY_H
+#ifndef LLVM2SMT_LOWER_FUNNEL_SHIFTS_H
+#define LLVM2SMT_LOWER_FUNNEL_SHIFTS_H
 
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/IntrinsicInst.h>
@@ -35,4 +35,4 @@ private:
   llvm::Module *module;
   llvm::LLVMContext *context;
 };
-#endif // LLVM2SMT_PROMOTE_MEMCPY_H
+#endif // LLVM2SMT_LOWER_FUNNEL_SHIFTS_H
