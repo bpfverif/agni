@@ -1,4 +1,7 @@
 #include "FunctionEncoder.hpp"
+#include <llvm/Analysis/MemorySSA.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Value.h>
 
 std::string FunctionEncoder::toString() {
   z3::expr f = z3::mk_and(this->functionEncodingZ3ExprVec);
@@ -339,8 +342,10 @@ void FunctionEncoder::handleReturnInstPointerArgs(ReturnInst &i) {
          << "currentBB: " << currentBB->getName() << "\n";
   /* Return instruction will correspond to the mostRecentMemoryDef as we support
    * only single return instruction. */
+  printMemoryAccessValueBVTreeMap();
   outs() << "[handleReturnInstPointerArgs] "
          << "mostRecentMemoryDef: " << *mostRecentMemoryDef << "\n";
+  outs().flush();
   ValueBVTreeMap returnInstValueBVTreeMap =
       MemoryAccessValueBVTreeMap.at(mostRecentMemoryDef);
 
@@ -1337,27 +1342,17 @@ Then we encode the store:
 */
 
 void FunctionEncoder::handleStoreToGEPPtrDerivedFromPhi(
-    StoreInst &storeInst, PHINode &phiInst, ValueBVTreeMap *newValueBVTreeMap) {
+    z3::expr BVToStore, PHINode &phiInst, std::vector<int> *GEPMapIndices,
+    ValueBVTreeMap *newValueBVTreeMap, MemoryUseOrDef *storeMemoryAccess) {
   outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
          << "\n";
 
   auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
 
-  Value *valueToStore = storeInst.getValueOperand();
-  z3::expr z3ExprToStore = BitVecHelper::getBitVecSingValType(valueToStore);
-
-  /* get MemoryAccess corresponding to this store */
-  MemoryUseOrDef *storeMemoryAccess =
-      currentMemorySSA->getMemoryAccess(&storeInst);
-  outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-         << "storeMemoryAccess: " << *storeMemoryAccess << "\n";
-  assert(isa<MemoryDef>(storeMemoryAccess));
-
-  outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-         << "newValueBVTreeMap (copied from oldValueBVTreeMap):\n"
-         << ValueBVTreeMapToString(*newValueBVTreeMap);
-
-  BasicBlock *phiBB = phiInst.getParent();
+  BasicBlock *phiPtrInstBB = phiInst.getParent();
+  outs() << "[handleStoreToGEPPtrDerivedFromPhi] phiPtrInstBB: "
+         << phiPtrInstBB->getName() << "\n";
+  outs().flush();
   std::vector<ValueBBPair> phiValueBBPairs = PhiMap.at(&phiInst);
 
   for (auto kv : phiValueBBPairs) {
@@ -1366,26 +1361,19 @@ void FunctionEncoder::handleStoreToGEPPtrDerivedFromPhi(
 
     BVTree *parentBVTreeI = newValueBVTreeMap->at(phiArgValI);
     outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-           << "parentBVTree1:\n";
+           << "parentBVTreeI:\n";
     outs() << parentBVTreeI->toString() << "\n";
 
-    z3::expr phiStoreResolveBVI = BitVecHelper::getBitVec(
-        valueToStore->getType()->getIntegerBitWidth(), "phi_resolve_");
-
-    std::vector<int> *GEPMapIndicesI =
-        GEPMap.at(storeInst.getPointerOperand()).second;
-    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-           << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndicesI)
-           << "\n";
-    outs().flush();
+    z3::expr phiStoreResolveBVI =
+        BitVecHelper::getBitVec(BVToStore.get_sort().bv_size(), "phi_resolve_");
 
     BVTree *subTreeI;
-    if (GEPMapIndicesI->size() == 1) {
-      int idx = GEPMapIndicesI->at(0);
+    if (GEPMapIndices->size() == 1) {
+      int idx = GEPMapIndices->at(0);
       subTreeI = parentBVTreeI->getSubTree(idx);
-    } else if (GEPMapIndicesI->size() == 2) {
-      int idx0 = GEPMapIndicesI->at(0);
-      int idx1 = GEPMapIndicesI->at(1);
+    } else if (GEPMapIndices->size() == 2) {
+      int idx0 = GEPMapIndices->at(0);
+      int idx1 = GEPMapIndices->at(1);
       subTreeI = parentBVTreeI->getSubTree(idx0)->getSubTree(idx1);
     } else {
       throw std::runtime_error("[handleStoreToGEPPtrDerivedFromPhi]: "
@@ -1401,19 +1389,20 @@ void FunctionEncoder::handleStoreToGEPPtrDerivedFromPhi(
            << "subTreeI updated: " << subTreeI->toString() << "\n";
 
     // ------------------------------------------------------------------
-    BBPair BBPairI = std::make_pair(phiArgBBI, phiBB);
+    BBPair BBPairI = std::make_pair(phiArgBBI, phiPtrInstBB);
     z3::expr phiConditionBoolI = PhiResolutionMap.at(BBPairI);
     outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-           << "phiConditionBoolI: " << phiConditionBoolI.to_string().c_str()
+           << "phiConditionBoolI: expr: "
+           << phiConditionBoolI.to_string().c_str()
+           << "sort: " << phiConditionBoolI.get_sort().to_string().c_str()
            << "\n";
-    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-           << "phiConditionBoolI sort"
-           << phiConditionBoolI.get_sort().to_string().c_str() << "\n";
+
     outs().flush();
 
     z3::expr storeFromPhiEncodingI =
-        z3::ite(phiConditionBoolI, phiStoreResolveBVI == z3ExprToStore,
+        z3::ite(phiConditionBoolI, phiStoreResolveBVI == BVToStore,
                 phiStoreResolveBVI == oldStoreBVI);
+
     outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
            << "storeFromPhiEncodingI: \n"
            << storeFromPhiEncodingI.to_string() << "\n";
@@ -1428,6 +1417,195 @@ void FunctionEncoder::handleStoreToGEPPtrDerivedFromPhi(
   printMemoryAccessValueBVTreeMap();
   printBBAssertionsMap(currentBB);
   outs().flush();
+}
+
+void FunctionEncoder::handleStoreToPhiPtrDerivedFromPhi(
+    z3::expr BVToStore, PHINode &phiInst, std::vector<int> *GEPMapIndices,
+    ValueBVTreeMap *newValueBVTreeMap, MemoryUseOrDef *storeMemoryAccess,
+    z3::expr PhiPathCondition) {
+  outs() << "[handleStoreToPhiPtrDerivedFromPhi] "
+         << "\n";
+
+  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+
+  BasicBlock *phiPtrInstBB = phiInst.getParent();
+  outs() << "[handleStoreToPhiPtrDerivedFromPhi] phiPtrInstBB: "
+         << phiPtrInstBB->getName() << "\n";
+  outs().flush();
+  std::vector<ValueBBPair> phiValueBBPairs = PhiMap.at(&phiInst);
+
+  for (auto kv : phiValueBBPairs) {
+    Value *phiArgValI = kv.first;
+    BasicBlock *phiArgBBI = kv.second;
+
+    BVTree *parentBVTreeI = newValueBVTreeMap->at(phiArgValI);
+    outs() << "[handleStoreToPhiPtrDerivedFromPhi] "
+           << "parentBVTreeI:\n";
+    outs() << parentBVTreeI->toString() << "\n";
+
+    z3::expr phiStoreResolveBVI =
+        BitVecHelper::getBitVec(BVToStore.get_sort().bv_size(), "phi_resolve_");
+
+    BVTree *subTreeI;
+    if (GEPMapIndices->size() == 1) {
+      int idx = GEPMapIndices->at(0);
+      subTreeI = parentBVTreeI->getSubTree(idx);
+    } else if (GEPMapIndices->size() == 2) {
+      int idx0 = GEPMapIndices->at(0);
+      int idx1 = GEPMapIndices->at(1);
+      subTreeI = parentBVTreeI->getSubTree(idx0)->getSubTree(idx1);
+    } else {
+      throw std::runtime_error("[handleStoreToPhiPtrDerivedFromPhi]: "
+                               "Unexpected GEPMapIndices size\n");
+    }
+
+    outs() << "[handleStoreToPhiPtrDerivedFromPhi] "
+           << "subTreeI: " << subTreeI->toString() << "\n";
+    z3::expr oldStoreBVI = subTreeI->bv;
+    assert(oldStoreBVI);
+    subTreeI->bv = phiStoreResolveBVI;
+    outs() << "[handleStoreToPhiPtrDerivedFromPhi] "
+           << "subTreeI updated: " << subTreeI->toString() << "\n";
+
+    outs().flush();
+
+    // ------------------------------------------------------------------
+    BBPair BBPairI = std::make_pair(phiArgBBI, phiPtrInstBB);
+    z3::expr phiConditionBoolI = PhiResolutionMap.at(BBPairI);
+
+    z3::expr storeFromPhiEncodingI = z3::ite(
+        (PhiPathCondition && phiConditionBoolI),
+        phiStoreResolveBVI == BVToStore, phiStoreResolveBVI == oldStoreBVI);
+    outs() << "[handleStoreToPhiPtrDerivedFromPhi] "
+           << "storeFromPhiEncodingI: \n"
+           << storeFromPhiEncodingI.to_string() << "\n";
+
+    BBAsstVecIter->second.push_back(storeFromPhiEncodingI);
+  }
+
+  MemoryAccessValueBVTreeMap.insert({storeMemoryAccess, *newValueBVTreeMap});
+  mostRecentMemoryDef = storeMemoryAccess;
+  outs() << "[handleStoreToPhiPtrDerivedFromPhi] "
+         << "MemoryAccessValueBVTreeMap:\n";
+  printMemoryAccessValueBVTreeMap();
+  printBBAssertionsMap(currentBB);
+  outs().flush();
+}
+
+#if 0
+define dso_local void @foo(%struct.bpf_reg_state* %dst_reg, %struct.bpf_reg_state* %src_reg) align 16 {
+entry:
+  %type_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 0
+  %type_src_load = load i32, i32* %type_src, align 8
+  %type_src_is_zero = icmp eq i32 %type_src_load, 0
+  br i1 %type_src_is_zero, label %ltrue, label %lfalse
+
+ltrue:                                            ; preds = %entry
+  %smin_dst = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %dst_reg, i64 0, i32 2
+  store i64 0, i64* %smin_dst, align 8
+  br label %lend
+
+lfalse:                                           ; preds = %entry
+  %smin_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 2
+  store i64 0, i64* %smin_src, align 8
+  br label %lend
+
+lend:                                             ; preds = %lfalse, %ltrue
+  %phi_reg = phi %struct.bpf_reg_state* [ %dst_reg, %ltrue ], [ %src_reg, %lfalse ]
+  %type_phi = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %phi_reg, i64 0, i32 0
+  %type_phi_load = load i32, i32* %type_phi, align 8
+  %type_phi_is_zero = icmp eq i32 %type_phi_load, 0
+  br i1 %type_phi_is_zero, label %lyes, label %lno
+
+lyes:                                             ; preds = %lend
+  %umin_phi = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %phi_reg, i64 0, i32 1
+  store i64 1, i64* %umin_phi, align 8
+  br label %lfinal
+
+lno:                                              ; preds = %lend
+  %smin_phi = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %phi_reg, i64 0, i32 2
+  store i64 2, i64* %smin_phi, align 8
+  br label %lfinal
+
+lfinal:                                           ; preds = %lno, %lyes
+  %phi_min = phi i64* [ %umin_phi, %lyes ], [ %smin_phi, %lno ]
+  store i64 4, i64* %phi_min, align 8
+  ret void
+}
+#endif
+
+/*
+Handle stores to phi pointers, e.g.
+
+%phi_min = phi i64* [ %umin_phi, %lyes ], [ %smin_phi, %lno ]
+store i64 4, i64* %phi_min, align 8
+
+Only handles cases where the store to the phi pointer itself chooses between
+values themselves derived from a previous phi. e.g.:
+
+%phi_reg = phi
+      %struct.bpf_reg_state* [ %dst_reg, %ltrue ], [ %src_reg, %lfalse ]
+...
+%umin_phi = getelementptr inbounds %struct.bpf_reg_state,
+            %struct.bpf_reg_state* %phi_reg, i64 0, i32 1
+
+
+
+*/
+void FunctionEncoder::handleStoreToPhiPtr(z3::expr BVToStore,
+                                          PHINode &phiPtrInst,
+                                          ValueBVTreeMap *newValueBVTreeMap,
+                                          MemoryUseOrDef *storeMemoryAccess) {
+  outs() << "[handleStoreToPhiPtr] "
+         << "\n";
+  outs().flush();
+
+  BasicBlock *phiPtrInstBB = phiPtrInst.getParent();
+  outs() << "[handleStoreToPhiPtr] phiPtrInstBB: " << phiPtrInstBB->getName()
+         << "\n";
+  outs().flush();
+  std::vector<ValueBBPair> phiValueBBPairs = PhiMap.at(&phiPtrInst);
+
+  for (auto kv : phiValueBBPairs) {
+    Value *phiArgValI = kv.first;
+    BasicBlock *phiArgBBI = kv.second;
+    outs() << "[handleStoreToPhiPtr] phiArgValI: " << *phiArgValI << "\n";
+    outs() << "[handleStoreToPhiPtr] phiArgBBI: " << phiArgBBI->getName()
+           << "\n";
+    Value *GEPMapValuePhiArg = GEPMap.at(phiArgValI).first;
+    std::vector<int> *GEPMapIndices = GEPMap.at(phiArgValI).second;
+
+    outs() << "[handleStoreToPhiPtr] GEPMapValuePhiArg: " << *GEPMapValuePhiArg
+           << "\n";
+
+    if (isa<PHINode>(GEPMapValuePhiArg)) {
+      outs() << "[handleStoreToPhiPtr] "
+             << "store to phi ptr, where the arguments to the phi ptr were "
+                "themselves derived from a phi \n";
+      PHINode *phi = dyn_cast<PHINode>(GEPMapValuePhiArg);
+      outs() << "[handleStoreToPhiPtr] PHINode:"
+             << *dyn_cast<PHINode>(GEPMapValuePhiArg) << "\n";
+
+      BBPair BBPairI = std::make_pair(phiArgBBI, phiPtrInstBB);
+      z3::expr phiConditionBoolI = PhiResolutionMap.at(BBPairI);
+      outs() << "[handleStoreToPhiPtr] "
+             << "phiConditionBoolI: " << phiConditionBoolI.to_string().c_str()
+             << "\n";
+
+      handleStoreToPhiPtrDerivedFromPhi(BVToStore, *phi, GEPMapIndices,
+                                        newValueBVTreeMap, storeMemoryAccess,
+                                        phiConditionBoolI);
+
+      outs().flush();
+    } else if (isa<SelectInst>(GEPMapValuePhiArg)) {
+      SelectInst *select = dyn_cast<SelectInst>(GEPMapValuePhiArg);
+      outs() << "[handleStoreToPhiPtr] SelectInst:" << *select << "\n";
+    } else {
+      throw std::runtime_error("[handleStoreToPhiPtr]: "
+                               "GEPMapValuePhiArg is neither a selectInst nor "
+                               "a PHINode. This is not supported.\n");
+    }
+  }
 }
 
 #if 0
@@ -1494,130 +1672,65 @@ is false, dst_reg[5] will be updated, else it will remain unchanged.
 */
 
 void FunctionEncoder::handleStoreToGEPPtrDerivedFromSelect(
-    StoreInst &storeInst, SelectInst &selectInst,
-    ValueBVTreeMap *newValueBVTreeMap) {
+    z3::expr BVToStore, SelectInst &selectInst, std::vector<int> *GEPMapIndices,
+    ValueBVTreeMap *newValueBVTreeMap, MemoryUseOrDef *storeMemoryAccess) {
   outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
          << "\n";
-  outs() << storeInst << "\n";
   outs() << selectInst << "\n";
   outs().flush();
 
   Value *selectConditionOp = selectInst.getOperand(0);
-  auto z3ExprSelectConditionOp =
-      BitVecHelper::getBitVecSingValType(selectConditionOp);
+  auto selectCondBV = BitVecHelper::getBitVecSingValType(selectConditionOp);
 
   auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
 
-  Value *valueStored = storeInst.getValueOperand();
-  z3::expr z3ExprStoreValue = BitVecHelper::getBitVecSingValType(valueStored);
+  /* select inst always has two operands, so this loop will execute twice */
+  for (unsigned i = 1; i < selectInst.getNumOperands(); ++i) {
 
-  /* get MemoryAccess corresponding to this store */
-  MemoryUseOrDef *storeMemoryAccess =
-      currentMemorySSA->getMemoryAccess(&storeInst);
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "storeMemoryAccess: " << *storeMemoryAccess << "\n";
-  assert(isa<MemoryDef>(storeMemoryAccess));
+    Value *selectInstOpI = selectInst.getOperand(i);
+    outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
+           << "selectInstOp (" << i << ") :" << *selectInstOpI << '\n';
+    BVTree *parentBVTreeI = newValueBVTreeMap->at(selectInstOpI);
+    outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
+           << "parentBVTree (" << i << ") :\n";
+    outs() << parentBVTreeI->toString() << "\n";
 
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "newValueBVTreeMap (copied from oldValueBVTreeMap):\n"
-         << ValueBVTreeMapToString(*newValueBVTreeMap);
+    z3::expr selectStoreResolveBVI = BitVecHelper::getBitVec(
+        BVToStore.get_sort().bv_size(), "select_resolve_");
 
-  // ------------------------------------------------------------------
+    BVTree *subTreeI;
+    if (GEPMapIndices->size() == 1) {
+      int idx = GEPMapIndices->at(0);
+      subTreeI = parentBVTreeI->getSubTree(idx);
+    } else if (GEPMapIndices->size() == 2) {
+      int idx0 = GEPMapIndices->at(0);
+      int idx1 = GEPMapIndices->at(1);
+      subTreeI = parentBVTreeI->getSubTree(idx0)->getSubTree(idx1);
+    } else {
+      throw std::runtime_error("[handleStoreToGEPPtrDerivedFromSelect]: "
+                               "Unexpected GEPMapIndices size\n");
+    }
 
-  /* First */
-  Value *selectInstOp1 = selectInst.getOperand(1);
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "selectInstOp1:" << *selectInstOp1 << '\n';
-  BVTree *parentBVTree1 = newValueBVTreeMap->at(selectInstOp1);
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "parentBVTree1:\n";
-  outs() << parentBVTree1->toString() << "\n";
+    outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
+           << "subTree (" << i << ") :" << subTreeI->toString() << "\n";
+    z3::expr oldStoreBVI = subTreeI->bv;
+    assert(oldStoreBVI);
+    subTreeI->bv = selectStoreResolveBVI;
+    outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
+           << "subTree (" << i << ") updated: " << subTreeI->toString() << "\n";
 
-  z3::expr selectStoreResolveBV1 = BitVecHelper::getBitVec(
-      valueStored->getType()->getIntegerBitWidth(), "select_resolve_");
+    z3::expr selectCond = i == 1 ? selectCondBV == 1 : selectCondBV == 0;
 
-  std::vector<int> *GEPMapIndices1 =
-      GEPMap.at(storeInst.getPointerOperand()).second;
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices1) << "\n";
-  outs().flush();
+    z3::expr storeFromSelectEncodingI =
+        z3::ite(selectCond, selectStoreResolveBVI == BVToStore,
+                selectStoreResolveBVI == oldStoreBVI);
 
-  BVTree *subTree1;
-  if (GEPMapIndices1->size() == 1) {
-    int idx = GEPMapIndices1->at(0);
-    subTree1 = parentBVTree1->getSubTree(idx);
-  } else if (GEPMapIndices1->size() == 2) {
-    int idx0 = GEPMapIndices1->at(0);
-    int idx1 = GEPMapIndices1->at(1);
-    subTree1 = parentBVTree1->getSubTree(idx0)->getSubTree(idx1);
-  } else {
-    throw std::runtime_error("[handleStoreToGEPPtrDerivedFromSelect]: "
-                             "Unexpected GEPMapIndices size\n");
+    outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
+           << "storeFromSelectEncoding (" << i
+           << ") :" << storeFromSelectEncodingI.to_string() << "\n";
+
+    BBAsstVecIter->second.push_back(storeFromSelectEncodingI);
   }
-
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "subTree1: " << subTree1->toString() << "\n";
-  z3::expr oldStoreBV1 = subTree1->bv;
-  assert(oldStoreBV1);
-  subTree1->bv = selectStoreResolveBV1;
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "subTree1 updated: " << subTree1->toString() << "\n";
-
-  z3::expr storeFromSelectEncoding1 = z3::ite(
-      z3ExprSelectConditionOp == 1, selectStoreResolveBV1 == z3ExprStoreValue,
-      selectStoreResolveBV1 == oldStoreBV1);
-
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "storeFromSelectEncoding1: " << storeFromSelectEncoding1.to_string()
-         << "\n";
-
-  BBAsstVecIter->second.push_back(storeFromSelectEncoding1);
-
-  // ------------------------------------------------------------------
-
-  /* Second */
-  Value *selectInstOp2 = selectInst.getOperand(2);
-  BVTree *parentBVTree2 = newValueBVTreeMap->at(selectInstOp2);
-  outs() << parentBVTree2->toString() << "\n";
-
-  z3::expr selectStoreResolveBV2 = BitVecHelper::getBitVec(
-      valueStored->getType()->getIntegerBitWidth(), "select_resolve_");
-
-  std::vector<int> *GEPMapIndices2 =
-      GEPMap.at(storeInst.getPointerOperand()).second;
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices2) << "\n";
-  outs().flush();
-
-  BVTree *subTree2;
-  if (GEPMapIndices2->size() == 1) {
-    int idx = GEPMapIndices2->at(0);
-    subTree2 = parentBVTree2->getSubTree(idx);
-  } else if (GEPMapIndices2->size() == 2) {
-    int idx0 = GEPMapIndices2->at(0);
-    int idx1 = GEPMapIndices2->at(1);
-    subTree2 = parentBVTree2->getSubTree(idx0)->getSubTree(idx1);
-  } else {
-    throw std::runtime_error("Unexpected GEPMapIndices size\n");
-  }
-
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "subTree2: " << subTree2->toString() << "\n";
-  z3::expr oldStoreBV2 = subTree2->bv;
-  assert(oldStoreBV2);
-  subTree2->bv = selectStoreResolveBV2;
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "subTree2 updated: " << subTree2->toString() << "\n";
-
-  z3::expr storeFromSelectEncoding2 = z3::ite(
-      z3ExprSelectConditionOp == 0, selectStoreResolveBV2 == z3ExprStoreValue,
-      selectStoreResolveBV2 == oldStoreBV2);
-
-  outs() << "[handleStoreToGEPPtrDerivedFromSelect] "
-         << "storeFromSelectEncoding2: " << storeFromSelectEncoding2.to_string()
-         << "\n";
-
-  BBAsstVecIter->second.push_back(storeFromSelectEncoding2);
 
   MemoryAccessValueBVTreeMap.insert({storeMemoryAccess, *newValueBVTreeMap});
   mostRecentMemoryDef = storeMemoryAccess;
@@ -1679,27 +1792,55 @@ void FunctionEncoder::handleStoreInst(StoreInst &storeInst) {
   outs().flush();
 
   if (isa<GetElementPtrInst>(destPointerValue)) {
-    outs() << "[handleStoreInst] store pointer came from a GEP\n ";
     GetElementPtrInst &GEPInst = *dyn_cast<GetElementPtrInst>(destPointerValue);
+    std::vector<int> *GEPMapIndices =
+        GEPMap.at(storeInst.getPointerOperand()).second;
+    outs() << "[handleStoreInst] "
+           << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices) << "\n";
     Value *GEPargVal = GEPInst.getOperand(0);
+    outs() << "[handleStoreInst] "
+           << "GEPargVal: " << GEPargVal->getName() << "\n";
     if (isa<PHINode>(GEPargVal)) {
-      outs() << "[handleStoreInst] store pointer came from a GEP on a phi "
-                "pointer\n ";
+      outs()
+          << "[handleStoreInst] Store pointer came from a GEP on a phi ptr\n";
       PHINode &phiInst = *dyn_cast<PHINode>(GEPargVal);
-      handleStoreToGEPPtrDerivedFromPhi(storeInst, phiInst, &newValueBVTreeMap);
+      outs() << "[handleStoreInst] the phi: " << phiInst << "\n";
+
+      handleStoreToGEPPtrDerivedFromPhi(BVToStore, phiInst, GEPMapIndices,
+                                        &newValueBVTreeMap, storeMemoryAccess);
       return;
     } else if (isa<SelectInst>(GEPargVal)) {
-      outs() << "[handleStoreInst] store pointer came from a GEP on a select "
+      outs() << "[handleStoreInst] Store pointer came from a GEP on a select "
                 "pointer\n ";
       SelectInst &selectInst = *dyn_cast<SelectInst>(GEPargVal);
-      handleStoreToGEPPtrDerivedFromSelect(storeInst, selectInst,
-                                           &newValueBVTreeMap);
+      outs() << "[handleStoreInst] The select: " << selectInst << "\n";
+      handleStoreToGEPPtrDerivedFromSelect(BVToStore, selectInst, GEPMapIndices,
+                                           &newValueBVTreeMap,
+                                           storeMemoryAccess);
       return;
     }
   } else {
-    throw std::runtime_error(
-        "[handleStoreInst] store pointer did not come from a "
-        "GEP, this is not supported.\n");
+    if (isa<PHINode>(destPointerValue)) {
+      PHINode &phiInst = *dyn_cast<PHINode>(destPointerValue);
+      if (!(phiInst.getType()->isSingleValueType() &&
+            phiInst.getType()->isPointerTy())) {
+        throw std::runtime_error(
+            "[handleStoreInst] Store pointer did not come from a GEP, it came "
+            "from a phi. But this phi is not a pointer type and a single value "
+            "type. This is not supported.\n");
+      }
+      handleStoreToPhiPtr(BVToStore, phiInst, &newValueBVTreeMap,
+                          storeMemoryAccess);
+      return;
+    } else if (isa<SelectInst>(destPointerValue)) {
+      throw std::runtime_error(
+          "[handleStoreInst] Store pointer did not come from a GEP, it came "
+          "from a select. This is not supported.\n");
+    } else {
+      throw std::runtime_error(
+          "[handleStoreInst] Store pointer did not come from a "
+          "GEP or phi or select. This is not supported.\n");
+    }
   }
 
   outs().flush();
@@ -2167,7 +2308,7 @@ z3::expr_vector FunctionEncoder::encodeFunctionBody(Function &F) {
       << "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>\n"
       << "Pass #4: FunctionEncoder::handleReturnInst\n"
       << "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>\n";
-
+  outs().flush();
   for (BasicBlock &BB : F) {
     currentBB = &BB; /* update current BB */
     MemoryPhi *memoryPhiCurrentBB = currentMemorySSA->getMemoryAccess(&BB);

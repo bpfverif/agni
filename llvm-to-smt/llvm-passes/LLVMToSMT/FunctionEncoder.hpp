@@ -157,15 +157,25 @@ public:
   void handleLoadFromGEPPtrDerivedFromSelect(LoadInst &i,
                                              SelectInst &selectInst);
   void handleLoadFromGEPPtrDerivedFromPhi(LoadInst &i, PHINode &phiNode);
-  void indexIntoBVTree(LoadInst &loadInst, BVTree *subTree);
-  void handleStoreToGEPPtrDerivedFromSelect(StoreInst &i,
+
+  void handleStoreToGEPPtrDerivedFromSelect(z3::expr BVToStore,
                                             SelectInst &selectInst,
-                                            ValueBVTreeMap *newValueBVTreeMap);
-  void handleStoreToGEPPtrDerivedFromPhi(StoreInst &storeInst, PHINode &phiInst,
-                                         ValueBVTreeMap *newValueBVTreeMap);
-  void handleStoreToPhiPtrDerivedFromGepPtrDerivedFromPhi(
-      StoreInst &storeInst, PHINode &phiInst,
-      ValueBVTreeMap *newValueBVTreeMap);
+                                            std::vector<int> *GEPMapIndices,
+                                            ValueBVTreeMap *newValueBVTreeMap,
+                                            MemoryUseOrDef *storeMemoryAccess);
+  void handleStoreToGEPPtrDerivedFromPhi(z3::expr BVToStore, PHINode &phiInst,
+                                         std::vector<int> *GEPMapIndices,
+                                         ValueBVTreeMap *newValueBVTreeMap,
+                                         MemoryUseOrDef *storeMemoryAccess);
+
+  void handleStoreToPhiPtr(z3::expr BVToStore, PHINode &phiPtrInst,
+                           ValueBVTreeMap *newValueBVTreeMap,
+                           MemoryUseOrDef *storeMemoryAccess);
+  void handleStoreToPhiPtrDerivedFromPhi(z3::expr BVToStore, PHINode &phiInst,
+                                         std::vector<int> *GEPMapIndices,
+                                         ValueBVTreeMap *newValueBVTreeMap,
+                                         MemoryUseOrDef *storeMemoryAccess,
+                                         z3::expr pathCondition);
 
   /* Json output related functions */
   void populateInputAndOutputJsonDict();
