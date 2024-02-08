@@ -473,6 +473,8 @@ if __name__ == "__main__":
     ###################
     print_and_log("Checkout kernel version v{}".format(args.kernver), pend="")
     cmd_checkout = ['git', 'checkout', '-f', '{}'.format(args.commit)]
+    print()
+    print(cmd_checkout)
     subprocess.run(cmd_checkout, stdout=logfile, stderr=logfile_err,
                    check=True, text=True, bufsize=1)
     print_and_log(" ... done")
@@ -515,6 +517,8 @@ if __name__ == "__main__":
         str(clang_fullpath)), 'V=1', 'KCFLAGS="-Wno-error"', 'kernel/bpf/verifier.o']
     cmdout_make_verifier = subprocess.run(
         cmd_make_verifier, stdout=subprocess.PIPE, stderr=logfile_err, text=True, bufsize=1, check=True)
+    print()
+    print(cmdout_make_verifier.stdout)
     logfile.write("cmdout_verifier:\n")
     logfile.write(cmdout_make_verifier.stdout)
     logfile.write("\n")
