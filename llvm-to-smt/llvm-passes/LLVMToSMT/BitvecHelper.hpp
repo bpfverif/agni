@@ -21,6 +21,7 @@ private:
 public:
   static std::unordered_map<Value *, z3::expr> singleValueTypeMap;
   static z3::expr getBitVec(unsigned bitwidth, std::string = "");
+  static z3::expr getBool(std::string prefix);
   static z3::expr getBitVecSingValType(Value *);
   static bool isValueConstantInt(Value *);
   static int64_t getConstantIntValue(Value *);
