@@ -4,11 +4,11 @@
 #include <llvm/Analysis/MemorySSA.h>
 #include <llvm/IR/Argument.h>
 #include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Type.h>
 #include <llvm/Support/Casting.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/Instructions.h>
 
 #include <stdexcept>
 #include <string>
@@ -28,6 +28,7 @@ typedef std::pair<BasicBlock *, BasicBlock *> BBPair;
 typedef std::unordered_map<Value *, BVTree *> ValueBVTreeMap;
 typedef std::pair<Value *, Value *> ValuePair;
 typedef std::pair<Value *, std::vector<int> *> ValueIndicesPair;
+typedef std::pair<Value *, BasicBlock *> ValueBBPair;
 
 extern z3::context ctx;
 
@@ -53,7 +54,7 @@ public:
     this->outputValueBVTreeMap = new ValueBVTreeMap();
   };
 
-  std::unordered_set<Value*> FunctionArgs;
+  std::unordered_set<Value *> FunctionArgs;
 
   /* Maps a BasicBlock to a list of Z3 expressions which correspond the encoding
    * of the Instructions in the BasicBlock. Populated in the 1st Pass. */
@@ -69,15 +70,17 @@ public:
   std::unordered_map<BBPair, z3::expr, pair_hash<BasicBlock *, BasicBlock *>>
       EdgeAssertionsMap;
 
-  /* Maps a "view" of Memory, i.e., a MemoryDef i.e., a MemoryAccess to a map ot
+  /* Maps a "view" of Memory, i.e., a MemoryDef i.e., a MemoryAccess to a map of
    * type ValueBVTreeMap. The ValueBVTreeMap maps a Value* to a BVTree (~ vector
    * of bitvectors). We begin with the MemoryDef "liveOnEntry", and its
    * ValueBVTreeMap containing all the functions arguments as keys. eg.
    * liveOnEntry: [arg_a: [bv_a_1, bv_a_2, bv_a_3], arg_b: [bv_b]] */
   std::unordered_map<MemoryAccess *, ValueBVTreeMap> MemoryAccessValueBVTreeMap;
+  std::unordered_map<BBPair, z3::expr, pair_hash<BasicBlock *, BasicBlock *>>
+      PhiResolutionMap;
   std::unordered_map<BBPair, z3::expr_vector,
                      pair_hash<BasicBlock *, BasicBlock *>>
-      phiResolutionMap;
+      MemoryPhiResolutionMap;
 
   /* A list of structs relevent to the encoding. All other structs are ignored
    * when creating BVTrees. */
@@ -105,6 +108,10 @@ public:
    * preceded by a GEP */
   std::unordered_map<Value *, ValueIndicesPair> GEPMap;
 
+  std::unordered_map<Value *, ValuePair> SelectMap;
+
+  std::unordered_map<Value *, std::vector<ValueBBPair>> PhiMap;
+
   /* Associate with each BasicBlock, a ValueBVTreeMap; to resolve
    * to resolve insertValue instructions (instead of piggy-backing on the
    * MemoryAccessValueBVTreeMap). Used to store BVTrees for aggregate types.
@@ -119,7 +126,10 @@ public:
   void printValueBVTreeMap(ValueBVTreeMap vt);
   void printMemoryAccessValueBVTreeMap();
   void printPhiResolutionMap();
+  void printMemoryPhiResolutionMap();
   void printGEPMap();
+  void printSelectMap();
+  void printPhiMap();
   std::string GEPMapSingleElementToString(Value *v0, Value *v1,
                                           std::vector<int> *gepIndices);
   std::string stdVectorIntToString(std::vector<int> &vec);
@@ -134,11 +144,38 @@ public:
   void handleSelectInst(SelectInst &i);
   void handleBranchInst(BranchInst &i);
   void handlePhiNode(PHINode &inst, int passID);
+  void handlePhiNodeSetupBitVecs(PHINode &inst);
+  void handlePhiNodeResolvePathConditions(PHINode &inst);
   void handleGEPInst(GetElementPtrInst &i);
   void handleLoadInst(LoadInst &i);
   void handleStoreInst(StoreInst &i);
   void handleMemoryPhiNode(MemoryPhi &mphi, int passID);
   void handleCallInst(CallInst &i);
+  void handleGEPInstFromSelect(GetElementPtrInst &i);
+  void handleGEPInstFromPHI(GetElementPtrInst &i);
+  void handlePhiInstPointer(PHINode &inst);
+  void handleLoadFromGEPPtrDerivedFromSelect(LoadInst &i,
+                                             SelectInst &selectInst);
+  void handleLoadFromGEPPtrDerivedFromPhi(LoadInst &i, PHINode &phiNode);
+
+  void handleStoreToGEPPtrDerivedFromSelect(z3::expr BVToStore,
+                                            SelectInst &selectInst,
+                                            std::vector<int> *GEPMapIndices,
+                                            ValueBVTreeMap *newValueBVTreeMap,
+                                            MemoryUseOrDef *storeMemoryAccess);
+  void handleStoreToGEPPtrDerivedFromPhi(z3::expr BVToStore, PHINode &phiInst,
+                                         std::vector<int> *GEPMapIndices,
+                                         ValueBVTreeMap *newValueBVTreeMap,
+                                         MemoryUseOrDef *storeMemoryAccess);
+
+  void handleStoreToPhiPtr(z3::expr BVToStore, PHINode &phiPtrInst,
+                           ValueBVTreeMap *newValueBVTreeMap,
+                           MemoryUseOrDef *storeMemoryAccess);
+  void handleStoreToPhiPtrDerivedFromPhi(z3::expr BVToStore, PHINode &phiInst,
+                                         std::vector<int> *GEPMapIndices,
+                                         ValueBVTreeMap *newValueBVTreeMap,
+                                         MemoryUseOrDef *storeMemoryAccess,
+                                         z3::expr pathCondition);
 
   /* Json output related functions */
   void populateInputAndOutputJsonDict();

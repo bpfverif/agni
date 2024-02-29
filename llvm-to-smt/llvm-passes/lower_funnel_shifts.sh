@@ -1,13 +1,13 @@
 #!/bin/bash
 
 if [ $# -ne 4 ]; then
-    echo "$0: Usage: inline_verifier.sh path_to_llvm_file function_to_start_inline output_dir output_filename.ll"
+    echo "$0: Usage: lower_funnel_shifts.sh path_to_llvm_file.ll function_to_lower_funnel_shifts out_dir output_file.ll"
     exit 1
 fi
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/.config
-PASS_DIR="${BASE_DIR}/InlineFunctionCalls"
+PASS_DIR="${BASE_DIR}/LowerFunnelShifts"
 BUILD_DIR="${PASS_DIR}/build"
 
 oldpwd=$(pwd)
@@ -19,7 +19,7 @@ outfile_final="${outfile_final_dir}/${outfile_final_name}"
 echo "outfile_final ${outfile_final}"
 
 echo "--------------------------------------"
-echo "build InlineFunctionCalls pass"
+echo "build LowerFunnelShifts pass"
 echo "--------------------------------------"
 cmd="mkdir -p ${BUILD_DIR}"
 cmd="${cmd} && cd ${BUILD_DIR}"
@@ -30,26 +30,17 @@ cmd="${cmd} && make"
 echo $cmd
 eval $cmd || exit 1
 
+export FUNCTION_TO_LOWER_FUNNEL_SHIFTS=${function_name}
+echo "FUNCTION_TO_LOWER_FUNNEL_SHIFTS: ${FUNCTION_TO_LOWER_FUNNEL_SHIFTS}"
 echo "--------------------------------------"
-echo "running pass inline-func-calls"
+echo "running pass lower-funnel-shifts"
 echo "--------------------------------------"
-export FUNCTION_TO_INLINE=$2
-echo "FUNCTION_TO_INLINE: ${FUNCTION_TO_INLINE}"
-
-cmd="$LLVM_DIR/bin/opt -load-pass-plugin ${BUILD_DIR}/libInlineFunctionCalls.so --passes=\"inline-func-calls\" ${inputllfile} -S -o ${outfile_final}"
+cmd="$LLVM_DIR/bin/opt -load-pass-plugin ${BUILD_DIR}/libLowerFunnelShifts.so --passes=\"lower-funnel-shifts\" ${inputllfile} -S -o ${outfile_final}"
 
 echo $cmd
 eval $cmd || exit 1
 
-# echo "--------------------------------------"
-# echo "running verify pass "
-# echo "--------------------------------------"
-# cmd="${LLVM_DIR}/bin/opt -S --verify ${outfile_final} -o  ${outfile_final}.ll"
-# cmd="${cmd} && mv ${outfile_final}.ll ${outfile_final}"
-
-# echo $cmd
-# eval $cmd || exit 1
-
 echo "--------------------------------------"
 echo "done. output file: ${outfile_final}"
 echo "--------------------------------------"
+
