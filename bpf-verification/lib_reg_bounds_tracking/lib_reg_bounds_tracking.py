@@ -228,25 +228,25 @@ class bpf_register:
         self.conc64 = BitVecHelper.new_bitvec(reg_name + "_conc64", BITVEC_WIDTH_64, UNSIGNED)
         self.conc32 = BitVecHelper.new_bitvec(reg_name + "_conc32", BITVEC_WIDTH_32, UNSIGNED)
         self.var_off_value = BitVecHelper.new_uniq_bitvec(
-            "var_off_value", BITVEC_WIDTH_64,  UNSIGNED)
+            reg_name+"_var_off_value", BITVEC_WIDTH_64,  UNSIGNED)
         self.var_off_mask = BitVecHelper.new_uniq_bitvec(
-            "var_off_mask", BITVEC_WIDTH_64,  UNSIGNED)
+            reg_name+"_var_off_mask", BITVEC_WIDTH_64,  UNSIGNED)
         self.smin_value = BitVecHelper.new_uniq_bitvec(
-            "smin_value", BITVEC_WIDTH_64,  SIGNED)
+            reg_name+"_smin_value", BITVEC_WIDTH_64,  SIGNED)
         self.smax_value = BitVecHelper.new_uniq_bitvec(
-            "smax_value", BITVEC_WIDTH_64, SIGNED)
+            reg_name+"_smax_value", BITVEC_WIDTH_64, SIGNED)
         self.umin_value = BitVecHelper.new_uniq_bitvec(
-            "umin_value", BITVEC_WIDTH_64,  UNSIGNED)
+            reg_name+"_umin_value", BITVEC_WIDTH_64,  UNSIGNED)
         self.umax_value = BitVecHelper.new_uniq_bitvec(
-            "umax_value", BITVEC_WIDTH_64,  UNSIGNED)
+            reg_name+"_umax_value", BITVEC_WIDTH_64,  UNSIGNED)
         self.s32_min_value = BitVecHelper.new_uniq_bitvec(
-            "s32_min_value", BITVEC_WIDTH_32,  SIGNED)
+            reg_name+"_s32_min_value", BITVEC_WIDTH_32,  SIGNED)
         self.s32_max_value = BitVecHelper.new_uniq_bitvec(
-            "s32_max_value", BITVEC_WIDTH_32, SIGNED)
+            reg_name+"_s32_max_value", BITVEC_WIDTH_32, SIGNED)
         self.u32_min_value = BitVecHelper.new_uniq_bitvec(
-            "u32_min_value", BITVEC_WIDTH_32,  UNSIGNED)
+            reg_name+"_u32_min_value", BITVEC_WIDTH_32,  UNSIGNED)
         self.u32_max_value = BitVecHelper.new_uniq_bitvec(
-            "u32_max_value", BITVEC_WIDTH_32,  UNSIGNED)
+            reg_name+"_u32_max_value", BITVEC_WIDTH_32,  UNSIGNED)
     
     def _get_bv_name(self):
         bvname = self.bv_name_prefix + "_" + str(self.num_start_id_counter)
@@ -1114,9 +1114,9 @@ class verification_synth_module:
             # self.print_register_mappings()
             # self.print_specification()
             # self.print_synthesis_model()
-            # self.print_synthesized_program()
+            #self.print_synthesized_program(p)
             # self.f_post_cond.remove(self.safety_prop_list[p])
-            # print("Bound violated: ", p)
+            #print("Bound violated: ", p)
             ####
             #if there is a sat model we add the violated bound
             if check_output == "sat": 
