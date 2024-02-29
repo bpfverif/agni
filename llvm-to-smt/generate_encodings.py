@@ -471,8 +471,11 @@ if __name__ == "__main__":
     ###################
     # checkout kernel #
     ###################
-    print_and_log("Checkout kernel version v{}".format(args.kernver), pend="")
-    cmd_checkout = ['git', 'checkout', '-f', '{}'.format(args.commit)]
+    checkout = args.commit
+    if checkout == None:
+        checkout = "v%s" % args.kernver
+    print_and_log("Checkout kernel version {}".format(checkout), pend="")
+    cmd_checkout = ['git', 'checkout', '-f', '{}'.format(checkout)]
     print()
     print(cmd_checkout)
     subprocess.run(cmd_checkout, stdout=logfile, stderr=logfile_err,
