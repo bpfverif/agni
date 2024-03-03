@@ -18,7 +18,7 @@ fails to meet the soundness condition.
 ### Availability
 This artifact is publicly available at zenodo (doi:
 10.5281/zenodo.7931901), and github
-(https://github.com/bpfverif/ebpf-range-analysis-verification-cav23).
+(https://github.com/bpfverif/agni).
 You can read this readme with markdown highlighting directly
 on github.
 
@@ -132,15 +132,15 @@ git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git 
 
 ### Create the output directory and run the llvm-to-smt tool (15 minutes)
 ```
-mkdir ebpf-range-analysis-verification-cav23/bpf-encodings-5.9
-cd ebpf-range-analysis-verification-cav23/llvm-to-smt
+mkdir agni/bpf-encodings-5.9
+cd agni/llvm-to-smt
 python3 generate_encodings.py --kernver 5.9 --kernbasedir ../../linux-stable --outdir ../bpf-encodings-5.9
 ```
 
 ### Expected Result 
 ```
-Log file: ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/log_21_58_27_04_2023.log
-Log error file: ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/log_err_21_58_27_04_2023.log
+Log file: agni/bpf-encodings-5.9/log_21_58_27_04_2023.log
+Log error file: agni/bpf-encodings-5.9/log_err_21_58_27_04_2023.log
 Change to kernel directory: linux-stable ... done
 Checkout kernel version v5.9 ... done
 Run make config and edit BPF flags ... done
@@ -168,10 +168,10 @@ have the semantics of 36 abstract operators corresponding to
 36 eBPF instructions.
 
 ```
-root@847d5c0f8828:ebpf-range-analysis-verification-cav23/llvm-to-smt# ls -1 ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/*.smt2
-ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/BPF_ADD.smt2
-ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/BPF_ADD_32.smt2
-ebpf-range-analysis-verification-cav23/bpf-encodings-5.9/BPF_AND.smt2
+root@847d5c0f8828:agni/llvm-to-smt# ls -1 agni/bpf-encodings-5.9/*.smt2
+agni/bpf-encodings-5.9/BPF_ADD.smt2
+agni/bpf-encodings-5.9/BPF_ADD_32.smt2
+agni/bpf-encodings-5.9/BPF_AND.smt2
 .
 .
 .
@@ -198,12 +198,12 @@ behaviors in an actual kernel.
 
 ### Run the script to perform the verification and synthesis
 The script uses the encodings we previously generated,
-present in `ebpf-range-analysis-verification-cav23/bpf-encodings-5.9`.
+present in `agni/bpf-encodings-5.9`.
 ```
-cd ebpf-range-analysis-verification-cav23/bpf-verification
+cd agni/bpf-verification
 mkdir results/
 cd src/
-python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path ebpf-range-analysis-verification-cav23/bpf-encodings-5.9
+python3 bpf_alu_jmp_synthesis.py --kernver 5.9 --encodings_path agni/bpf-encodings-5.9
 ```
 
 ### Expected result
