@@ -689,17 +689,22 @@ class verification_synth_module:
         json_in = self.inp_json_bpf_mapping_list
         json_off = self.json_offset
 
+        
+        
         for i in range(self.prog_size):
+            
+            dst_in_key = list(json_in[i].keys())[0]
             #input registers are always the same mapping regardless of the
             #instruction - however, src_reg isn't used in sync for example
-            self.input_dst_reg_list[i].update_bv_mappings(json_in[i]["dst_reg"][json_off:], self.kernver)
+            self.input_dst_reg_list[i].update_bv_mappings(json_in[i][dst_in_key][json_off:], self.kernver)
             if self.prog[i] != "BPF_SYNC":
                 self.input_src_reg_list[i].update_bv_mappings(json_in[i]["src_reg"][json_off:], self.kernver)
 
             #if the insn is alu or SYNC use "dst_reg" mapping for output
             #alu has 2 in, 1 out; sync has 1 in, 1 out
             if self.prog[i][4] != "J" or self.prog[i] == "BPF_SYNC":
-                self.output_dst_reg_list[i].update_bv_mappings(json_out[i]["dst_reg"][json_off:], self.kernver)
+                dst_out_key = list(json_out[i].keys())[0]
+                self.output_dst_reg_list[i].update_bv_mappings(json_out[i][dst_out_key][json_off:], self.kernver)
 
             #these are tmp registers to be used to assign jmp outputs
             if self.prog[i][4] == "J":
@@ -1114,9 +1119,10 @@ class verification_synth_module:
             # self.print_register_mappings()
             # self.print_specification()
             # self.print_synthesis_model()
+            # print(self.solver.statistics())
             #self.print_synthesized_program(p)
             # self.f_post_cond.remove(self.safety_prop_list[p])
-            #print("Bound violated: ", p)
+            # print("Bound violated: ", p)
             ####
             #if there is a sat model we add the violated bound
             if check_output == "sat": 
