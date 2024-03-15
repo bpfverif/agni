@@ -4,6 +4,7 @@ import argparse
 from shutil import copy2
 from pathlib import Path
 from datetime import datetime
+from termcolor import colored
 
 
 class LLVMPassRunner:
@@ -220,32 +221,37 @@ class LLVMPassRunner:
         cmdout_extract = subprocess.run(
             cmd_extract, stdout=self.logfile, stderr=self.logfile_err, text=True, bufsize=1, check=True)
         self.logfile.write("\nFinished running llvm-extract\n")
-        # self.curr_llfile_fullpath = output_llfile_fullpath
+        self.curr_llfile_fullpath = output_llfile_fullpath
 
     def run(self):
-        self.create_op_dir()
-        self.run_opt_pass(O1=True)
+        try:
+            self.create_op_dir()
+            self.run_opt_pass(O1=True)
 
-        self.run_force_function_early_exit_pass()
-        self.run_opt_pass(O1=True)
+            self.run_force_function_early_exit_pass()
+            self.run_opt_pass(O1=True)
 
-        self.run_remove_functions_calls_pass()
-        self.run_opt_pass(O1=True)
-        
-        self.run_inline_verifier_func_pass()
-        self.run_opt_pass(O1=True)
+            self.run_remove_functions_calls_pass()
+            self.run_opt_pass(O1=True)
 
-        self.run_promote_memcpy_pass()
-        self.run_opt_pass(O1=False)
+            self.run_inline_verifier_func_pass()
+            self.run_opt_pass(O1=True)
 
-        self.run_lower_funnel_shifts_pass()
-        self.run_inline_verifier_func_pass()
-        
-        self.run_opt_pass(O1=False)
+            self.run_promote_memcpy_pass()
+            self.run_opt_pass(O1=False)
 
-        self.run_llvm_extract()
-        self.run_llvm_to_smt_pass()
-        
+            self.run_lower_funnel_shifts_pass()
+            self.run_inline_verifier_func_pass()
+
+            # self.run_opt_pass(O1=False)
+
+            self.run_llvm_extract()
+            self.run_llvm_to_smt_pass()
+        except subprocess.CalledProcessError as e:
+            print(colored("Error getting encoding for {}.\n{}\n".format(
+                self.op, str(e)), 'red'), flush=True, end="")
+            raise e
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

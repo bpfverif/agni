@@ -2,3 +2,4 @@ build/
 .vscode/
 __pycache__/
 llvm-to-smt/llvm-passes/.config
+.cache/
