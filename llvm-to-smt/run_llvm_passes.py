@@ -223,6 +223,10 @@ class LLVMPassRunner:
         self.logfile.write("\nFinished running llvm-extract\n")
         self.curr_llfile_fullpath = output_llfile_fullpath
 
+    def copy_encoding_to_parent_dir(self):
+        op_encoding_path = self.op_dir_fullpath.joinpath(self.output_smtfile_name)
+        copy2(str(op_encoding_path), str(self.parentdir_fullpath))
+
     def run(self):
         try:
             self.create_op_dir()
@@ -247,6 +251,9 @@ class LLVMPassRunner:
 
             self.run_llvm_extract()
             self.run_llvm_to_smt_pass()
+
+            self.copy_encoding_to_parent_dir()
+
         except subprocess.CalledProcessError as e:
             print(colored("Error getting encoding for {}.\n{}\n".format(
                 self.op, str(e)), 'red'), flush=True, end="")

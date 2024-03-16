@@ -445,8 +445,6 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument("--outdir", help="output directory", type=str,
                         required=True)
-    parser.add_argument("--scriptsdir", help="scripts directory from llvm-to-smt",
-                        type=str, required=False, default="llvm-passes")
     parser.add_argument("--specific-op", dest='specific_op',
                         help='single specific BPF op to encode',
                         choices=bpf_alu_ops + bpf_jmp_ops + bpf_sync_op,
@@ -461,10 +459,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    llvm_to_smt_dir_fullpath = pathlib.Path(__file__).parent.resolve()
+    assert llvm_to_smt_dir_fullpath.exists()
+
     llvmdir_fullpath = pathlib.Path(args.llvmdir).resolve()
     assert llvmdir_fullpath.exists()
 
-    scriptsdir_fullpath = pathlib.Path(args.scriptsdir).resolve()
+    scriptsdir_fullpath = llvm_to_smt_dir_fullpath.joinpath("llvm-passes")
     assert scriptsdir_fullpath.exists()
 
     outdir_fullpath = pathlib.Path(args.outdir).resolve()
@@ -492,6 +493,10 @@ if __name__ == "__main__":
         else:
             raise RuntimeError(
                 'Unsupported BPF op {}'.format(args.specific_op))
+        
+    if args.modular:
+        # only support modular verification in kernels with "reg_bounds_sync"
+        assert version.parse(args.kernver) >= version.parse("5.19-rc6")
 
     ####################
     #  setup logging   #
