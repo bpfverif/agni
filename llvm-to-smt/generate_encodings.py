@@ -44,14 +44,16 @@ bpf_jmp_ops = [
     "BPF_JSLT"
 ]
 
-bpf_sync_op = [
-    "BPF_SYNC"
-]
+bpf_refinement_ops = {
+    "BPF_SYNC": "reg_bounds_sync___",
+}
 
 
 def insert_sync_wrapper(verifier_c_filepath, kernver):
     wrapper_sync = ''
-    if version.parse(kernver) >= version.parse("5.19-rc6"):
+    if version.parse(kernver) >= version.parse("6.8-rc1"):
+        wrapper_sync = wrapper_sync_4
+    elif version.parse(kernver) >= version.parse("5.19-rc6"):
         wrapper_sync = wrapper_sync_3
     elif version.parse(kernver) >= version.parse("5.7-rc1"):
         wrapper_sync = wrapper_sync_2
@@ -100,23 +102,23 @@ def get_all_jmp_wrappers_concatenated(kernver):
     if version.parse(kernver) >= version.parse("6.8-rc1"):
         # Starting with v6.8-rc1~131^2~289^2~25.
         wrapper_jmp = wrapper_jmp_7
-        wrapper_jmp32 = wrapper32_jmp_7
+        wrapper_jmp32 = wrapper_jmp32_7
     elif version.parse(kernver) >= version.parse("6.4-rc1"):
         # Starting with v6.4-rc1~77^2~118^2~26^2~1.
         wrapper_jmp = wrapper_jmp_6
-        wrapper_jmp32 = wrapper32_jmp_6
+        wrapper_jmp32 = wrapper_jmp32_6
     elif version.parse(kernver) >= version.parse("5.7-rc1"):
         # Starting with v5.7-rc1~146^2~10^2~1^2~5.
         wrapper_jmp = wrapper_jmp_5
-        wrapper_jmp32 = wrapper32_jmp_5
+        wrapper_jmp32 = wrapper_jmp32_5
     elif version.parse(kernver) >= version.parse("5.3-rc1"):
         # Starting with v5.3-rc1~140^2~179^2^2~6.
         wrapper_jmp = wrapper_jmp_4
-        wrapper_jmp32 = wrapper32_jmp_4
+        wrapper_jmp32 = wrapper_jmp32_4
     elif version.parse(kernver) >= version.parse("5.1-rc1"):
         # Starting with v5.1-rc1~178^2~404^2~4^2~13.
         wrapper_jmp = wrapper_jmp_3
-        wrapper_jmp32 = wrapper32_jmp_3
+        wrapper_jmp32 = wrapper_jmp32_3
     # no 32-bit jumps before 5.1-rc1
     elif version.parse(kernver) >= version.parse("4.20-rc6"):
         # Starting with v4.20-rc6~1^2~12^2^2~1.
@@ -217,6 +219,9 @@ def insert_wrapper_unknown(verifier_c_filepath):
 
 
 def get_all_alu_wrappers_concatenated():
+    wrapper_alu = wrapper_alu_1
+    wrapper_alu32 = wrapper_alu32_1
+
     s = ""
     for op in bpf_alu_ops:
         s += wrapper_alu.format(op, op)
@@ -393,6 +398,30 @@ def reg_bounds_sync_calls_remove(verifier_c_filepath):
     shutil.copy(tmpfile_path, verifier_c_filepath)
 
 
+def reg_bounds_sanity_check_calls_remove(verifier_c_filepath):
+    inputfile_handle = verifier_c_filepath.open("r")
+    input_file_lines = inputfile_handle.readlines()
+    tmpdir_path = pathlib.Path("/tmp")
+    tmpfile_name = datetime.now().strftime("tmp_verifier_%H_%M_%d_%m_%Y.c")
+    tmpfile_path = tmpdir_path.joinpath(tmpfile_name)
+    tmpfile_handle = tmpfile_path.open("w")
+    input_file_line_iter = iter(input_file_lines)
+    for i, line in enumerate(input_file_line_iter):
+        if r"reg_bounds_sanity_check" in line:
+            if r"static int reg_bounds_sanity_check" in line:
+                line = line
+            elif "return" in line:
+                line = "return 0;\n"
+            else:
+                line = r"//" + line
+        tmpfile_handle.write(line)
+
+    tmpfile_handle.close()
+    inputfile_handle.close()
+
+    shutil.copy(tmpfile_path, verifier_c_filepath)
+
+
 def reg_bounds_sync_add(verifier_c_filepath):
     inputfile_handle = verifier_c_filepath.open("r")
     input_file_lines = inputfile_handle.readlines()
@@ -447,13 +476,14 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument("--specific-op", dest='specific_op',
                         help='single specific BPF op to encode',
-                        choices=bpf_alu_ops + bpf_jmp_ops + bpf_sync_op,
+                        choices=bpf_alu_ops + bpf_jmp_ops +
+                        list(bpf_refinement_ops.keys()),
                         type=str, required=False)
     parser.add_argument("--commit",
                         help="specific kernel commit, instead of a kernel version",
                         type=str, required=False, default="-")
     parser.add_argument("--modular",
-                        help="generate encodings without reg_bonds_sync (necessary to perform modular verifcation, which is faster)",
+                        help="generate encodings of BPF ops without reg_bonds_sync logic (necessary to perform modular verifcation, which is faster)",
                         action=argparse.BooleanOptionalAction,
                         )
 
@@ -482,18 +512,18 @@ if __name__ == "__main__":
         if args.specific_op in bpf_alu_ops:
             bpf_alu_ops = [args.specific_op]
             bpf_jmp_ops = []
-            bpf_sync_op = []
+            bpf_refinement_ops = []
         elif args.specific_op in bpf_jmp_ops:
             bpf_jmp_ops = [args.specific_op]
             bpf_alu_ops = []
-            bpf_sync_op = []
-        elif args.specific_op in bpf_sync_op:
+            bpf_refinement_ops = []
+        elif args.specific_op in bpf_refinement_ops:
             bpf_alu_ops = []
             bpf_jmp_ops = []
         else:
             raise RuntimeError(
                 'Unsupported BPF op {}'.format(args.specific_op))
-        
+
     if args.modular:
         # only support modular verification in kernels with "reg_bounds_sync"
         assert version.parse(args.kernver) >= version.parse("5.19-rc6")
@@ -641,6 +671,7 @@ if __name__ == "__main__":
     insert_jmp_wrapper(verifier_file_path, args.kernver)
     if args.modular:
         reg_bounds_sync_calls_remove(verifier_file_path)
+        reg_bounds_sanity_check_calls_remove(verifier_file_path)
     insert_sync_wrapper(verifier_file_path, args.kernver)
     print_and_log(" ... done")
 
@@ -800,8 +831,8 @@ if __name__ == "__main__":
             del llvmpassrunner_for_op
             print(colored(" ... done", 'green'))
 
-    # SYNC
-    for i, op in enumerate(bpf_sync_op, start=idx+1):
+    # Refinement "ops"
+    for i, op in enumerate(bpf_refinement_ops, start=idx+1):
         idx = i
         print(colored("Getting encoding for {}".format(
             op), 'green'), flush=True)
@@ -813,7 +844,7 @@ if __name__ == "__main__":
             inputdir_fullpath=outdir_fullpath,
             op=op,
             input_llfile_fullpath=input_llfile_fullpath,
-            function_name="reg_bounds_sync___",
+            function_name=bpf_refinement_ops[op],
             output_smtfile_name="{}.smt2".format(op),
             global_bv_suffix=str(i))
         try:
