@@ -574,8 +574,6 @@ class config_setup:
             self.insn_set_list = [verification_set]
         else:
             self.insn_set_list = [self.OPS_set]
-        
-            self.insn_set_list = [self.OPS_set]
         self.bugs_dict = {}
         self.set_bug_type_dict()
         
