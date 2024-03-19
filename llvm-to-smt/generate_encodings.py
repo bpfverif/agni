@@ -44,17 +44,16 @@ bpf_jmp_ops = [
     "BPF_JSLT"
 ]
 
-bpf_sync_op = [
-    "BPF_SYNC"
-]
+bpf_refinement_ops = {
+    "BPF_SYNC": "reg_bounds_sync___",
+}
+
 
 def insert_sync_wrapper(verifier_c_filepath, kernver):
     wrapper_sync = ''
-    # Special case for Andrii-s patch, only use 6.8
-    if version.parse(kernver) == version.parse("6.8"):
-        wrapper_sync= wrapper_sync_4
-    
-    elif version.parse(kernver) >= version.parse("5.19"):
+    if version.parse(kernver) >= version.parse("6.8-rc1"):
+        wrapper_sync = wrapper_sync_4
+    elif version.parse(kernver) >= version.parse("5.19-rc6"):
         wrapper_sync = wrapper_sync_3
     elif version.parse(kernver) >= version.parse("5.7-rc1"):
         wrapper_sync = wrapper_sync_2
@@ -100,26 +99,26 @@ def insert_sync_wrapper(verifier_c_filepath, kernver):
 def get_all_jmp_wrappers_concatenated(kernver):
     wrapper_jmp = ''
     wrapper_jmp32 = ''
-    if version.parse(kernver) >= version.parse("6.7-rc1"):
-        # Andrii's patchset
+    if version.parse(kernver) >= version.parse("6.8-rc1"):
+        # Starting with v6.8-rc1~131^2~289^2~25.
         wrapper_jmp = wrapper_jmp_7
-        wrapper_jmp32 = wrapper32_jmp_7
+        wrapper_jmp32 = wrapper_jmp32_7
     elif version.parse(kernver) >= version.parse("6.4-rc1"):
         # Starting with v6.4-rc1~77^2~118^2~26^2~1.
         wrapper_jmp = wrapper_jmp_6
-        wrapper_jmp32 = wrapper32_jmp_6
+        wrapper_jmp32 = wrapper_jmp32_6
     elif version.parse(kernver) >= version.parse("5.7-rc1"):
         # Starting with v5.7-rc1~146^2~10^2~1^2~5.
         wrapper_jmp = wrapper_jmp_5
-        wrapper_jmp32 = wrapper32_jmp_5
+        wrapper_jmp32 = wrapper_jmp32_5
     elif version.parse(kernver) >= version.parse("5.3-rc1"):
         # Starting with v5.3-rc1~140^2~179^2^2~6.
         wrapper_jmp = wrapper_jmp_4
-        wrapper_jmp32 = wrapper32_jmp_4
+        wrapper_jmp32 = wrapper_jmp32_4
     elif version.parse(kernver) >= version.parse("5.1-rc1"):
         # Starting with v5.1-rc1~178^2~404^2~4^2~13.
         wrapper_jmp = wrapper_jmp_3
-        wrapper_jmp32 = wrapper32_jmp_3
+        wrapper_jmp32 = wrapper_jmp32_3
     # no 32-bit jumps before 5.1-rc1
     elif version.parse(kernver) >= version.parse("4.20-rc6"):
         # Starting with v4.20-rc6~1^2~12^2^2~1.
@@ -220,6 +219,9 @@ def insert_wrapper_unknown(verifier_c_filepath):
 
 
 def get_all_alu_wrappers_concatenated():
+    wrapper_alu = wrapper_alu_1
+    wrapper_alu32 = wrapper_alu32_1
+
     s = ""
     for op in bpf_alu_ops:
         s += wrapper_alu.format(op, op)
@@ -375,6 +377,84 @@ def mark_reg_unknown_memset_remove(verifier_c_filepath):
     shutil.copy(tmpfile_path, verifier_c_filepath)
 
 
+def reg_bounds_sync_calls_remove(verifier_c_filepath):
+    inputfile_handle = verifier_c_filepath.open("r")
+    input_file_lines = inputfile_handle.readlines()
+    tmpdir_path = pathlib.Path("/tmp")
+    tmpfile_name = datetime.now().strftime("tmp_verifier_%H_%M_%d_%m_%Y.c")
+    tmpfile_path = tmpdir_path.joinpath(tmpfile_name)
+    tmpfile_handle = tmpfile_path.open("w")
+    input_file_line_iter = iter(input_file_lines)
+    for i, line in enumerate(input_file_line_iter):
+        if r"reg_bounds_sync" in line:
+            if not r"static void reg_bounds_sync" in line:
+                line = r"//" + line
+
+        tmpfile_handle.write(line)
+
+    tmpfile_handle.close()
+    inputfile_handle.close()
+
+    shutil.copy(tmpfile_path, verifier_c_filepath)
+
+
+def reg_bounds_sanity_check_calls_remove(verifier_c_filepath):
+    inputfile_handle = verifier_c_filepath.open("r")
+    input_file_lines = inputfile_handle.readlines()
+    tmpdir_path = pathlib.Path("/tmp")
+    tmpfile_name = datetime.now().strftime("tmp_verifier_%H_%M_%d_%m_%Y.c")
+    tmpfile_path = tmpdir_path.joinpath(tmpfile_name)
+    tmpfile_handle = tmpfile_path.open("w")
+    input_file_line_iter = iter(input_file_lines)
+    for i, line in enumerate(input_file_line_iter):
+        if r"reg_bounds_sanity_check" in line:
+            if r"static int reg_bounds_sanity_check" in line:
+                line = line
+            elif "return" in line:
+                line = "return 0;\n"
+            else:
+                line = r"//" + line
+        tmpfile_handle.write(line)
+
+    tmpfile_handle.close()
+    inputfile_handle.close()
+
+    shutil.copy(tmpfile_path, verifier_c_filepath)
+
+
+def reg_bounds_sync_add(verifier_c_filepath):
+    inputfile_handle = verifier_c_filepath.open("r")
+    input_file_lines = inputfile_handle.readlines()
+    tmpdir_path = pathlib.Path("/tmp")
+    tmpfile_name = datetime.now().strftime("tmp_verifier_%S_%H_%M_%d_%m_%Y.c")
+    tmpfile_path = tmpdir_path.joinpath(tmpfile_name)
+    print(tmpfile_path)
+    tmpfile_handle = tmpfile_path.open("w")
+    func_start_found = False
+    sync_add_done = False
+    input_file_line_iter = iter(input_file_lines)
+    for i, line in enumerate(input_file_line_iter):
+        if not sync_add_done:
+            if not func_start_found:
+                if r"static void reg_bounds_sync(struct bpf_reg_state *reg)" in line:
+                    func_start_found = True
+                    # line containing just "{"
+                    next_line = next(input_file_line_iter)
+                    line += next_line
+            else:
+                if r"}" in line:
+                    sync_add_done = True
+                else:
+                    line = line.replace("//", "")
+
+        tmpfile_handle.write(line)
+
+    tmpfile_handle.close()
+    inputfile_handle.close()
+
+    shutil.copy(tmpfile_path, verifier_c_filepath)
+
+
 def print_and_log(s, pend="\n"):
     logfile.write(">>> " + s + "\n")
     logfile_err.write(">>> " + s + "\n")
@@ -388,28 +468,41 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--llvmdir", help="llvm install directory", type=str,
                         required=False, default="/usr/")
-    parser.add_argument("--kernver", help="kernel version", type=str,
+    parser.add_argument("--kernver", help="kernel version, used to perpare verifier.c using appropriate wrappers (see wrappers.py)", type=str,
                         required=True)
     parser.add_argument("--kernbasedir", help="kernel base directory", type=str,
                         required=True)
     parser.add_argument("--outdir", help="output directory", type=str,
                         required=True)
-    parser.add_argument("--scriptsdir", help="scripts directory from llvm-to-smt",
-                        type=str, required=False, default="llvm-passes")
     parser.add_argument("--specific-op", dest='specific_op',
                         help='single specific BPF op to encode',
-                        choices= bpf_alu_ops + bpf_jmp_ops + bpf_sync_op,
+                        choices=bpf_alu_ops + bpf_jmp_ops +
+                        list(bpf_refinement_ops.keys()),
                         type=str, required=False)
-    parser.add_argument("--commit", 
-                        help="Specific kernel commit, instead of a kernel version",
-                        type=str, required=False)
+    parser.add_argument("--commit",
+                        help="specific kernel commit, instead of a kernel version",
+                        type=str, required=False, default="-")
+    parser.add_argument("--modular",
+                        help="generate encodings of BPF ops without reg_bonds_sync logic (necessary to perform modular verifcation, which is faster)",
+                        action=argparse.BooleanOptionalAction,
+                        )
 
     args = parser.parse_args()
 
-    llvmdir_fullpath = pathlib.Path(args.llvmdir).resolve()
+    llvm_to_smt_dir_fullpath = pathlib.Path(__file__).parent.resolve()
+    assert llvm_to_smt_dir_fullpath.exists()
 
-    scriptsdir_fullpath = pathlib.Path(args.scriptsdir).resolve()
+    llvmdir_fullpath = pathlib.Path(args.llvmdir).resolve()
+    assert llvmdir_fullpath.exists()
+
+    scriptsdir_fullpath = llvm_to_smt_dir_fullpath.joinpath("llvm-passes")
     assert scriptsdir_fullpath.exists()
+
+    outdir_fullpath = pathlib.Path(args.outdir).resolve()
+    assert outdir_fullpath.exists()
+
+    kerndir_fullpath = pathlib.Path(args.kernbasedir).resolve()
+    assert kerndir_fullpath.exists()
 
     if version.parse(args.kernver) < version.parse("4.14.214"):
         raise RuntimeError(
@@ -419,20 +512,21 @@ if __name__ == "__main__":
         if args.specific_op in bpf_alu_ops:
             bpf_alu_ops = [args.specific_op]
             bpf_jmp_ops = []
-            bpf_sync_op = []
+            bpf_refinement_ops = []
         elif args.specific_op in bpf_jmp_ops:
             bpf_jmp_ops = [args.specific_op]
             bpf_alu_ops = []
-            bpf_sync_op = []
-        elif args.specific_op in bpf_sync_op:
+            bpf_refinement_ops = []
+        elif args.specific_op in bpf_refinement_ops:
             bpf_alu_ops = []
             bpf_jmp_ops = []
         else:
             raise RuntimeError(
                 'Unsupported BPF op {}'.format(args.specific_op))
 
-    outdir_fullpath = pathlib.Path(args.outdir).resolve()
-    assert outdir_fullpath.exists()
+    if args.modular:
+        # only support modular verification in kernels with "reg_bounds_sync"
+        assert version.parse(args.kernver) >= version.parse("5.19-rc6")
 
     ####################
     #  setup logging   #
@@ -456,10 +550,7 @@ if __name__ == "__main__":
     ##############################
     # change to kernel directory #
     ##############################
-    kerndir_fullpath = pathlib.Path(args.kernbasedir).resolve()
-    print_and_log("Change to kernel directory: {}".format(
-        str(kerndir_fullpath)), pend="")
-    assert kerndir_fullpath.exists()
+    print_and_log("Enterning kernel directory".format(str(kerndir_fullpath)))
     old_curdir = os.getcwd()
     os.chdir("{}".format(str(kerndir_fullpath)))
     newdir = os.getcwd()
@@ -471,10 +562,12 @@ if __name__ == "__main__":
     ###################
     # checkout kernel #
     ###################
-    print_and_log("Checkout kernel version v{}".format(args.kernver), pend="")
-    cmd_checkout = ['git', 'checkout', '-f', '{}'.format(args.commit)]
-    print()
-    print(cmd_checkout)
+    print_and_log("Checkout kernel version v{}".format(args.kernver))
+    if args.commit == "-":
+        cmd_checkout = ['git', 'checkout', '-f', 'v{}'.format(args.kernver)]
+    else:
+        cmd_checkout = ['git', 'checkout', '-f', '{}'.format(args.commit)]
+    print(" ".join(cmd_checkout))
     subprocess.run(cmd_checkout, stdout=logfile, stderr=logfile_err,
                    check=True, text=True, bufsize=1)
     print_and_log(" ... done")
@@ -485,17 +578,22 @@ if __name__ == "__main__":
     ##################################
     # make config, and add BPF flags #
     ##################################
-    print_and_log("Run make config and edit BPF flags", pend="")
-    subprocess.run(['make', 'clean'], stdout=logfile,
+    print_and_log("Run make config and edit BPF flags")
+    cmd_make_clean = ['make', 'clean']
+    print(" ".join(cmd_make_clean))
+    subprocess.run(cmd_make_clean, stdout=logfile,
                    stderr=logfile_err, check=True, text=True, bufsize=1)
-    subprocess.run(['make', 'defconfig'], stdout=logfile,
+    cmd_make_defconfig = ['make', 'defconfig']
+    print(" ".join(cmd_make_defconfig))
+    subprocess.run(cmd_make_defconfig, stdout=logfile,
                    stderr=logfile_err, check=True, text=True, bufsize=1)
-    path = pathlib.Path(".config")
-    text = path.read_text()
-    text = text.replace("# CONFIG_BPF is not set", "CONFIG_BPF=y")
-    text = text.replace("# CONFIG_BPF_SYSCALL is not set",
-                        "CONFIG_BPF_SYSCALL=y")
-    path.write_text(text)
+    config_path = pathlib.Path(".config")
+    config_text = config_path.read_text()
+    config_text = config_text.replace(
+        "# CONFIG_BPF is not set", "CONFIG_BPF=y")
+    config_text = config_text.replace("# CONFIG_BPF_SYSCALL is not set",
+                                      "CONFIG_BPF_SYSCALL=y")
+    config_path.write_text(config_text)
     print_and_log(" ... done")
 
     logfile.flush()
@@ -504,20 +602,20 @@ if __name__ == "__main__":
     ############################
     # get kernel compile flags #
     ############################
-    print_and_log("Extract compile flags for current kernel version", pend="")
+    print_and_log("Extract compile flags for current kernel version")
     clang_fullpath = llvmdir_fullpath.joinpath("bin", "clang")
-    logfile.write("clang_fullpath: {}\n".format(str(clang_fullpath)))
-
-    cmdout_make_config = subprocess.run(['make', 'CC={}'.format(str(clang_fullpath)), 'olddefconfig'],
+    cmd_make_olddefconfig = ['make', 'CC={}'.format(
+        str(clang_fullpath)), 'olddefconfig']
+    print(" ".join(cmd_make_olddefconfig))
+    cmdout_make_config = subprocess.run(cmd_make_olddefconfig,
                                         stdout=logfile, stderr=logfile_err, text=True, bufsize=1, check=True)
 
-    # cmdout_make_verifier = subprocess.check_output(
-    #     ['make', 'CC={}'.format(str(clang_fullpath)), 'V=1', 'kernel/bpf/verifier.o'], text=True, bufsize=1)
+    # attempt to build verifier.o
     cmd_make_verifier = ['make', 'CC={}'.format(
         str(clang_fullpath)), 'V=1', 'KCFLAGS="-Wno-error"', 'kernel/bpf/verifier.o']
+    print(" ".join(cmd_make_verifier))
     cmdout_make_verifier = subprocess.run(
         cmd_make_verifier, stdout=subprocess.PIPE, stderr=logfile_err, text=True, bufsize=1, check=True)
-    print()
     print(cmdout_make_verifier.stdout)
     logfile.write("cmdout_verifier:\n")
     logfile.write(cmdout_make_verifier.stdout)
@@ -525,6 +623,7 @@ if __name__ == "__main__":
 
     additional_clang_options = r''' -fno-discard-value-names -emit-llvm -S -O0 -Xclang -disable-O0-optnone'''
 
+    # search for verifier.o clang compile command
     verifier_re_search_pattern = r'([\s]*)(.*,kernel\/bpf\/\.verifier\.o\.d.*)(-c -o.*)'
     regex_res_verifier = re.search(
         verifier_re_search_pattern, cmdout_make_verifier.stdout)
@@ -535,6 +634,7 @@ if __name__ == "__main__":
         str(outdir_fullpath.joinpath("verifier.ll"))
     logfile.write("res_str_verifier: \n {}\n".format(res_str_verifier))
 
+    # attempt to build tnum.o
     cmd_make_tnum = ['make', 'CC={}'.format(
         str(clang_fullpath)), 'V=1', 'kernel/bpf/tnum.o']
     cmdout_make_tnum = subprocess.run(
@@ -543,6 +643,7 @@ if __name__ == "__main__":
     logfile.write(cmdout_make_tnum.stdout)
     logfile.write("\n")
 
+    # search for tnum.o clang compile command
     tnum_re_search_pattern = '([\s]*)(.*,kernel\/bpf\/\.tnum\.o\.d.*)(-c -o.*)'
     regex_res_tnum = re.search(tnum_re_search_pattern, cmdout_make_tnum.stdout)
     res_str_tnum = regex_res_tnum.group(2)
@@ -558,7 +659,7 @@ if __name__ == "__main__":
     ################################
     # Edit verifier.c and tnum.c#
     ################################
-    print_and_log("Edit tnum.c and verifier.c to add wrappers", pend="")
+    print_and_log("Edit tnum.c and verifier.c to add wrappers")
     tnum_file_path = kerndir_fullpath.joinpath("kernel", "bpf", "tnum.c")
     insert_tnum_wrapper(tnum_file_path)
     verifier_file_path = kerndir_fullpath.joinpath(
@@ -568,6 +669,9 @@ if __name__ == "__main__":
     mark_reg_unknown_memset_remove(verifier_file_path)
     insert_alu_wrapper(verifier_file_path)
     insert_jmp_wrapper(verifier_file_path, args.kernver)
+    if args.modular:
+        reg_bounds_sync_calls_remove(verifier_file_path)
+        reg_bounds_sanity_check_calls_remove(verifier_file_path)
     insert_sync_wrapper(verifier_file_path, args.kernver)
     print_and_log(" ... done")
 
@@ -577,7 +681,7 @@ if __name__ == "__main__":
     ################################
     # Compile verifier.c and tnum.c#
     ################################
-    print_and_log("Compile verifier.c and tnum.c", pend="")
+    print_and_log("Compile verifier.c and tnum.c")
     subprocess.run(res_str_verifier,  shell=True, stdout=logfile,
                    stderr=logfile_err, check=True, text=True, bufsize=1)
     subprocess.run(res_str_tnum,  shell=True, stdout=logfile,
@@ -589,15 +693,16 @@ if __name__ == "__main__":
     logfile_err.flush()
 
     ############################################
-    # Link verifier.ll and tnum.ll to verifier.ll #
+    # Link verifier.ll and tnum.ll to verifier_tnum.ll #
     ############################################
     print_and_log(
-        "Link verifier.ll and tnum.ll to single verifier_tnum.ll", pend="")
+        "Link verifier.ll and tnum.ll to single verifier_tnum.ll")
     os.chdir(str(outdir_fullpath))
 
     llvm_link_fullpath = llvmdir_fullpath.joinpath("bin", "llvm-link")
     cmd_link = [str(llvm_link_fullpath), '-S', 'tnum.ll',
                 'verifier.ll', '-o', 'verifier_tnum.ll']
+    print(" ".join(cmd_link))
     cmdout_link = subprocess.run(
         cmd_link, stdout=logfile, stderr=logfile_err, text=True, bufsize=1, check=True)
 
@@ -610,10 +715,12 @@ if __name__ == "__main__":
     ########################################
     # Prepare .config file for llvm-to-smt #
     ########################################
+    print_and_log("Prepare .config file for llvm-to-smt")
     config_fullpath = scriptsdir_fullpath.joinpath(".config")
     with open(config_fullpath, "w") as config_file:
         config_file.write("LLVM_DIR=\"%s\"\n" % llvmdir_fullpath)
         config_file.write("BASE_DIR=\"%s\"\n" % scriptsdir_fullpath)
+    print_and_log(" ... done")
 
     # ###################################
     # # Run llvm passes and llvm-to-smt #
@@ -621,12 +728,13 @@ if __name__ == "__main__":
 
     idx = 0
     input_llfile_fullpath = outdir_fullpath.joinpath("verifier_tnum.ll")
+    error_ops = []
 
     # All ALU_64 ops
     for i, op in enumerate(bpf_alu_ops):
         idx = i
         print(colored("Getting encoding for {}".format(
-            op), 'green'), flush=True, end="")
+            op), 'green'), flush=True)
         llvmpassrunner_for_op = LLVMPassRunner(
             logfile=logfile,
             logfile_err=logfile_err,
@@ -638,7 +746,11 @@ if __name__ == "__main__":
             function_name="adjust_scalar_min_max_vals_wrapper_{}".format(op),
             output_smtfile_name="{}.smt2".format(op),
             global_bv_suffix=str(i))
-        llvmpassrunner_for_op.run()
+        try:
+            llvmpassrunner_for_op.run()
+        except subprocess.CalledProcessError as e:
+            error_ops.append(op)
+            continue
         del llvmpassrunner_for_op
         print(colored(" ... done", 'green'))
 
@@ -647,7 +759,7 @@ if __name__ == "__main__":
         op32 = op+"_32"
         idx = i
         print(colored("Getting encoding for {}".format(
-            op32), 'green'), flush=True, end="")
+            op32), 'green'), flush=True)
         llvmpassrunner_for_op = LLVMPassRunner(
             logfile=logfile,
             logfile_err=logfile_err,
@@ -656,10 +768,15 @@ if __name__ == "__main__":
             inputdir_fullpath=outdir_fullpath,
             op=op32,
             input_llfile_fullpath=input_llfile_fullpath,
-            function_name="adjust_scalar_min_max_vals_wrapper_32_{}".format(op),
+            function_name="adjust_scalar_min_max_vals_wrapper_32_{}".format(
+                op),
             output_smtfile_name="{}.smt2".format(op32),
             global_bv_suffix=str(i))
-        llvmpassrunner_for_op.run()
+        try:
+            llvmpassrunner_for_op.run()
+        except subprocess.CalledProcessError as e:
+            error_ops.append(op32)
+            continue
         del llvmpassrunner_for_op
         print(colored(" ... done", 'green'))
 
@@ -667,7 +784,7 @@ if __name__ == "__main__":
     for i, op in enumerate(bpf_jmp_ops, start=idx+1):
         idx = i
         print(colored("Getting encoding for {}".format(
-            op), 'green'), flush=True, end="")
+            op), 'green'), flush=True)
         llvmpassrunner_for_op = LLVMPassRunner(
             logfile=logfile,
             logfile_err=logfile_err,
@@ -679,18 +796,22 @@ if __name__ == "__main__":
             function_name="check_cond_jmp_op_wrapper_{}".format(op),
             output_smtfile_name="{}.smt2".format(op),
             global_bv_suffix=str(i))
-        llvmpassrunner_for_op.run()
+        try:
+            llvmpassrunner_for_op.run()
+        except subprocess.CalledProcessError as e:
+            error_ops.append(op)
+            continue
         del llvmpassrunner_for_op
         print(colored(" ... done", 'green'))
 
     # All JMP_32 ops
-    # Note: no 32-bit jumps until 5.1-rc1        
+    # Note: no 32-bit jumps until 5.1-rc1
     if (version.parse(args.kernver) >= version.parse("5.1-rc1")):
         for i, op in enumerate(bpf_jmp_ops, start=idx+1):
             idx = i
             op32 = op+"_32"
             print(colored("Getting encoding for {}".format(
-                op32), 'green'), flush=True, end="")
+                op32), 'green'), flush=True)
             llvmpassrunner_for_op = LLVMPassRunner(
                 logfile=logfile,
                 logfile_err=logfile_err,
@@ -702,15 +823,19 @@ if __name__ == "__main__":
                 function_name="check_cond_jmp_op_wrapper_32_{}".format(op),
                 output_smtfile_name="{}.smt2".format(op32),
                 global_bv_suffix=str(i))
-            llvmpassrunner_for_op.run()
+            try:
+                llvmpassrunner_for_op.run()
+            except subprocess.CalledProcessError as e:
+                error_ops.append(op32)
+                continue
             del llvmpassrunner_for_op
             print(colored(" ... done", 'green'))
 
-    # SYNC
-    for i, op in enumerate(bpf_sync_op, start=idx+1):
+    # Refinement "ops"
+    for i, op in enumerate(bpf_refinement_ops, start=idx+1):
         idx = i
         print(colored("Getting encoding for {}".format(
-            op), 'green'), flush=True, end="")
+            op), 'green'), flush=True)
         llvmpassrunner_for_op = LLVMPassRunner(
             logfile=logfile,
             logfile_err=logfile_err,
@@ -719,12 +844,23 @@ if __name__ == "__main__":
             inputdir_fullpath=outdir_fullpath,
             op=op,
             input_llfile_fullpath=input_llfile_fullpath,
-            function_name="sync___",
+            function_name=bpf_refinement_ops[op],
             output_smtfile_name="{}.smt2".format(op),
             global_bv_suffix=str(i))
-        llvmpassrunner_for_op.run()
+        try:
+            llvmpassrunner_for_op.run()
+        except subprocess.CalledProcessError as e:
+            error_ops.append(op)
+            continue
         del llvmpassrunner_for_op
         print(colored(" ... done", 'green'))
+
+    if len(error_ops) > 0:
+        print(colored("Finished generating encodings. There errors in the following BPF ops: {}.".format(
+            ", ".join(error_ops)), "yellow"))
+    else:
+        print(colored("Finished generating all encodings successfully{}".format(
+            " (modular)." if args.modular else "."), "green"))
 
     logfile.flush()
     logfile_err.flush()
