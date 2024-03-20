@@ -143,6 +143,7 @@ public:
   void handleICmpInst(ICmpInst &i);
   void handleSelectInst(SelectInst &i);
   void handleBranchInst(BranchInst &i);
+  void handleSwitchInst(SwitchInst &i);
   void handlePhiNode(PHINode &inst, int passID);
   void handlePhiNodeSetupBitVecs(PHINode &inst);
   void handlePhiNodeResolvePathConditions(PHINode &inst);
