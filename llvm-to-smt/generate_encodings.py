@@ -855,14 +855,15 @@ if __name__ == "__main__":
         del llvmpassrunner_for_op
         print(colored(" ... done", 'green'))
 
-    if len(error_ops) > 0:
-        print(colored("Finished generating encodings. There errors in the following BPF ops: {}.".format(
-            ", ".join(error_ops)), "yellow"))
-    else:
-        print(colored("Finished generating all encodings successfully{}".format(
-            " (modular)." if args.modular else "."), "green"))
-
     logfile.flush()
     logfile_err.flush()
     logfile.close()
     logfile_err.close()
+
+    if len(error_ops) > 0:
+        print(colored("Finished generating encodings. There are errors with the following BPF ops: {}.".format(
+            ", ".join(error_ops)), "yellow"))
+        exit(1)
+    else:
+        print(colored("Finished generating all encodings successfully{}".format(
+            " (modular)." if args.modular else "."), "green"))
