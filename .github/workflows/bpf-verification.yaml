@@ -1,0 +1,40 @@
+name: BPF Verification Tests
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
+jobs:
+  bpf-verification:
+    continue-on-error: true
+    strategy:
+      matrix:
+        insn: [BPF_AND, BPF_JSLT]
+        kernel: [5.9]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            python3 python3-pip \
+            libjsoncpp-dev \
+            libz3-dev
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          cd bpf-verification
+          pip install .
+      - name: Verify ${{ matrix.insn }} on v${{ matrix.kernel }}
+        run: |
+          mkdir results
+          cd bpf-verification
+          python3 src/bpf_alu_jmp_synthesis.py --kernver ${{ matrix.kernel }} --encodings_path ../bpf-encodings/${{ matrix.kernel }}/ --res_path ../results --ver_set ${{ matrix.insn }}
+      - name: Display results
+        run: |
+          ls results
