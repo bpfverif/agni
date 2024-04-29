@@ -1,0 +1,54 @@
+name: LLVM-to-SMT Tests
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
+jobs:
+  llvm-to-smt:
+    continue-on-error: true
+    strategy:
+      matrix:
+        insn: [BPF_AND]
+        kernel: [5.9, 6.8]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y \
+            clang-12 llvm-12 llvm-12-tools llvm \
+            python3 python3-pip \
+            make cmake libelf-dev \
+            libjsoncpp-dev stress-ng
+          # Necessary because on latest Ubuntu, LLVM 14 is the default.
+          for b in clang clang++ llvm-link opt; do
+            sudo rm /usr/bin/$b
+            sudo ln -s /usr/bin/$b-12 /usr/bin/$b
+          done
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+      - name: Retrieve Linux sources
+        run: |
+          git clone -qb v${{ matrix.kernel }} --depth 1 git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+      - name: Generate encodings
+        run: |
+          cd "${{ github.workspace }}/linux"
+          commit=$(git rev-parse HEAD)
+          cd -
+          mkdir -p bpf-encodings/${{ matrix.kernel }}
+          cd llvm-to-smt
+          python3 generate_encodings.py \
+            --kernver ${{ matrix.kernel }} --commit $commit \
+            --kernbasedir "${{ github.workspace }}/linux" \
+            --outdir ../bpf-encodings/${{ matrix.kernel }} \
+            --specific-op ${{ matrix.insn }}
+      - name: Check
+        run: |
+          ls bpf-encodings/${{ matrix.kernel }}
