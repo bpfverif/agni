@@ -104,7 +104,7 @@ libz3-dev
 
 It also requires a few Python packages:
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 Finally, the `lib_reg_bounds_tracking` package must be installed from sources:
