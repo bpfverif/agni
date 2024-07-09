@@ -9,15 +9,17 @@ from termcolor import colored
 
 class LLVMPassRunner:
 
-    def __init__(self, logfile, logfile_err, scriptsdir_fullpath,
+    def __init__(self,
+                 scriptsdir_fullpath,
                  llvmdir_fullpath,
                  inputdir_fullpath,
                  input_llfile_fullpath,
                  op,
-                 function_name, output_smtfile_name,
-                 global_bv_suffix):
-        self.logfile = logfile
-        self.logfile_err = logfile_err
+                 function_name,
+                 output_smtfile_name,
+                 global_bv_suffix,
+                 logfile_name, logfile_err_name):
+
         self.scriptsdir_fullpath = scriptsdir_fullpath
         self.llvmdir_fullpath = llvmdir_fullpath
         self.parentdir_fullpath = inputdir_fullpath
@@ -30,9 +32,7 @@ class LLVMPassRunner:
         self.op_dir_fullpath = self.parentdir_fullpath.joinpath(
             '{}'.format(self.op))
 
-    def create_op_dir(self):
-        self.logfile.write(
-            "Creating directory and file for op: {}\n".format(self.op))
+        # Create dir for op
         try:
             # TODO, remove try-catch, fail on error
             self.op_dir_fullpath.mkdir()
@@ -40,9 +40,20 @@ class LLVMPassRunner:
             pass
         op_llfile_fullpath = self.op_dir_fullpath.joinpath(
             '{}.ll'.format(self.op))
-        print(op_llfile_fullpath)
+
+        # Copy verifier_tnum.ll file to op_dir/op.ll
+        # e.g. copy to BPF_AND/BPF_AND.ll
         copy2(str(self.input_llfile_fullpath), str(op_llfile_fullpath))
         self.curr_llfile_fullpath = op_llfile_fullpath
+
+        # setup logging for op
+        logfile_path = self.op_dir_fullpath.joinpath(logfile_name)
+        logfile_path.touch()
+        self.logfile = logfile_path.open("w")
+        logfile_err_path = self.op_dir_fullpath.joinpath(logfile_err_name)
+        logfile_err_path.touch()
+        self.logfile_err = logfile_err_path.open("w")
+
 
     def run_opt_pass(self, O1=True):
         llvm_opt_fullpath = self.llvmdir_fullpath.joinpath("bin", "opt")
@@ -75,7 +86,10 @@ class LLVMPassRunner:
         subprocess.run(cmd_opt, shell=True, check=True, text=True,
                        stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished running opt\n")
+        self.logfile.flush()
+        self.logfile_err.flush()
         self.curr_llfile_fullpath = output_llfile_fullpath
+
 
     def run_force_function_early_exit_pass(self):
         cmd_force_functions_early_exit = '''{force_functions_early_exit_pass_runner_sh} {path_to_llvm_file} {output_dir} {output_filename_ll}'''
@@ -96,7 +110,10 @@ class LLVMPassRunner:
         subprocess.run(cmd_force_functions_early_exit_op, shell=True, check=True,
                        text=True, stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished force_function_early_exit_pass\n")
+        self.logfile.flush()
+        self.logfile_err.flush()
         self.curr_llfile_fullpath = output_llfile_fullpath
+
 
     def run_remove_functions_calls_pass(self):
         remove_func_calls_pass_fullpath = self.scriptsdir_fullpath.joinpath(
@@ -118,7 +135,10 @@ class LLVMPassRunner:
         subprocess.run(cmd_remove_func_calls_op, shell=True, check=True, text=True,
                        stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished remove_functions_calls_pass\n")
+        self.logfile.flush()
+        self.logfile_err.flush()
         self.curr_llfile_fullpath = output_llfile_fullpath
+
 
     def run_lower_funnel_shifts_pass(self):
         lower_funnel_shifts_fullpath = self.scriptsdir_fullpath.joinpath(
@@ -140,7 +160,10 @@ class LLVMPassRunner:
         subprocess.run(cmd_lower_funnel_shifts_op, shell=True, check=True, text=True,
                        stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished lower_funnel_shifts_pass\n")
+        self.logfile.flush()
+        self.logfile_err.flush()
         self.curr_llfile_fullpath = output_llfile_fullpath
+
 
     def run_inline_verifier_func_pass(self):
         inline_verifier_func_pass_fullpath = self.scriptsdir_fullpath.joinpath(
@@ -162,6 +185,8 @@ class LLVMPassRunner:
         subprocess.run(cmd_inline_verifier_func_op, shell=True, check=True, text=True,
                        stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished inline_verifier_func_pass\n")
+        self.logfile.flush()
+        self.logfile_err.flush()
         self.curr_llfile_fullpath = output_llfile_fullpath
 
     def run_promote_memcpy_pass(self):
@@ -184,6 +209,8 @@ class LLVMPassRunner:
         subprocess.run(cmd_promote_memcpy_op, shell=True, check=True, text=True,
                        stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished promote_memcpy_pass\n")
+        self.logfile.flush()
+        self.logfile_err.flush()
         self.curr_llfile_fullpath = output_llfile_fullpath
 
     def run_llvm_to_smt_pass(self):
@@ -205,6 +232,8 @@ class LLVMPassRunner:
         subprocess.run(cmd_llvm_to_smt_op, shell=True, check=True, text=True,
                        stdout=self.logfile, stderr=self.logfile_err, bufsize=1)
         self.logfile.write("\nFinished llvm_to_smt_pass\n")
+        self.logfile.flush()
+        self.logfile_err.flush()
 
     def run_llvm_extract(self):
         # extract
@@ -221,6 +250,8 @@ class LLVMPassRunner:
         cmdout_extract = subprocess.run(
             cmd_extract, stdout=self.logfile, stderr=self.logfile_err, text=True, bufsize=1, check=True)
         self.logfile.write("\nFinished running llvm-extract\n")
+        self.logfile.flush()
+        self.logfile_err.flush()
         self.curr_llfile_fullpath = output_llfile_fullpath
 
     def copy_encoding_to_parent_dir(self):
@@ -229,7 +260,7 @@ class LLVMPassRunner:
 
     def run(self):
         try:
-            self.create_op_dir()
+
             self.run_opt_pass(O1=True)
 
             self.run_force_function_early_exit_pass()
@@ -252,12 +283,18 @@ class LLVMPassRunner:
             self.run_llvm_extract()
             self.run_llvm_to_smt_pass()
 
-            self.copy_encoding_to_parent_dir()
-
         except subprocess.CalledProcessError as e:
             print(colored("Error getting encoding for {}.\n{}\n".format(
                 self.op, str(e)), 'red'), flush=True, end="")
             raise e
+
+        self.copy_encoding_to_parent_dir()
+
+        self.logfile.flush()
+        self.logfile_err.flush()
+        self.logfile.close()
+        self.logfile_err.close()
+
 
 
 if __name__ == "__main__":
@@ -283,23 +320,11 @@ if __name__ == "__main__":
     assert (outdir_fullpath.exists() and scriptsdir_fullpath.exists()
             and llvmdir_fullpath.exists())
 
-    logdir_fullpath = outdir_fullpath
-
-    logfile_name = datetime.now().strftime('log_%H_%M_%d_%m_%Y.log')
-    logfile_path = Path.joinpath(logdir_fullpath, logfile_name)
-    logfile_path.touch()
-    logfile = logfile_path.open("w")
-    logfile_err_name = datetime.now().strftime('log_err_%H_%M_%d_%m_%Y.log')
-    logfile_err_path = Path.joinpath(logdir_fullpath, logfile_err_name)
-    logfile_err_path.touch()
-    logfile_err = logfile_err_path.open("w")
-
-    print("Log file: {}".format(logfile_path))
-    print("Log error file: {}".format(logfile_err_path))
+    datetime_str = datetime.now().strftime('%H_%M_%d_%m_%Y')
+    logfile_name = datetime.now().strftime('log_{}.log'.format(datetime_str))
+    logfile_err_name = datetime.now().strftime('log_err_{}.log'.format(datetime_str))
 
     llvmpassrunner_for_op = LLVMPassRunner(
-        logfile=logfile,
-        logfile_err=logfile_err,
         scriptsdir_fullpath=scriptsdir_fullpath,
         llvmdir_fullpath=llvmdir_fullpath,
         inputdir_fullpath=outdir_fullpath,
@@ -307,6 +332,8 @@ if __name__ == "__main__":
         op=args.op,
         function_name=args.funcname,
         output_smtfile_name="{}.smt2".format(args.op),
-        global_bv_suffix="1")
+        global_bv_suffix="1",
+        logfile_name = logfile_name,
+        logfile_err_name = logfile_err_name)
 
     llvmpassrunner_for_op.run()
