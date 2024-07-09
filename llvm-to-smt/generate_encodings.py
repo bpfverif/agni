@@ -27,7 +27,6 @@ bpf_alu_ops = [
     # "BPF_DIV", # ignore
     # "BPF_NEG", # ignore
     # "BPF_MOD", # ignore
-
 ]
 
 bpf_jmp_ops = [
@@ -99,6 +98,7 @@ def insert_sync_wrapper(verifier_c_filepath, kernver):
 def get_all_jmp_wrappers_concatenated(kernver):
     wrapper_jmp = ''
     wrapper_jmp32 = ''
+
     if version.parse(kernver) >= version.parse("6.8-rc1"):
         # Starting with v6.8-rc1~131^2~289^2~25.
         wrapper_jmp = wrapper_jmp_7
@@ -119,6 +119,7 @@ def get_all_jmp_wrappers_concatenated(kernver):
         # Starting with v5.1-rc1~178^2~404^2~4^2~13.
         wrapper_jmp = wrapper_jmp_3
         wrapper_jmp32 = wrapper_jmp32_3
+
     # no 32-bit jumps before 5.1-rc1
     elif version.parse(kernver) >= version.parse("4.20-rc6"):
         # Starting with v4.20-rc6~1^2~12^2^2~1.
@@ -139,7 +140,8 @@ def get_all_jmp_wrappers_concatenated(kernver):
     # no 32-bit jumps before 5.1-rc1
     if version.parse(kernver) >= version.parse("5.1-rc1"):
         for op in bpf_jmp_ops:
-            s += wrapper_jmp32.format(op, op)
+            op32 = op + "_32"
+            s += wrapper_jmp32.format(op32, op)
 
     return s
 
@@ -225,7 +227,7 @@ def get_all_alu_wrappers_concatenated():
     s = ""
     for op in bpf_alu_ops:
         s += wrapper_alu.format(op, op)
-        s += wrapper_alu32.format(op, op)
+        s += wrapper_alu32.format(op + "_32", op)
     return s
 
 
@@ -756,7 +758,7 @@ if __name__ == "__main__":
 
     # All ALU_32 ops
     for i, op in enumerate(bpf_alu_ops, start=idx+1):
-        op32 = op+"_32"
+        op32 = op + "_32"
         idx = i
         print(colored("Getting encoding for {}".format(
             op32), 'green'), flush=True)
@@ -768,8 +770,8 @@ if __name__ == "__main__":
             inputdir_fullpath=outdir_fullpath,
             op=op32,
             input_llfile_fullpath=input_llfile_fullpath,
-            function_name="adjust_scalar_min_max_vals_wrapper_32_{}".format(
-                op),
+            function_name="adjust_scalar_min_max_vals_wrapper_{}".format(
+                op32),
             output_smtfile_name="{}.smt2".format(op32),
             global_bv_suffix=str(i))
         try:
@@ -809,7 +811,7 @@ if __name__ == "__main__":
     if (version.parse(args.kernver) >= version.parse("5.1-rc1")):
         for i, op in enumerate(bpf_jmp_ops, start=idx+1):
             idx = i
-            op32 = op+"_32"
+            op32 = op + "_32"
             print(colored("Getting encoding for {}".format(
                 op32), 'green'), flush=True)
             llvmpassrunner_for_op = LLVMPassRunner(
@@ -820,7 +822,7 @@ if __name__ == "__main__":
                 inputdir_fullpath=outdir_fullpath,
                 op=op32,
                 input_llfile_fullpath=input_llfile_fullpath,
-                function_name="check_cond_jmp_op_wrapper_32_{}".format(op),
+                function_name="check_cond_jmp_op_wrapper_{}".format(op32),
                 output_smtfile_name="{}.smt2".format(op32),
                 global_bv_suffix=str(i))
             try:

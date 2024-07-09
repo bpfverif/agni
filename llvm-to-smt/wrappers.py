@@ -100,8 +100,7 @@ void adjust_scalar_min_max_vals_wrapper_{}(struct bpf_reg_state *dst_reg,
 }}
 """
 
-wrapper_alu32_1 = wrapper_alu_1.replace(
-    "adjust_scalar_min_max_vals_wrapper", "adjust_scalar_min_max_vals_wrapper_32").replace("BPF_ALU64_REG", "BPF_ALU32_REG")
+wrapper_alu32_1 = wrapper_alu_1.replace("BPF_ALU64_REG", "BPF_ALU32_REG")
 
 
 # 4.14.214 to 4.16-rc1
@@ -369,9 +368,7 @@ void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 
 '''
 
-wrapper_jmp32_3 = wrapper_jmp_3.replace(
-    "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
-wrapper_jmp32_3 = wrapper_jmp32_3.replace("BPF_JMP_REG", "BPF_JMP32_REG")
+wrapper_jmp32_3 = wrapper_jmp_3.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
 # 5.3-rc1 to 5.7-rc1
 wrapper_jmp_4 = '''
@@ -457,9 +454,7 @@ void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 
 '''
 
-wrapper_jmp32_4 = wrapper_jmp_4.replace(
-    "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
-wrapper_jmp32_4 = wrapper_jmp32_4.replace("BPF_JMP_REG", "BPF_JMP32_REG")
+wrapper_jmp32_4 = wrapper_jmp_4.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
 # 5.7-rc1+
 wrapper_jmp_5 = '''
@@ -545,9 +540,7 @@ void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 
 '''
 
-wrapper_jmp32_5 = wrapper_jmp_5.replace(
-    "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
-wrapper_jmp32_5 = wrapper_jmp32_5.replace("BPF_JMP_REG", "BPF_JMP32_REG")
+wrapper_jmp32_5 = wrapper_jmp_5.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
 # 6.4-rc1+
 wrapper_jmp_6 = '''
@@ -646,9 +639,7 @@ void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 
 '''
 
-wrapper_jmp32_6 = wrapper_jmp_6.replace(
-    "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
-wrapper_jmp32_6 = wrapper_jmp32_6.replace("BPF_JMP_REG", "BPF_JMP32_REG")
+wrapper_jmp32_6 = wrapper_jmp_6.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
 # Andrii's patchset cd9c127069c0
 wrapper_jmp_cd9c127069c0 = '''
@@ -706,8 +697,6 @@ void check_cond_jmp_op_wrapper_{}(struct bpf_reg_state *dst_reg,
 '''
 
 wrapper_jmp32_cd9c127069c0 = wrapper_jmp_cd9c127069c0.replace(
-    "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
-wrapper_jmp32_cd9c127069c0 = wrapper_jmp32_cd9c127069c0.replace(
     "BPF_JMP_REG", "BPF_JMP32_REG")
 
 # v6.8-rc1+
@@ -760,9 +749,7 @@ void check_cond_jmp_op_wrapper_{}(
 }}
 '''
 
-wrapper_jmp32_7 = wrapper_jmp_7.replace(
-    "check_cond_jmp_op_wrapper", "check_cond_jmp_op_wrapper_32")
-wrapper_jmp32_7 = wrapper_jmp32_7.replace("BPF_JMP_REG", "BPF_JMP32_REG")
+wrapper_jmp32_7 = wrapper_jmp_7.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
 wrapper_sync_1 = r'''
 
@@ -784,8 +771,8 @@ void reg_bounds_sync___(struct bpf_reg_state *dst_reg)
 }
 '''
 
-# Note jumps (__reg_combine_64_into_32, __reg_combine_32_into_64)
-# had the following (different) order <5.19: 
+# Note: jumps pre 5.19 (__reg_combine_64_into_32, __reg_combine_32_into_64)
+# had the following (different) order:
 # -	__reg_deduce_bounds(reg);
 # -	__reg_bound_offset(reg);
 # -	__update_reg_bounds(reg);
@@ -804,7 +791,7 @@ wrapper_sync_4 = r'''
 void reg_bounds_sync___(struct bpf_reg_state *dst_reg)
 {
 	struct bpf_verifier_env env;
-	reg_bounds_sync(dst_reg);    
+	reg_bounds_sync(dst_reg);
     reg_bounds_sanity_check(&env, dst_reg, "dst_reg");
 }
 
