@@ -29,6 +29,9 @@ bpf_alu_ops = [
     # "BPF_MOD", # ignore
 ]
 
+# {"BPF_ADD_32": "BPF_AND", ...}
+bpf_alu32_ops = {op + "_32":op for op in bpf_alu_ops}
+
 bpf_jmp_ops = [
     "BPF_JEQ",
     "BPF_JNE",
@@ -42,6 +45,9 @@ bpf_jmp_ops = [
     "BPF_JSLE",
     "BPF_JSLT"
 ]
+
+# {"BPF_JEQ_32": "BPF_JEQ", ...}
+bpf_jmp32_ops = {op + "_32":op for op in bpf_jmp_ops}
 
 bpf_refinement_ops = {
     "BPF_SYNC": "reg_bounds_sync___",
@@ -139,8 +145,7 @@ def get_all_jmp_wrappers_concatenated(kernver):
 
     # no 32-bit jumps before 5.1-rc1
     if version.parse(kernver) >= version.parse("5.1-rc1"):
-        for op in bpf_jmp_ops:
-            op32 = op + "_32"
+        for op32, op in bpf_jmp32_ops.items():
             s += wrapper_jmp32.format(op32, op)
 
     return s
@@ -148,6 +153,7 @@ def get_all_jmp_wrappers_concatenated(kernver):
 
 def insert_jmp_wrapper(verifier_c_filepath, kernver):
     all_jmp_wrappers_concat = get_all_jmp_wrappers_concatenated(kernver)
+    print(all_jmp_wrappers_concat)
     if version.parse(kernver) >= version.parse("5.7-rc1"):
         all_jmp_wrappers_concat = wrapper_push_stack_w32 + all_jmp_wrappers_concat
     else:
@@ -227,7 +233,8 @@ def get_all_alu_wrappers_concatenated():
     s = ""
     for op in bpf_alu_ops:
         s += wrapper_alu.format(op, op)
-        s += wrapper_alu32.format(op + "_32", op)
+    for op32, op in bpf_alu32_ops.items():
+        s += wrapper_alu32.format(op32, op)
     return s
 
 
@@ -478,7 +485,10 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument("--specific-op", dest='specific_op',
                         help='single specific BPF op to encode',
-                        choices=bpf_alu_ops + bpf_jmp_ops +
+                        choices= bpf_alu_ops +
+                        list(bpf_alu32_ops.keys()) +
+                        bpf_jmp_ops +
+                        list(bpf_jmp32_ops.keys()) +
                         list(bpf_refinement_ops.keys()),
                         type=str, required=False)
     parser.add_argument("--commit",
@@ -513,19 +523,43 @@ if __name__ == "__main__":
     if args.specific_op is not None:
         if args.specific_op in bpf_alu_ops:
             bpf_alu_ops = [args.specific_op]
+            bpf_alu32_ops = {}
             bpf_jmp_ops = []
-            bpf_refinement_ops = []
-        elif args.specific_op in bpf_jmp_ops:
-            bpf_jmp_ops = [args.specific_op]
+            bpf_jmp32_ops = {}
+            bpf_refinement_ops = {}
+        elif args.specific_op in bpf_alu32_ops:
             bpf_alu_ops = []
-            bpf_refinement_ops = []
+            bpf_alu32_ops = {args.specific_op:bpf_alu32_ops[args.specific_op]}
+            bpf_jmp_ops = []
+            bpf_jmp32_ops = {}
+            bpf_refinement_ops = {}
+        elif args.specific_op in bpf_jmp_ops:
+            bpf_alu_ops = []
+            bpf_alu32_ops = {}
+            bpf_jmp_ops = [args.specific_op]
+            bpf_jmp32_ops = {}
+            bpf_refinement_ops = {}
+        elif args.specific_op in bpf_jmp32_ops:
+            bpf_alu_ops = []
+            bpf_alu32_ops = {}
+            bpf_jmp_ops = []
+            bpf_jmp32_ops = {args.specific_op:bpf_jmp32_ops[args.specific_op]}
+            bpf_refinement_ops = {}
         elif args.specific_op in bpf_refinement_ops:
             bpf_alu_ops = []
+            bpf_alu32_ops = {}
             bpf_jmp_ops = []
+            bpf_jmp32_ops = {}
+            bpf_refinement_ops = {args.specific_op:bpf_refinement_ops[args.specific_op]}
         else:
             raise RuntimeError(
                 'Unsupported BPF op {}'.format(args.specific_op))
 
+    print(bpf_alu_ops)
+    print(bpf_alu32_ops)
+    print(bpf_jmp_ops)
+    print(bpf_jmp32_ops)
+    print(bpf_refinement_ops)
     if args.modular:
         # only support modular verification in kernels with "reg_bounds_sync"
         assert version.parse(args.kernver) >= version.parse("5.19-rc6")
@@ -729,127 +763,34 @@ if __name__ == "__main__":
     # # Run llvm passes and llvm-to-smt #
     # ###################################
 
-    idx = 0
     input_llfile_fullpath = outdir_fullpath.joinpath("verifier_tnum.ll")
+    all_ops = bpf_alu_ops + list(bpf_alu32_ops.keys()) + bpf_jmp_ops + \
+                list(bpf_jmp32_ops.keys()) + list(bpf_refinement_ops.keys())
     error_ops = []
 
-    # All ALU_64 ops
-    for i, op in enumerate(bpf_alu_ops):
-        idx = i
-        print(colored("Getting encoding for {}".format(
-            op), 'green'), flush=True)
-        llvmpassrunner_for_op = LLVMPassRunner(
-            scriptsdir_fullpath=scriptsdir_fullpath,
-            llvmdir_fullpath=llvmdir_fullpath,
-            inputdir_fullpath=outdir_fullpath,
-            op=op,
-            input_llfile_fullpath=input_llfile_fullpath,
-            function_name="adjust_scalar_min_max_vals_wrapper_{}".format(op),
-            output_smtfile_name="{}.smt2".format(op),
-            global_bv_suffix=str(i),
-            logfile_name = logfile_name,
-            logfile_err_name = logfile_err_name)
-        try:
-            llvmpassrunner_for_op.run()
-        except subprocess.CalledProcessError as e:
-            error_ops.append(op)
-            continue
-        del llvmpassrunner_for_op
-        print(colored(" ... done", 'green'))
+    for i, op in enumerate(all_ops):
+        print(colored("Getting encoding for {}".format(op), 'green'), flush=True)
+        function_name = ""
+        if ((op in bpf_alu_ops) or (op in bpf_alu32_ops)):
+            function_name = "adjust_scalar_min_max_vals_wrapper_{}".format(op)
+        elif ((op in bpf_jmp_ops) or (op in bpf_jmp32_ops)):
+            function_name = "check_cond_jmp_op_wrapper_{}".format(op)
+        elif op in bpf_refinement_ops:
+            function_name = bpf_refinement_ops[op]
+        else:
+            raise RuntimeError('Unsupported BPF op {}'.format(op))
 
-    # All ALU_32 ops
-    for i, op in enumerate(bpf_alu_ops, start=idx+1):
-        op32 = op + "_32"
-        idx = i
-        print(colored("Getting encoding for {}".format(
-            op32), 'green'), flush=True)
         llvmpassrunner_for_op = LLVMPassRunner(
-            scriptsdir_fullpath=scriptsdir_fullpath,
-            llvmdir_fullpath=llvmdir_fullpath,
-            inputdir_fullpath=outdir_fullpath,
-            op=op32,
-            input_llfile_fullpath=input_llfile_fullpath,
-            function_name="adjust_scalar_min_max_vals_wrapper_{}".format(
-                op32),
-            output_smtfile_name="{}.smt2".format(op32),
-            global_bv_suffix=str(i),
-            logfile_name = logfile_name,
-            logfile_err_name = logfile_err_name)
-        try:
-            llvmpassrunner_for_op.run()
-        except subprocess.CalledProcessError as e:
-            error_ops.append(op32)
-            continue
-        del llvmpassrunner_for_op
-        print(colored(" ... done", 'green'))
-
-    # All JMP_64 ops
-    for i, op in enumerate(bpf_jmp_ops, start=idx+1):
-        idx = i
-        print(colored("Getting encoding for {}".format(
-            op), 'green'), flush=True)
-        llvmpassrunner_for_op = LLVMPassRunner(
-            scriptsdir_fullpath=scriptsdir_fullpath,
-            llvmdir_fullpath=llvmdir_fullpath,
-            inputdir_fullpath=outdir_fullpath,
-            op=op,
-            input_llfile_fullpath=input_llfile_fullpath,
-            function_name="check_cond_jmp_op_wrapper_{}".format(op),
-            output_smtfile_name="{}.smt2".format(op),
-            global_bv_suffix=str(i),
-            logfile_name = logfile_name,
-            logfile_err_name = logfile_err_name)
-        try:
-            llvmpassrunner_for_op.run()
-        except subprocess.CalledProcessError as e:
-            error_ops.append(op)
-            continue
-        del llvmpassrunner_for_op
-        print(colored(" ... done", 'green'))
-
-    # All JMP_32 ops
-    # Note: no 32-bit jumps until 5.1-rc1
-    if (version.parse(args.kernver) >= version.parse("5.1-rc1")):
-        for i, op in enumerate(bpf_jmp_ops, start=idx+1):
-            idx = i
-            op32 = op + "_32"
-            print(colored("Getting encoding for {}".format(
-                op32), 'green'), flush=True)
-            llvmpassrunner_for_op = LLVMPassRunner(
                 scriptsdir_fullpath=scriptsdir_fullpath,
                 llvmdir_fullpath=llvmdir_fullpath,
                 inputdir_fullpath=outdir_fullpath,
-                op=op32,
+                op=op,
                 input_llfile_fullpath=input_llfile_fullpath,
-                function_name="check_cond_jmp_op_wrapper_{}".format(op32),
-                output_smtfile_name="{}.smt2".format(op32),
+                function_name=function_name,
+                output_smtfile_name="{}.smt2".format(op),
                 global_bv_suffix=str(i),
                 logfile_name = logfile_name,
                 logfile_err_name = logfile_err_name)
-            try:
-                llvmpassrunner_for_op.run()
-            except subprocess.CalledProcessError as e:
-                error_ops.append(op32)
-                continue
-            del llvmpassrunner_for_op
-            print(colored(" ... done", 'green'))
-
-    # Refinement "ops"
-    for i, op in enumerate(bpf_refinement_ops, start=idx+1):
-        idx = i
-        print(colored("Getting encoding for {}".format(
-            op), 'green'), flush=True)
-        llvmpassrunner_for_op = LLVMPassRunner(
-            scriptsdir_fullpath=scriptsdir_fullpath,
-            llvmdir_fullpath=llvmdir_fullpath,
-            inputdir_fullpath=outdir_fullpath,
-            op=op,
-            input_llfile_fullpath=input_llfile_fullpath,
-            function_name=bpf_refinement_ops[op],
-            output_smtfile_name="{}.smt2".format(op),
-            global_bv_suffix=str(i),
-            logfile_name = logfile_name,
-            logfile_err_name = logfile_err_name)
         try:
             llvmpassrunner_for_op.run()
         except subprocess.CalledProcessError as e:
