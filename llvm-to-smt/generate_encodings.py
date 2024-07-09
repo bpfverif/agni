@@ -534,12 +534,13 @@ if __name__ == "__main__":
     #  setup logging   #
     ####################
     logdir_fullpath = outdir_fullpath
+    datetime_str = datetime.now().strftime('%H_%M_%d_%m_%Y')
 
-    logfile_name = datetime.now().strftime('log_%H_%M_%d_%m_%Y.log')
+    logfile_name = datetime.now().strftime('log_{}.log'.format(datetime_str))
     logfile_path = pathlib.Path.joinpath(logdir_fullpath, logfile_name)
     logfile_path.touch()
     logfile = logfile_path.open("w")
-    logfile_err_name = datetime.now().strftime('log_err_%H_%M_%d_%m_%Y.log')
+    logfile_err_name = datetime.now().strftime('log_err_{}.log'.format(datetime_str))
     logfile_err_path = pathlib.Path.joinpath(logdir_fullpath, logfile_err_name)
     logfile_err_path.touch()
     logfile_err = logfile_err_path.open("w")
@@ -738,8 +739,6 @@ if __name__ == "__main__":
         print(colored("Getting encoding for {}".format(
             op), 'green'), flush=True)
         llvmpassrunner_for_op = LLVMPassRunner(
-            logfile=logfile,
-            logfile_err=logfile_err,
             scriptsdir_fullpath=scriptsdir_fullpath,
             llvmdir_fullpath=llvmdir_fullpath,
             inputdir_fullpath=outdir_fullpath,
@@ -747,7 +746,9 @@ if __name__ == "__main__":
             input_llfile_fullpath=input_llfile_fullpath,
             function_name="adjust_scalar_min_max_vals_wrapper_{}".format(op),
             output_smtfile_name="{}.smt2".format(op),
-            global_bv_suffix=str(i))
+            global_bv_suffix=str(i),
+            logfile_name = logfile_name,
+            logfile_err_name = logfile_err_name)
         try:
             llvmpassrunner_for_op.run()
         except subprocess.CalledProcessError as e:
@@ -763,8 +764,6 @@ if __name__ == "__main__":
         print(colored("Getting encoding for {}".format(
             op32), 'green'), flush=True)
         llvmpassrunner_for_op = LLVMPassRunner(
-            logfile=logfile,
-            logfile_err=logfile_err,
             scriptsdir_fullpath=scriptsdir_fullpath,
             llvmdir_fullpath=llvmdir_fullpath,
             inputdir_fullpath=outdir_fullpath,
@@ -773,7 +772,9 @@ if __name__ == "__main__":
             function_name="adjust_scalar_min_max_vals_wrapper_{}".format(
                 op32),
             output_smtfile_name="{}.smt2".format(op32),
-            global_bv_suffix=str(i))
+            global_bv_suffix=str(i),
+            logfile_name = logfile_name,
+            logfile_err_name = logfile_err_name)
         try:
             llvmpassrunner_for_op.run()
         except subprocess.CalledProcessError as e:
@@ -788,8 +789,6 @@ if __name__ == "__main__":
         print(colored("Getting encoding for {}".format(
             op), 'green'), flush=True)
         llvmpassrunner_for_op = LLVMPassRunner(
-            logfile=logfile,
-            logfile_err=logfile_err,
             scriptsdir_fullpath=scriptsdir_fullpath,
             llvmdir_fullpath=llvmdir_fullpath,
             inputdir_fullpath=outdir_fullpath,
@@ -797,7 +796,9 @@ if __name__ == "__main__":
             input_llfile_fullpath=input_llfile_fullpath,
             function_name="check_cond_jmp_op_wrapper_{}".format(op),
             output_smtfile_name="{}.smt2".format(op),
-            global_bv_suffix=str(i))
+            global_bv_suffix=str(i),
+            logfile_name = logfile_name,
+            logfile_err_name = logfile_err_name)
         try:
             llvmpassrunner_for_op.run()
         except subprocess.CalledProcessError as e:
@@ -815,8 +816,6 @@ if __name__ == "__main__":
             print(colored("Getting encoding for {}".format(
                 op32), 'green'), flush=True)
             llvmpassrunner_for_op = LLVMPassRunner(
-                logfile=logfile,
-                logfile_err=logfile_err,
                 scriptsdir_fullpath=scriptsdir_fullpath,
                 llvmdir_fullpath=llvmdir_fullpath,
                 inputdir_fullpath=outdir_fullpath,
@@ -824,7 +823,9 @@ if __name__ == "__main__":
                 input_llfile_fullpath=input_llfile_fullpath,
                 function_name="check_cond_jmp_op_wrapper_{}".format(op32),
                 output_smtfile_name="{}.smt2".format(op32),
-                global_bv_suffix=str(i))
+                global_bv_suffix=str(i),
+                logfile_name = logfile_name,
+                logfile_err_name = logfile_err_name)
             try:
                 llvmpassrunner_for_op.run()
             except subprocess.CalledProcessError as e:
@@ -839,8 +840,6 @@ if __name__ == "__main__":
         print(colored("Getting encoding for {}".format(
             op), 'green'), flush=True)
         llvmpassrunner_for_op = LLVMPassRunner(
-            logfile=logfile,
-            logfile_err=logfile_err,
             scriptsdir_fullpath=scriptsdir_fullpath,
             llvmdir_fullpath=llvmdir_fullpath,
             inputdir_fullpath=outdir_fullpath,
@@ -848,7 +847,9 @@ if __name__ == "__main__":
             input_llfile_fullpath=input_llfile_fullpath,
             function_name=bpf_refinement_ops[op],
             output_smtfile_name="{}.smt2".format(op),
-            global_bv_suffix=str(i))
+            global_bv_suffix=str(i),
+            logfile_name = logfile_name,
+            logfile_err_name = logfile_err_name)
         try:
             llvmpassrunner_for_op.run()
         except subprocess.CalledProcessError as e:
