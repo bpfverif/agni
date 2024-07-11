@@ -346,6 +346,40 @@ def mark_reg_known_memset_remove(verifier_c_filepath):
     shutil.copy(tmpfile_path, verifier_c_filepath)
 
 
+def mark_reg_unknown_imprecise_memset_remove(verifier_c_filepath):
+    inputfile_handle = verifier_c_filepath.open('r')
+    input_file_lines = inputfile_handle.readlines()
+    tmpdir_path = pathlib.Path("/tmp")
+    tmpfile_name = datetime.now().strftime('tmp_verifier_%H_%M_%d_%m_%Y.c')
+    tmpfile_path = tmpdir_path.joinpath(tmpfile_name)
+    tmpfile_handle = tmpfile_path.open('w')
+    func_start_found = False
+    memset_removal_done = False
+    input_file_line_iter = iter(input_file_lines)
+    for line in input_file_line_iter:
+        if not memset_removal_done:
+            if r"void __mark_reg_unknown_imprecise(struct bpf_reg_state" in line:
+                func_start_found = True
+            if func_start_found and "memset" in line:
+                num_parens_open = line.count("(")
+                num_parens_close = line.count(")")
+                while (num_parens_open != num_parens_close):
+                    next_line = next(input_file_line_iter)
+                    num_parens_open += next_line.count("(")
+                    num_parens_close += next_line.count(")")
+                memset_removal_done = True
+                continue
+            tmpfile_handle.write(line)
+        else:
+            tmpfile_handle.write(line)
+
+    tmpfile_handle.close()
+    inputfile_handle.close()
+
+    shutil.copy(tmpfile_path, verifier_c_filepath)
+    return memset_removal_done
+
+
 def mark_reg_unknown_memset_remove(verifier_c_filepath):
     inputfile_handle = verifier_c_filepath.open('r')
     input_file_lines = inputfile_handle.readlines()
@@ -701,7 +735,8 @@ if __name__ == "__main__":
         "kernel", "bpf", "verifier.c")
     insert_wrapper_unknown(verifier_file_path)
     mark_reg_known_memset_remove(verifier_file_path)
-    mark_reg_unknown_memset_remove(verifier_file_path)
+    if not mark_reg_unknown_imprecise_memset_remove(verifier_file_path):
+        mark_reg_unknown_memset_remove(verifier_file_path)
     insert_alu_wrapper(verifier_file_path)
     insert_jmp_wrapper(verifier_file_path, args.kernver)
     if args.modular:
