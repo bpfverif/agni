@@ -328,15 +328,14 @@ def mark_reg_known_memset_remove(verifier_c_filepath):
             if r"void __mark_reg_known(" in line:
                 func_start_found = True
             if func_start_found and "memset" in line:
-                line = r'//' + line
                 num_parens_open = line.count("(")
                 num_parens_close = line.count(")")
                 while (num_parens_open != num_parens_close):
                     next_line = next(input_file_line_iter)
                     num_parens_open += next_line.count("(")
                     num_parens_close += next_line.count(")")
-                    line += r'//' + next_line
                 memset_removal_done = True
+                continue
             tmpfile_handle.write(line)
         else:
             tmpfile_handle.write(line)
@@ -367,15 +366,14 @@ def mark_reg_unknown_memset_remove(verifier_c_filepath):
                 if "struct bpf_reg_state *reg)" in next_line and "{" in next_next_line:
                     func_start_found = True
             if func_start_found and "memset" in line:
-                line = r'//' + line
                 num_parens_open = line.count("(")
                 num_parens_close = line.count(")")
                 while (num_parens_open != num_parens_close):
                     next_line = next(input_file_line_iter)
                     num_parens_open += next_line.count("(")
                     num_parens_close += next_line.count(")")
-                    line += r'//' + next_line
                 memset_removal_done = True
+                continue
             tmpfile_handle.write(line)
         else:
             tmpfile_handle.write(line)
