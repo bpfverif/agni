@@ -49,6 +49,9 @@ jobs:
             --kernbasedir "${{ github.workspace }}/linux" \
             --outdir ../bpf-encodings/${{ matrix.kernel }} \
             --specific-op ${{ matrix.insn }}
-      - name: Check
-        run: |
-          ls bpf-encodings/${{ matrix.kernel }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        with:
+          name: bpf-encodings-${{ matrix.kernel }}-${{ matrix.insn }}
+          path: bpf-encodings/${{ matrix.kernel }}/${{ matrix.insn }}/
