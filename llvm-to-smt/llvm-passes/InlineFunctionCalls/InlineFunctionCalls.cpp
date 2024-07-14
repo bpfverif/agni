@@ -99,7 +99,7 @@ PreservedAnalyses InlineFunctionCalls::run(llvm::Module &M,
     raw_ostream *outfileStream = &outs();
     std::error_code EC;
     outfileStream =
-        new raw_fd_ostream(inlinedFuncOutputFile, EC, sys::fs::F_None);
+        new raw_fd_ostream(inlinedFuncOutputFile, EC, sys::fs::OF_None);
     functionToInline->print(*outfileStream);
   }
 
