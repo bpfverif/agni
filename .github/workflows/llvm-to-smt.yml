@@ -20,15 +20,10 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get install -y \
-            clang-12 llvm-12 llvm-12-tools llvm \
+            clang-14 llvm-14 llvm-14-tools llvm \
             python3 python3-pip \
             make cmake libelf-dev \
             libjsoncpp-dev stress-ng
-          # Necessary because on latest Ubuntu, LLVM 14 is the default.
-          for b in clang clang++ llvm-link opt; do
-            sudo rm /usr/bin/$b
-            sudo ln -s /usr/bin/$b-12 /usr/bin/$b
-          done
       - name: Check out repository code
         uses: actions/checkout@v4
       - name: Install Python dependencies
