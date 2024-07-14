@@ -35,6 +35,9 @@ jobs:
           mkdir results
           cd bpf-verification
           python3 src/bpf_alu_jmp_synthesis.py --kernver ${{ matrix.kernel }} --encodings_path ../bpf-encodings/${{ matrix.kernel }}/ --res_path ../results --ver_set ${{ matrix.insn }}
-      - name: Display results
-        run: |
-          ls results
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        with:
+          name: results-${{ matrix.kernel }}-${{ matrix.insn }}
+          path: results/${{ matrix.kernel }}_res
