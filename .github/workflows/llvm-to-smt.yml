@@ -40,6 +40,18 @@ jobs:
             branch=master
           fi
           git clone -qb $branch --depth 1 $tree linux
+
+      - name: Prepare encodings comparison
+        run: |
+          cd "${{ github.workspace }}/bpf-encodings"
+          git config --global user.email "no-reply@example.com"
+          git config --global user.name "Agni Authors"
+          git init
+          echo "*.log" > .gitignore
+          echo "*.ll" >> .gitignore
+          git add .
+          git commit -sm f
+
       - name: Generate encodings
         run: |
           cd "${{ github.workspace }}/linux"
@@ -56,6 +68,12 @@ jobs:
             --kernbasedir "${{ github.workspace }}/linux" \
             --outdir ../bpf-encodings/${{ matrix.kernel }} \
             --specific-op ${{ matrix.insn }}
+
+      - name: Compare encodings
+        run: |
+          cd "${{ github.workspace }}/bpf-encodings"
+          git status --porcelain=1
+          [ $(git status --porcelain=1 | wc -l) -ne 0 ] && exit 1
 
       - name: Upload artifacts
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
