@@ -58,6 +58,17 @@ jobs:
           git cherry-pick 4c2a26fc80
           rm -r .git
 
+      - name: Prepare encodings comparison
+        run: |
+          cd "${{ github.workspace }}/bpf-encodings"
+          git config --global user.email "no-reply@example.com"
+          git config --global user.name "Agni Authors"
+          git init
+          echo "*.log" > .gitignore
+          echo "*.ll" >> .gitignore
+          git add .
+          git commit -sm f
+
       - name: Generate encodings
         id: generate-encodings
         run: |
@@ -78,6 +89,14 @@ jobs:
             --kernbasedir "${{ github.workspace }}/linux" \
             --outdir ../bpf-encodings/${{ matrix.kernel }} \
             --specific-op ${{ matrix.insn }}
+
+      - name: Compare encodings
+        run: |
+          cd "${{ github.workspace }}/bpf-encodings"
+          git status --porcelain=1
+          if [ $(git status --porcelain=1 | wc -l) -ne 0 ]; then
+            exit 1
+          fi
 
       - name: Upload artifacts
         if: ${{ always() }} && steps.generate-encodings.outcome != 'skipped'
