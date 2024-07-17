@@ -708,12 +708,12 @@ if __name__ == "__main__":
     logdir_fullpath = outdir_fullpath
     datetime_str = datetime.now().strftime('%H_%M_%d_%m_%Y')
 
-    logfile_name = datetime.now().strftime('log_{}.log'.format(datetime_str))
-    logfile_path = pathlib.Path.joinpath(logdir_fullpath, logfile_name)
+    logfile_name = "/dev/null"
+    logfile_path = pathlib.Path(logfile_name)
     logfile_path.touch()
     logfile = logfile_path.open("w")
-    logfile_err_name = datetime.now().strftime('log_err_{}.log'.format(datetime_str))
-    logfile_err_path = pathlib.Path.joinpath(logdir_fullpath, logfile_err_name)
+    logfile_err_name = "/dev/null"
+    logfile_err_path = pathlib.Path(logfile_err_name)
     logfile_err_path.touch()
     logfile_err = logfile_err_path.open("w")
     print_and_log("Log file: {}".format(logfile_path))

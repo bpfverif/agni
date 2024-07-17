@@ -321,8 +321,8 @@ if __name__ == "__main__":
             and llvmdir_fullpath.exists())
 
     datetime_str = datetime.now().strftime('%H_%M_%d_%m_%Y')
-    logfile_name = datetime.now().strftime('log_{}.log'.format(datetime_str))
-    logfile_err_name = datetime.now().strftime('log_err_{}.log'.format(datetime_str))
+    logfile_name = "/dev/null"
+    logfile_err_name = "/dev/null"
 
     llvmpassrunner_for_op = LLVMPassRunner(
         scriptsdir_fullpath=scriptsdir_fullpath,
