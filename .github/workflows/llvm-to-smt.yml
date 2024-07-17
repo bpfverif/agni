@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         insn: [BPF_AND]
-        kernel: ["5.9", "6.8", "linus", "bpf-next"]
+        kernel: ["5.9", "5.10", "5.15", "6.1", "6.6", "6.8", "linus", "bpf-next"]
     runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
@@ -24,6 +24,7 @@ jobs:
             python3 python3-pip \
             make cmake libelf-dev \
             libjsoncpp-dev stress-ng
+
       - name: Check out repository code
         uses: actions/checkout@v4
       - name: Install Python dependencies
@@ -39,20 +40,6 @@ jobs:
             tree=git://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git
             branch=master
           fi
-<<<<<<< HEAD
-          git clone -qb $branch --depth 1 $tree linux
-
-      - name: Prepare encodings comparison
-        run: |
-          cd "${{ github.workspace }}/bpf-encodings"
-          git config --global user.email "no-reply@example.com"
-          git config --global user.name "Agni Authors"
-          git init
-          echo "*.log" > .gitignore
-          echo "*.ll" >> .gitignore
-          git add .
-          git commit -sm f
-=======
           depth="--depth 1"
           if [ "${{ matrix.kernel }}" = "6.8" ] || [ "${{ matrix.kernel }}" = "6.9" ]; then
             depth=""
@@ -67,7 +54,17 @@ jobs:
           git config --global user.name "Agni Authors"
           git cherry-pick 4c2a26fc80
           rm -r .git
->>>>>>> e246e93 (workflow: Support 6.8 and 6.9)
+
+      - name: Prepare encodings comparison
+        run: |
+          cd "${{ github.workspace }}/bpf-encodings"
+          git config --global user.email "no-reply@example.com"
+          git config --global user.name "Agni Authors"
+          git init
+          echo "*.log" > .gitignore
+          echo "*.ll" >> .gitignore
+          git add .
+          git commit -sm f
 
       - name: Generate encodings
         run: |
