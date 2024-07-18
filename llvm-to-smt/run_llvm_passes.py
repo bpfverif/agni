@@ -254,10 +254,6 @@ class LLVMPassRunner:
         self.logfile_err.flush()
         self.curr_llfile_fullpath = output_llfile_fullpath
 
-    def copy_encoding_to_parent_dir(self):
-        op_encoding_path = self.op_dir_fullpath.joinpath(self.output_smtfile_name)
-        copy2(str(op_encoding_path), str(self.parentdir_fullpath))
-
     def run(self):
         try:
 
@@ -287,8 +283,6 @@ class LLVMPassRunner:
             print(colored("Error getting encoding for {}.\n{}\n".format(
                 self.op, str(e)), 'red'), flush=True, end="")
             raise e
-
-        self.copy_encoding_to_parent_dir()
 
         self.logfile.flush()
         self.logfile_err.flush()
