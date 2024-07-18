@@ -929,6 +929,11 @@ if __name__ == "__main__":
         del llvmpassrunner_for_op
         print(colored(" ... done", 'green'))
 
+        op_fullpath = outdir_fullpath.joinpath(op.op_name)
+        for f in os.listdir(op_fullpath):
+            if f.endswith('.ll'):
+                os.remove(op_fullpath.joinpath(f))
+
     logfile.flush()
     logfile_err.flush()
     logfile.close()
