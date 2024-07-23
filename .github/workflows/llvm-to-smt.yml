@@ -42,6 +42,8 @@ jobs:
           git clone -qb $branch --depth 1 $tree linux
       - name: Generate encodings
         run: |
+          set -o xtrace
+
           cd "${{ github.workspace }}/linux"
           commit=$(git rev-parse HEAD)
           cd -
@@ -51,6 +53,7 @@ jobs:
           if [ "${{ matrix.kernel }}" = "linus" ] || [ "${{ matrix.kernel }}" = "bpf-next" ]; then
             version="6.10"
           fi
+
           python3 generate_encodings.py \
             --kernver $version --commit $commit \
             --kernbasedir "${{ github.workspace }}/linux" \
