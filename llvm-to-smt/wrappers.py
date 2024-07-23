@@ -1,9 +1,42 @@
 
-wrapper_tnum_fls = r"""
-// https://elixir.bootlin.com/linux/latest/source/include/asm-generic/bitops/__fls.h#L13
-static unsigned long fls___(unsigned long word)
+wrapper_fls = r"""
+
+// https://elixir.bootlin.com/linux/v6.10/source/include/asm-generic/bitops/fls.h#L43
+static int generic_fls___(unsigned int x)
 {
-	int num = BITS_PER_LONG - 1;
+	int r = 32;
+
+	if (!x)
+		return 0;
+	if (!(x & 0xffff0000u)) {
+		x <<= 16;
+		r -= 16;
+	}
+	if (!(x & 0xff000000u)) {
+		x <<= 8;
+		r -= 8;
+	}
+	if (!(x & 0xf0000000u)) {
+		x <<= 4;
+		r -= 4;
+	}
+	if (!(x & 0xc0000000u)) {
+		x <<= 2;
+		r -= 2;
+	}
+	if (!(x & 0x80000000u)) {
+		x <<= 1;
+		r -= 1;
+	}
+	return r;
+}
+
+#define fls___(x) generic_fls___(x)
+
+// https://elixir.bootlin.com/linux/v6.10/source/include/asm-generic/bitops/__fls.h#L45
+static unsigned int generic___fls___(unsigned long word)
+{
+	unsigned int num = BITS_PER_LONG - 1;
 
 #if BITS_PER_LONG == 64
 	if (!(word & (~0ul << 32))) {
@@ -11,34 +44,46 @@ static unsigned long fls___(unsigned long word)
 		word <<= 32;
 	}
 #endif
-	if (!(word & (~0ul << (BITS_PER_LONG - 16)))) {
+	if (!(word & (~0ul << (BITS_PER_LONG-16)))) {
 		num -= 16;
 		word <<= 16;
 	}
-	if (!(word & (~0ul << (BITS_PER_LONG - 8)))) {
+	if (!(word & (~0ul << (BITS_PER_LONG-8)))) {
 		num -= 8;
 		word <<= 8;
 	}
-	if (!(word & (~0ul << (BITS_PER_LONG - 4)))) {
+	if (!(word & (~0ul << (BITS_PER_LONG-4)))) {
 		num -= 4;
 		word <<= 4;
 	}
-	if (!(word & (~0ul << (BITS_PER_LONG - 2)))) {
+	if (!(word & (~0ul << (BITS_PER_LONG-2)))) {
 		num -= 2;
 		word <<= 2;
 	}
-	if (!(word & (~0ul << (BITS_PER_LONG - 1))))
+	if (!(word & (~0ul << (BITS_PER_LONG-1))))
 		num -= 1;
 	return num;
 }
 
-// https://elixir.bootlin.com/linux/latest/source/include/asm-generic/bitops/fls64.h#L19
+#define __fls___(word) generic___fls___(word)
+
+// https://elixir.bootlin.com/linux/v6.10/source/include/asm-generic/bitops/fls64.h#L19
+#if BITS_PER_LONG == 32
+static int fls64___(__u64 x)
+{
+	__u32 h = x >> 32;
+	if (h)
+		return fls___(h) + 32;
+	return fls___(x);
+}
+#elif BITS_PER_LONG == 64
 static int fls64___(__u64 x)
 {
 	if (x == 0)
 		return 0;
-	return fls___(x) + 1;
+	return __fls___(x) + 1;
 }
+#endif
 
 """
 
@@ -792,7 +837,6 @@ void reg_bounds_sync___(struct bpf_reg_state *dst_reg)
 {
 	struct bpf_verifier_env env;
 	reg_bounds_sync(dst_reg);
-    reg_bounds_sanity_check(&env, dst_reg, "dst_reg");
 }
 
 '''
