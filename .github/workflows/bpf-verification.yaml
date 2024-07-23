@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         insn: [BPF_AND, BPF_JSLT]
-        kernel: [5.9]
+        kernel: [6.6]
         spec: ["no-weak-spec", "weak-spec"]
     runs-on: ubuntu-latest
     timeout-minutes: 20
