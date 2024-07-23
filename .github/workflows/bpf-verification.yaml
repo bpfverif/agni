@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         insn: [BPF_AND, BPF_JSLT]
-        kernel: [5.9]
+        kernel: [6.6]
     runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
