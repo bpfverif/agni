@@ -14,7 +14,8 @@ jobs:
     strategy:
       matrix:
         insn: [BPF_AND, BPF_JSLT]
-        kernel: [5.9]
+        kernel: [6.6]
+        modular: ["-modular", ""]
     runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
@@ -34,7 +35,9 @@ jobs:
         run: |
           mkdir results
           cd bpf-verification
-          python3 src/bpf_alu_jmp_synthesis.py --kernver ${{ matrix.kernel }} --encodings_path ../bpf-encodings/${{ matrix.kernel }}/ --res_path ../results --ver_set ${{ matrix.insn }}
+          python3 src/bpf_alu_jmp_synthesis.py --kernver ${{ matrix.kernel }} \
+            --encodings_path ../bpf-encodings/${{ matrix.kernel }}${{ matrix.modular }}/ \
+            --res_path ../results --ver_set ${{ matrix.insn }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
