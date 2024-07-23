@@ -13,7 +13,7 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        insn: [BPF_AND]
+        insn: [BPF_AND, BPF_JSLT]
         kernel: ["5.9", "6.8", "linus", "bpf-next"]
     runs-on: ubuntu-latest
     steps:
@@ -39,7 +39,21 @@ jobs:
             tree=git://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git
             branch=master
           fi
-          git clone -qb $branch --depth 1 $tree linux
+          depth="--depth 1"
+          if [ "${{ matrix.kernel }}" = "6.8" ] || [ "${{ matrix.kernel }}" = "6.9" ]; then
+            depth=""
+          fi
+          git clone -qb $branch $depth $tree linux
+
+      - name: Patch kernel
+        if: ${{ matrix.kernel == '6.8' || matrix.kernel == '6.9' }}
+        run: |
+          cd "${{ github.workspace }}/linux"
+          git config --global user.email "no-reply@example.com"
+          git config --global user.name "Agni Authors"
+          git cherry-pick 4c2a26fc80
+          rm -r .git
+
       - name: Generate encodings
         run: |
           set -o xtrace
