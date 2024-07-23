@@ -15,6 +15,7 @@ jobs:
       matrix:
         insn: [BPF_AND, BPF_JSLT]
         kernel: ["6.6", "6.8", "linus", "bpf-next"]
+        modular: ["modular", "no-modular"]
     runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
@@ -61,7 +62,7 @@ jobs:
           cd "${{ github.workspace }}/linux"
           commit=$(git rev-parse HEAD)
           cd -
-          mkdir -p bpf-encodings/${{ matrix.kernel }}
+          mkdir -p bpf-encodings/${{ matrix.kernel }}-${{ matrix.modular }}
           cd llvm-to-smt
           version=v${{ matrix.kernel }}
           if [ "${{ matrix.kernel }}" = "linus" ] || [ "${{ matrix.kernel }}" = "bpf-next" ]; then
@@ -71,11 +72,12 @@ jobs:
           python3 generate_encodings.py \
             --kernver $version --commit $commit \
             --kernbasedir "${{ github.workspace }}/linux" \
-            --outdir ../bpf-encodings/${{ matrix.kernel }} \
-            --specific-op ${{ matrix.insn }}
+            --outdir ../bpf-encodings/${{ matrix.kernel }}-${{ matrix.modular }} \
+            --specific-op ${{ matrix.insn }} \
+            --${{ matrix.modular }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
-          name: bpf-encodings-${{ matrix.kernel }}-${{ matrix.insn }}
-          path: bpf-encodings/${{ matrix.kernel }}/${{ matrix.insn }}/
+          name: bpf-encodings-${{ matrix.kernel }}-${{ matrix.modular }}-${{ matrix.insn }}
+          path: bpf-encodings/${{ matrix.kernel }}-${{ matrix.modular }}/${{ matrix.insn }}/
