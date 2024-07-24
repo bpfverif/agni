@@ -512,6 +512,7 @@ class config_setup:
         self.synth_len2= 0
         self.synth_len3= 0
         self.json_offset = config_file["json_offset"]
+        self.weak_spec = config_file["weak_spec"]
         self.kernel_ver = config_file["kernel_ver"]
         self.encodings_path = config_file["bpf_encodings_path"] + "/" 
         self.write_path = config_file["write_dir_path"] + "/" + config_file["kernel_ver"] + "_res/"
