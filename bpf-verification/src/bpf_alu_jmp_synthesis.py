@@ -67,6 +67,7 @@ def main():
     #1) check all wellformed inputs before trying sync soundness
     wf_set = check_wf_soundness(usr_config)
     
+    
     #2) based on the set of insn from the wellformed check that is unsound -
     #   check with wellformed SRO inputs to try and eliminate more insns
     usr_config.insn_set_list = [{"BPF_SYNC"}, {"BPF_SYNC"}, wf_set]
@@ -75,9 +76,10 @@ def main():
     #3) given insns that are not sound with wellformed SRO inputs - try to
     #   synthesize programs that become illformed (last insn must be from set
     #   returned from the SRO soundness check)
-    usr_config.insn_set_list = [last_set]
-    synthesize_bugs(usr_config)
-    #usr_config.print_settings()
+    if args.weak_spec == 0:
+        usr_config.insn_set_list = [last_set]
+        synthesize_bugs(usr_config)
+        #usr_config.print_settings()
 
     #print aggregate stats.
     aggregate = process_stats()
