@@ -277,10 +277,10 @@ def insert_alu_wrapper(verifier_c_filepath):
     shutil.copy(tmpfile_path, verifier_c_filepath)
 
 
-def insert_tnum_wrapper(tnum_c_filepath):
+def insert_tnum_fls_wrapper(tnum_c_filepath):
 
-    # inject new fls64___ and fls___ functions at an appropriate location
-    string_to_search = r"const struct tnum tnum_unknown = { .value = 0, .mask = -1 };"
+    # replace call to fls and fls64 with calls to custom fls___ and 
+    # fls64___
     inputfile_handle = tnum_c_filepath.open('r')
     input_file_lines = inputfile_handle.readlines()
     tmpdir_path = pathlib.Path("/tmp")
@@ -288,30 +288,31 @@ def insert_tnum_wrapper(tnum_c_filepath):
     tmpfile_1_path = tmpdir_path.joinpath(tmpfile_1_name)
     tmpfile_1_handle = tmpfile_1_path.open('w')
     for line in input_file_lines:
-        tmpfile_1_handle.write(line)
-        if string_to_search in line:
-            tmpfile_1_handle.write(wrapper_tnum_fls)
+        if r"fls64" in line:
+            tmpfile_1_handle.write(line.replace(r" fls64(", r" fls64___("))
+        elif r"fls" in line:
+            tmpfile_1_handle.write(line.replace(r" fls(", r" fls___("))
+        else:
+            tmpfile_1_handle.write(line)
     inputfile_handle.close()
     tmpfile_1_handle.close()
 
-    # replace call to fls64 with call to fls64___
+    # inject the custom fls___ and fls64___ functions at an appropriate 
+    # location
     tmpfile_1_handle = tmpfile_1_path.open('r')
     tmpfile_1_lines = tmpfile_1_handle.readlines()
     tmpfile_2_name = datetime.now().strftime('tmp_tnum_2_%H_%M_%d_%m_%Y.c')
     tmpfile_2_path = tmpdir_path.joinpath(tmpfile_2_name)
     tmpfile_2_handle = tmpfile_2_path.open('w')
     for line in tmpfile_1_lines:
-        if r"u8 bits = fls64(chi);" in line:
-            tmpfile_2_handle.write(line.replace(
-                r"u8 bits = fls64(chi);", r"u8 bits = fls64___(chi);"))
-        else:
-            tmpfile_2_handle.write(line)
+        tmpfile_2_handle.write(line)
+        if r'#include <linux/tnum.h>' in line:
+            tmpfile_2_handle.write(wrapper_fls)
 
     tmpfile_1_handle.close()
     tmpfile_2_handle.close()
 
     shutil.copy(tmpfile_2_path, tnum_c_filepath)
-
 
 def mark_reg_known_memset_remove(verifier_c_filepath):
     inputfile_handle = verifier_c_filepath.open('r')
@@ -730,7 +731,7 @@ if __name__ == "__main__":
     ################################
     print_and_log("Edit tnum.c and verifier.c to add wrappers")
     tnum_file_path = kerndir_fullpath.joinpath("kernel", "bpf", "tnum.c")
-    insert_tnum_wrapper(tnum_file_path)
+    insert_tnum_fls_wrapper(tnum_file_path)
     verifier_file_path = kerndir_fullpath.joinpath(
         "kernel", "bpf", "verifier.c")
     insert_wrapper_unknown(verifier_file_path)
