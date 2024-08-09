@@ -261,16 +261,31 @@ class bpf_register:
         f.append(self.var_off_value & self.var_off_mask == 0)
         return And(f)
 
+    def get_contains64_predicate_tnum_no_conc(self):
+        f = []
+        f.append(self.var_off_value & self.var_off_mask == 0)
+        return And(f)
+
     def get_contains64_predicate_only_unsigned(self):
         f = []
         f.append(ULE(self.umin_value, self.conc64))
         f.append(ULE(self.conc64, self.umax_value))
+        return And(f)
+    
+    def get_contains64_predicate_only_unsigned_no_conc(self):
+        f = []
+        f.append(ULE(self.umin_value, self.umax_value))
         return And(f)
 
     def get_contains64_predicate_only_signed(self):
         f = []
         f.append(self.smin_value <= self.conc64)
         f.append(self.conc64 <= self.smax_value)
+        return And(f)
+
+    def get_contains64_predicate_only_signed_no_conc(self):
+        f = []
+        f.append(self.smin_value <= self.smax_value)
         return And(f)
 
     def get_contains64_predicate(self):
@@ -282,10 +297,22 @@ class bpf_register:
         f.append(self.var_off_value & self.var_off_mask == 0)
         return And(f)
 
+    def get_contains64_predicate_no_conc(self):
+        f = []
+        f.append(self.get_contains64_predicate_only_signed_no_conc())
+        f.append(self.get_contains64_predicate_only_unsigned_no_conc())
+        f.append(self.var_off_value & self.var_off_mask == 0)
+        return And(f)
+
     def get_contains32_predicate_only_unsigned(self):
         f = []
         f.append(ULE(self.u32_min_value, self.conc32))
         f.append(ULE(self.conc32, self.u32_max_value))
+        return And(f)
+
+    def get_contains32_predicate_only_unsigned_no_conc(self):
+        f = []
+        f.append(ULE(self.u32_min_value, self.u32_max_value))
         return And(f)
 
     def get_contains32_predicate_only_signed(self):
@@ -294,10 +321,21 @@ class bpf_register:
         f.append(self.conc32 <= self.s32_max_value)
         return And(f)
 
+    def get_contains32_predicate_only_signed_no_conc(self):
+        f = []
+        f.append(self.s32_min_value <= self.s32_max_value)
+        return And(f)
+
     def get_contains32_predicate(self):
         f = []
         f.append(self.get_contains32_predicate_only_unsigned())
         f.append(self.get_contains32_predicate_only_signed())
+        return And(f)
+
+    def get_contains32_predicate_no_conc(self):
+        f = []
+        f.append(self.get_contains32_predicate_only_unsigned_no_conc())
+        f.append(self.get_contains32_predicate_only_signed_no_conc())
         return And(f)
 
     def get_equate_predicates(self, other):
@@ -512,6 +550,7 @@ class config_setup:
         self.synth_len2= 0
         self.synth_len3= 0
         self.json_offset = config_file["json_offset"]
+        self.weak_spec = config_file["weak_spec"]
         self.kernel_ver = config_file["kernel_ver"]
         self.encodings_path = config_file["bpf_encodings_path"] + "/" 
         self.write_path = config_file["write_dir_path"] + "/" + config_file["kernel_ver"] + "_res/"
@@ -637,6 +676,7 @@ class verification_synth_module:
         self.prog_size = 0
         self.json_offset = usr_config.json_offset
         self.kernver = usr_config.kernel_ver
+        self.weak_spec = usr_config.weak_spec
         self.write_counter = 1
         self.f_gen_const = None
         self.f_pre_cond = None
@@ -716,6 +756,14 @@ class verification_synth_module:
                 self.false_dst_list[i].update_bv_mappings(json_out[i]["dst_reg"][json_off:], self.kernver)
                 self.false_src_list[i].update_bv_mappings(json_out[i]["src_reg"][json_off:], self.kernver)
 
+                #this is weakened specification specified in
+                #https://github.com/bpfverif/agni/issues/15#issuecomment-1797838242
+                #to check for non-runtime bugs
+                if(self.weak_spec == 1):
+                    formula.append(Xor(
+                        self.set_true_branch(i),
+                        self.set_false_branch(i)))
+                    continue
             #assert all jmp verification conditions based on 32 or 64 jmp
             if(self.prog[i] == "BPF_JLE_32"):
                 formula.append(If(
@@ -993,24 +1041,44 @@ class verification_synth_module:
                     self.output_dst_reg_list[-1].get_contains64_predicate_tnum(),
                     self.output_src_reg_list[-1].get_contains64_predicate_tnum()))}
             else:
-                self.safety_prop_list = {
-                    "unsigned_64": Not(And(
-                        self.output_dst_reg_list[-1].get_contains64_predicate_only_unsigned(),
-                        self.output_src_reg_list[-1].get_contains64_predicate_only_unsigned()
-                        )), 
-                    "signed_64": Not(And(
-                        self.output_dst_reg_list[-1].get_contains64_predicate_only_signed(),
-                        self.output_src_reg_list[-1].get_contains64_predicate_only_signed())),
-                    "Tnum": Not(And(
-                        self.output_dst_reg_list[-1].get_contains64_predicate_tnum(),
-                        self.output_src_reg_list[-1].get_contains64_predicate_tnum())),
-                    "unsigned_32": Not(And(
-                        self.output_dst_reg_list[-1].get_contains32_predicate_only_unsigned(),
-                        self.output_src_reg_list[-1].get_contains32_predicate_only_unsigned()
-                        )),
-                    "signed_32": Not(And(
-                        self.output_dst_reg_list[-1].get_contains32_predicate_only_signed(),
-                        self.output_src_reg_list[-1].get_contains32_predicate_only_signed()))}
+                if(self.weak_spec == 0):
+                    self.safety_prop_list = {
+                        "unsigned_64": Not(And(
+                            self.output_dst_reg_list[-1].get_contains64_predicate_only_unsigned(),
+                            self.output_src_reg_list[-1].get_contains64_predicate_only_unsigned()
+                            )), 
+                        "signed_64": Not(And(
+                            self.output_dst_reg_list[-1].get_contains64_predicate_only_signed(),
+                            self.output_src_reg_list[-1].get_contains64_predicate_only_signed())),
+                        "Tnum": Not(And(
+                            self.output_dst_reg_list[-1].get_contains64_predicate_tnum(),
+                            self.output_src_reg_list[-1].get_contains64_predicate_tnum())),
+                        "unsigned_32": Not(And(
+                            self.output_dst_reg_list[-1].get_contains32_predicate_only_unsigned(),
+                            self.output_src_reg_list[-1].get_contains32_predicate_only_unsigned()
+                            )),
+                        "signed_32": Not(And(
+                            self.output_dst_reg_list[-1].get_contains32_predicate_only_signed(),
+                            self.output_src_reg_list[-1].get_contains32_predicate_only_signed()))}
+                else:
+                    self.safety_prop_list = {
+                        "unsigned_64": Not(And(
+                            self.output_dst_reg_list[-1].get_contains64_predicate_only_unsigned_no_conc(),
+                            self.output_src_reg_list[-1].get_contains64_predicate_only_unsigned_no_conc()
+                            )), 
+                        "signed_64": Not(And(
+                            self.output_dst_reg_list[-1].get_contains64_predicate_only_signed_no_conc(),
+                            self.output_src_reg_list[-1].get_contains64_predicate_only_signed_no_conc())),
+                        "Tnum": Not(And(
+                            self.output_dst_reg_list[-1].get_contains64_predicate_tnum_no_conc(),
+                            self.output_src_reg_list[-1].get_contains64_predicate_tnum_no_conc())),
+                        "unsigned_32": Not(And(
+                            self.output_dst_reg_list[-1].get_contains32_predicate_only_unsigned_no_conc(),
+                            self.output_src_reg_list[-1].get_contains32_predicate_only_unsigned_no_conc()
+                            )),
+                        "signed_32": Not(And(
+                            self.output_dst_reg_list[-1].get_contains32_predicate_only_signed_no_conc(),
+                            self.output_src_reg_list[-1].get_contains32_predicate_only_signed_no_conc()))}
         else:
             if version.parse(self.kernver) < version.parse("5.7-rc1"):
                 self.safety_prop_list = {
@@ -1117,7 +1185,7 @@ class verification_synth_module:
             # self.print_register_mappings()
             # self.print_specification()
             # self.print_synthesis_model()
-            # print(self.solver.statistics())
+            #print(self.solver.statistics())
             #self.print_synthesized_program(p)
             # self.f_post_cond.remove(self.safety_prop_list[p])
             # print("Bound violated: ", p)
@@ -1323,6 +1391,9 @@ class verification_synth_module:
         print("-------------")
         print(self.prog)
         m = self.solver.model()
+        if len(m) == 0:
+            print("No Model - unsat")
+            return
         BitVecHelper.update_map_with_model(m)
         t = BitVecHelper.get_bitvec_map_with_model_as_table()
         print(t)

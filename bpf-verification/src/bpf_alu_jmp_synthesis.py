@@ -25,6 +25,7 @@ def main():
     epilog = "Possible bpf instructions: %s" % ", ".join(bpf_instructions_set) + " ----- BPF_SYNC can be used only in ver_set"
     parser = argp.ArgumentParser(prog="eBPF Verification and Synthesis", epilog=epilog)
     parser.add_argument('--kernver', type=str, required=True, help="kernel version")
+    parser.add_argument('--weak_spec', type=int, default=0, choices=[0,1], required=False, help="flag for weakened specification (speculative) to force agni to check both branch paths")
     parser.add_argument('--json_offset', type=int, help="offset for mapping bpf_reg_states, should be set to 4 for v4.14, 5 for v4.15–v6.2, and 3 for v6.3+")
     parser.add_argument('--encodings_path', type=str, required=True, help="set path to bpf encodings produced by llvm-to-smt")
     parser.add_argument('--res_path', type=str, required=True, help="set path to directory where results will be written")
@@ -46,6 +47,7 @@ def main():
         else:
             args.json_offset = 5
     parsed_config["json_offset"] = args.json_offset
+    parsed_config["weak_spec"] = args.weak_spec
     parsed_config["bpf_encodings_path"] = args.encodings_path
     if not os.path.isdir(args.res_path):
         print("'%s' does not exist or is not a directory" % args.res_path, file=sys.stderr)
@@ -65,6 +67,7 @@ def main():
     #1) check all wellformed inputs before trying sync soundness
     wf_set = check_wf_soundness(usr_config)
     
+    
     #2) based on the set of insn from the wellformed check that is unsound -
     #   check with wellformed SRO inputs to try and eliminate more insns
     usr_config.insn_set_list = [{"BPF_SYNC"}, {"BPF_SYNC"}, wf_set]
@@ -73,9 +76,10 @@ def main():
     #3) given insns that are not sound with wellformed SRO inputs - try to
     #   synthesize programs that become illformed (last insn must be from set
     #   returned from the SRO soundness check)
-    usr_config.insn_set_list = [last_set]
-    synthesize_bugs(usr_config)
-    #usr_config.print_settings()
+    if args.weak_spec == 0:
+        usr_config.insn_set_list = [last_set]
+        synthesize_bugs(usr_config)
+        #usr_config.print_settings()
 
     #print aggregate stats.
     aggregate = process_stats()
