@@ -751,31 +751,62 @@ void check_cond_jmp_op_wrapper_{}(
 	struct bpf_reg_state *other_branch_dst_reg,
 	struct bpf_reg_state *other_branch_src_reg)
 {{
-    /*** Setup ***/
-    struct bpf_verifier_env env;
+	struct bpf_verifier_env env;
 	struct bpf_insn insn = BPF_JMP_REG({}, BPF_REG_1, BPF_REG_2, 0);
 	dst_reg->type = SCALAR_VALUE;
 	src_reg->type = SCALAR_VALUE;
-
-	/* Perform custom push_stack to make sure we have don't have garbage values
-	 * for other_branch_regs in case pred != -1
-	 */
+    
+    // Perform custom push_stack to make sure other_branch_*_regs
+    // are equal to dst/src_reg. This needs to be done here rather
+    // than later (as it appears in kernel code), otherwise
+    // other_branch_dst/src_reg will be free to take on any value
+    // in the SMT formula when pred == 1 or pred == 0 below, which
+    // will then lead to a false positive counterexample.
 	push_stack___(other_branch_dst_reg, dst_reg);
 	push_stack___(other_branch_src_reg, src_reg);
 
-    /* Kernel copy-pasted code begins */
-    
+    // ---------------------------------------------------------------
+    //  Kernel copy-pasted code begins
+    // ---------------------------------------------------------------
+	struct bpf_reg_state fake_reg = {{}};
 	u8 opcode = BPF_OP(insn.code);
 	bool is_jmp32;
 	int pred = -1;
 	int err;
 
+	if (BPF_SRC(insn.code) == BPF_X) {{
+		if (insn.imm != 0) {{
+			return;
+		}}
+
+	}} else {{
+		if (insn.src_reg != BPF_REG_0) {{
+			return;
+		}}
+		src_reg = &fake_reg;
+		src_reg->type = SCALAR_VALUE;
+		__mark_reg_known(src_reg, insn.imm);
+	}}
+
 	is_jmp32 = BPF_CLASS(insn.code) == BPF_JMP32;
 	pred = is_branch_taken(dst_reg, src_reg, opcode, is_jmp32);
+	if (pred >= 0) {{
+		/* If we get here with a dst_reg pointer type it is because
+		 * above is_branch_taken() special cased the 0 comparison.
+		 */
+	}}
 
 	if (pred == 1) {{
+		/* Only follow the goto, ignore fall-through. If needed, push
+		 * the fall-through branch for simulation under speculative
+		 * execution.
+		 */
 		return;
 	}} else if (pred == 0) {{
+		/* Only follow the fall-through branch, since that's where the
+		 * program will go. If needed, push the goto branch for
+		 * simulation under speculative execution.
+		 */
 		return;
 	}}
 
@@ -791,6 +822,10 @@ void check_cond_jmp_op_wrapper_{}(
 				      dst_reg, src_reg /* same fake one */,
 				      opcode, is_jmp32);
 	}}
+	if (err)
+		return;
+
+	return;
 }}
 '''
 
