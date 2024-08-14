@@ -105,7 +105,11 @@ def get_all_jmp_wrappers_concatenated(kernver):
     wrapper_jmp = ''
     wrapper_jmp32 = ''
 
-    if version.parse(kernver) >= version.parse("6.8-rc1"):
+    if version.parse(kernver) >= version.parse("6.10-rc5"):
+        # Starting with v6.10-rc5~30^2~33^2~6
+        wrapper_jmp = wrapper_jmp_8
+        wrapper_jmp32 = wrapper_jmp32_8
+    elif version.parse(kernver) >= version.parse("6.8-rc1"):
         # Starting with v6.8-rc1~131^2~289^2~25.
         wrapper_jmp = wrapper_jmp_7
         wrapper_jmp32 = wrapper_jmp32_7
