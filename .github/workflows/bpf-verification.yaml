@@ -15,6 +15,7 @@ jobs:
       matrix:
         insn: [BPF_AND, BPF_JSLT]
         kernel: [5.9]
+        spec: ["no-weak-spec", "weak-spec"]
     runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
@@ -34,10 +35,14 @@ jobs:
         run: |
           mkdir results
           cd bpf-verification
-          python3 src/bpf_alu_jmp_synthesis.py --kernver ${{ matrix.kernel }} --encodings_path ../bpf-encodings/${{ matrix.kernel }}/ --res_path ../results --ver_set ${{ matrix.insn }}
+          python3 src/bpf_alu_jmp_synthesis.py --${{ matrix.spec }} \
+            --kernver ${{ matrix.kernel }} \
+            --encodings_path ../bpf-encodings/${{ matrix.kernel }}/ \
+            --res_path ../results \
+            --ver_set ${{ matrix.insn }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
-          name: results-${{ matrix.kernel }}-${{ matrix.insn }}
+          name: results-${{ matrix.kernel }}-${{ matrix.insn }}-${{ matrix.spec }}
           path: results/${{ matrix.kernel }}_res
