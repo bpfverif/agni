@@ -276,6 +276,43 @@ def insert_alu_wrapper(verifier_c_filepath):
 
     shutil.copy(tmpfile_path, verifier_c_filepath)
 
+def insert_verifier_fls_wrapper(verifier_c_filepath):
+
+    # inject new fls64___ and fls___ functions at an appropriate location
+    inputfile_handle = verifier_c_filepath.open('r')
+    input_file_lines = inputfile_handle.readlines()
+    tmpdir_path = pathlib.Path("/tmp")
+    tmpfile_1_name = datetime.now().strftime('tmp_tnum_%H_%M_%d_%m_%Y.c')
+    tmpfile_1_path = tmpdir_path.joinpath(tmpfile_1_name)
+    tmpfile_1_handle = tmpfile_1_path.open('w')
+    # replace call to fls64 with call to fls64___
+    for line in input_file_lines:
+        if r"fls64" in line:
+            tmpfile_1_handle.write(line.replace(r" fls64(", r" fls64___("))
+        elif r"fls" in line:
+            tmpfile_1_handle.write(line.replace(r" fls(", r" fls___("))
+        else:
+            tmpfile_1_handle.write(line)
+    inputfile_handle.close()
+    tmpfile_1_handle.close()
+
+    # inject the custom fls___ and fls64___ wrappers to verifier.c
+    # after the all the #includes
+    tmpfile_1_handle = tmpfile_1_path.open('r')
+    tmpfile_1_lines = tmpfile_1_handle.readlines()
+    tmpfile_2_name = datetime.now().strftime('tmp_tnum_2_%H_%M_%d_%m_%Y.c')
+    tmpfile_2_path = tmpdir_path.joinpath(tmpfile_2_name)
+    tmpfile_2_handle = tmpfile_2_path.open('w')
+    for line in tmpfile_1_lines:
+        tmpfile_2_handle.write(line)
+        if r'#include "disasm.h"' in line:
+            tmpfile_2_handle.write(wrapper_fls)
+
+    tmpfile_1_handle.close()
+    tmpfile_2_handle.close()
+
+    shutil.copy(tmpfile_2_path, verifier_c_filepath)
+
 
 def insert_tnum_fls_wrapper(tnum_c_filepath):
 
@@ -734,6 +771,7 @@ if __name__ == "__main__":
     insert_tnum_fls_wrapper(tnum_file_path)
     verifier_file_path = kerndir_fullpath.joinpath(
         "kernel", "bpf", "verifier.c")
+    insert_verifier_fls_wrapper(verifier_file_path)
     insert_wrapper_unknown(verifier_file_path)
     mark_reg_known_memset_remove(verifier_file_path)
     if not mark_reg_unknown_imprecise_memset_remove(verifier_file_path):
