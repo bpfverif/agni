@@ -68,6 +68,7 @@ jobs:
           tar -zxf linux.tgz
 
       - name: Generate encodings
+        id: generate-encodings
         run: |
           set -o xtrace
 
@@ -85,20 +86,21 @@ jobs:
             --modular
 
       - name: Upload encodings
-        if: ${{ always() }}
+        if: ${{ always() }} && steps.generate-encodings.outcome != 'skipped'
         uses: actions/upload-artifact@master
         with:
           name: bpf-encodings-${{ matrix.tree }}-${{ matrix.insn }}
           path: bpf-encodings/${{ matrix.tree }}/${{ matrix.insn }}/
 
       - name: Verify ${{ matrix.insn }} on v${{ matrix.tree }}
+        id: bpf-verification
         run: |
           mkdir results-${{ matrix.tree }}
           cd bpf-verification
           python3 src/bpf_alu_jmp_synthesis.py --kernver 6.10 --encodings_path ../bpf-encodings/${{ matrix.tree }}/ --res_path ../results-${{ matrix.tree }} --ver_set ${{ matrix.insn }}
 
       - name: Upload results
-        if: ${{ always() }}
+        if: ${{ always() }} && steps.bpf-verification.outcome != 'skipped'
         uses: actions/upload-artifact@master
         with:
           name: results-${{ matrix.tree }}-${{ matrix.insn }}
