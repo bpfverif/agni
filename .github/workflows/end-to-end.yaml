@@ -1,0 +1,107 @@
+name: End-to-End Tests
+on:
+  # Run once a day, every day.
+  schedule:
+    - cron:  '0 0 * * *'
+
+jobs:
+  download-linux:
+    strategy:
+      matrix:
+        tree: ["torvalds_linux", "bpf_bpf-next"]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Retrieve Linux sources
+        run: |
+          name=${{ matrix.tree }}
+          suffix=${name//_/\/}
+          tree=git://git.kernel.org/pub/scm/linux/kernel/git/$suffix.git
+          git clone -qb master --depth 1 $tree linux
+
+      - name: Compress Linux sources
+        run: |
+          tar -zc linux -f linux.tgz
+
+      - name: Upload Linux sources
+        uses: actions/upload-artifact@master
+        with:
+          name: ${{ matrix.tree }}
+          path: linux.tgz
+
+  end-to-end:
+    needs: download-linux
+    continue-on-error: true
+    strategy:
+      matrix:
+        # BPF_ADD* and BPF_SUB* are excluded for now due to a kernel regression wrt to encoding generation.
+        insn: [BPF_SYNC, BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_ARSH, BPF_JLT, BPF_JLE, BPF_JSLT, BPF_JSLE, BPF_JEQ, BPF_JNE, BPF_JGE, BPF_JGT, BPF_JSGE, BPF_JSGT, BPF_OR_32, BPF_AND_32, BPF_XOR_32, BPF_LSH_32, BPF_RSH_32, BPF_ARSH_32, BPF_JLT_32, BPF_JLE_32, BPF_JSLT_32, BPF_JSLE_32, BPF_JEQ_32, BPF_JNE_32, BPF_JGE_32, BPF_JGT_32, BPF_JSGE_32, BPF_JSGT_32]
+        tree: ["torvalds_linux", "bpf_bpf-next"]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            clang-14 llvm-14 llvm-14-tools llvm \
+            python3 python3-pip \
+            make cmake libelf-dev \
+            libjsoncpp-dev stress-ng \
+            libz3-dev
+
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          cd bpf-verification
+          pip install .
+
+      - name: Download Linux sources
+        uses: actions/download-artifact@master
+        with:
+          name: ${{ matrix.tree }}
+          path: ./
+
+      - name: Uncompress Linux sources
+        run: |
+          file linux.tgz
+          tar -zxf linux.tgz
+
+      - name: Generate encodings
+        id: generate-encodings
+        run: |
+          set -o xtrace
+
+          cd "${{ github.workspace }}/linux"
+          commit=$(git rev-parse HEAD)
+          cd -
+          mkdir -p bpf-encodings/${{ matrix.tree }}
+          cd llvm-to-smt
+
+          python3 generate_encodings.py \
+            --kernver 6.10 --commit $commit \
+            --kernbasedir "${{ github.workspace }}/linux" \
+            --outdir ../bpf-encodings/${{ matrix.tree }} \
+            --specific-op ${{ matrix.insn }} \
+            --modular
+
+      - name: Upload encodings
+        if: ${{ always() }} && steps.generate-encodings.outcome != 'skipped'
+        uses: actions/upload-artifact@master
+        with:
+          name: bpf-encodings-${{ matrix.tree }}-${{ matrix.insn }}
+          path: bpf-encodings/${{ matrix.tree }}/${{ matrix.insn }}/
+
+      - name: Verify ${{ matrix.insn }} on v${{ matrix.tree }}
+        id: bpf-verification
+        run: |
+          mkdir results-${{ matrix.tree }}
+          cd bpf-verification
+          python3 src/bpf_alu_jmp_synthesis.py --kernver 6.10 --encodings_path ../bpf-encodings/${{ matrix.tree }}/ --res_path ../results-${{ matrix.tree }} --ver_set ${{ matrix.insn }}
+
+      - name: Upload results
+        if: ${{ always() }} && steps.bpf-verification.outcome != 'skipped'
+        uses: actions/upload-artifact@master
+        with:
+          name: results-${{ matrix.tree }}-${{ matrix.insn }}
+          path: results-${{ matrix.tree }}/6.10_res
