@@ -12,46 +12,145 @@ from packaging import version
 import shutil
 from run_llvm_passes import LLVMPassRunner
 from wrappers import *
+from typing import List
 
+class bpf_op_attrs:
+    def __init__(self, op_name, insn, insn_class, skip, intro_ver, suffix_id):
+        self.op_name = op_name
+        self.insn = insn
+        self.insn_class = insn_class
+        self.skip = skip
+        self.intro_ver = intro_ver
+        self.suffix_id = suffix_id
+        if self.insn_class == 'BPF_ALU64_REG' or self.insn_class == 'BPF_ALU32_REG':
+            self.function_name = "adjust_scalar_min_max_vals_wrapper_{}".format(
+                self.op_name)
+        elif self.insn_class == 'BPF_JMP_REG' or self.insn_class == 'BPF_JMP32_REG':
+            self.function_name = "check_cond_jmp_op_wrapper_{}".format(
+                self.op_name)
+        elif self.insn_class == 'BPF_SYNC':
+            self.function_name = "reg_bounds_sync___"
+        else:
+            raise RuntimeError(
+                'Unsupported BPF insn_class {}'.format(insn_class))
 
-bpf_alu_ops = [
-    "BPF_ADD",
-    "BPF_SUB",
-    "BPF_OR",
-    "BPF_AND",
-    "BPF_LSH",
-    "BPF_RSH",
-    "BPF_ARSH",  # TODO started only in ?
-    "BPF_XOR"  # TODO started only in 5.10
-    # "BPF_MUL", # ignore
-    # "BPF_DIV", # ignore
-    # "BPF_NEG", # ignore
-    # "BPF_MOD", # ignore
-]
+    def __repr__(self):
+        s = self.op_name + "_" + str(self.suffix_id)
+        if self.skip:
+            s += " (skip)"
+        return s
 
-# {"BPF_ADD_32": "BPF_AND", ...}
-bpf_alu32_ops = {op + "_32":op for op in bpf_alu_ops}
+# List of bpf ops we are interested in generating encodings for. Do not change 
+# the suffix_ids of the ops below, they are meant to be the same across commits.
+bpf_ops: List[bpf_op_attrs] = []
 
-bpf_jmp_ops = [
-    "BPF_JEQ",
-    "BPF_JNE",
-    # "BPF_JSET",  # TODO started only in ? + doesn't work. comment out for now
-    "BPF_JGE",
-    "BPF_JGT",
-    "BPF_JSGE",
-    "BPF_JSGT",
-    "BPF_JLE",
-    "BPF_JLT",
-    "BPF_JSLE",
-    "BPF_JSLT"
-]
+# 64-bit ALU ops
+bpf_ops.append(bpf_op_attrs(op_name='BPF_ADD', insn='BPF_ADD', insn_class='BPF_ALU64_REG',
+                            skip=False, intro_ver="3.18", suffix_id=0))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_SUB', insn='BPF_SUB', insn_class='BPF_ALU64_REG',
+                            skip=False, intro_ver="3.18", suffix_id=1))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_MUL', insn='BPF_MUL', insn_class='BPF_ALU64_REG',
+                            skip=True, intro_ver="3.18", suffix_id=2))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_DIV', insn='BPF_DIV', insn_class='BPF_ALU64_REG',
+                            skip=True, intro_ver="3.18", suffix_id=3))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_OR', insn='BPF_OR', insn_class='BPF_ALU64_REG',
+                            skip=False, intro_ver="3.18", suffix_id=4))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_AND', insn='BPF_AND', insn_class='BPF_ALU64_REG',
+                            skip=False, intro_ver="3.18", suffix_id=5))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_LSH', insn='BPF_LSH', insn_class='BPF_ALU64_REG',
+                            skip=False, intro_ver="3.18", suffix_id=6))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_RSH', insn='BPF_RSH', insn_class='BPF_ALU64_REG',
+                            skip=False, intro_ver="3.18", suffix_id=7))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_NEG', insn='BPF_NEG', insn_class='BPF_ALU64_REG',
+                            skip=True, intro_ver="3.18", suffix_id=8))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_MOD', insn='BPF_MOD', insn_class='BPF_ALU64_REG',
+                            skip=True, intro_ver="3.18", suffix_id=9))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_XOR', insn='BPF_XOR', insn_class='BPF_ALU64_REG',
+                            skip=False, intro_ver="3.18", suffix_id=10))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_ARSH', insn='BPF_ARSH', insn_class='BPF_ALU64_REG',
+                            skip=False, intro_ver="3.18", suffix_id=11))
 
-# {"BPF_JEQ_32": "BPF_JEQ", ...}
-bpf_jmp32_ops = {op + "_32":op for op in bpf_jmp_ops}
+# 32-bit ALU ops
+bpf_ops.append(bpf_op_attrs(op_name='BPF_ADD_32', insn='BPF_ADD', insn_class='BPF_ALU32_REG',
+                            skip=False, intro_ver="3.18", suffix_id=12))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_SUB_32', insn='BPF_SUB', insn_class='BPF_ALU32_REG',
+                            skip=False, intro_ver="3.18", suffix_id=13))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_MUL_32', insn='BPF_MUL', insn_class='BPF_ALU32_REG',
+                            skip=True, intro_ver="3.18", suffix_id=14))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_DIV_32', insn='BPF_DIV', insn_class='BPF_ALU32_REG',
+                            skip=True, intro_ver="3.18", suffix_id=15))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_OR_32', insn='BPF_OR', insn_class='BPF_ALU32_REG',
+                                    skip=False, intro_ver="3.18", suffix_id=16))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_AND_32', insn='BPF_AND', insn_class='BPF_ALU32_REG',
+                            skip=False, intro_ver="3.18", suffix_id=17))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_LSH_32', insn='BPF_LSH', insn_class='BPF_ALU32_REG',
+                            skip=False, intro_ver="3.18", suffix_id=18))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_RSH_32', insn='BPF_RSH', insn_class='BPF_ALU32_REG',
+                            skip=False, intro_ver="3.18", suffix_id=19))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_NEG_32', insn='BPF_NEG', insn_class='BPF_ALU32_REG',
+                            skip=True, intro_ver="3.18", suffix_id=20))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_MOD_32', insn='BPF_MOD', insn_class='BPF_ALU32_REG',
+                            skip=True, intro_ver="3.18", suffix_id=21))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_XOR_32', insn='BPF_XOR', insn_class='BPF_ALU32_REG',
+                            skip=False, intro_ver="3.18", suffix_id=22))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_ARSH_32', insn='BPF_ARSH', insn_class='BPF_ALU32_REG',
+                            skip=False, intro_ver="3.18", suffix_id=23))
 
-bpf_refinement_ops = {
-    "BPF_SYNC": "reg_bounds_sync___",
-}
+# 64-bit jump ops
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JA', insn='BPF_JA', insn_class='BPF_JMP_REG',
+                            skip=True, intro_ver="3.18", suffix_id=24))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JEQ', insn='BPF_JEQ', insn_class='BPF_JMP_REG',
+                            skip=False, intro_ver="3.18", suffix_id=25))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JGT', insn='BPF_JGT', insn_class='BPF_JMP_REG',
+                            skip=False, intro_ver="3.18", suffix_id=26))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JGE', insn='BPF_JGE', insn_class='BPF_JMP_REG',
+                            skip=False, intro_ver="3.18", suffix_id=27))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JSET', insn='BPF_JSET', insn_class='BPF_JMP_REG',
+                            skip=True, intro_ver="3.18", suffix_id=28))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JNE', insn='BPF_JNE', insn_class='BPF_JMP_REG',
+                            skip=False, intro_ver="3.18", suffix_id=29))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JLT', insn='BPF_JLT', insn_class='BPF_JMP_REG',
+                            skip=False, intro_ver="v4.14", suffix_id=30))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JLE', insn='BPF_JLE', insn_class='BPF_JMP_REG',
+                            skip=False, intro_ver="v4.14", suffix_id=31))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JSGT', insn='BPF_JSGT', insn_class='BPF_JMP_REG',
+                            skip=False, intro_ver="v4.14", suffix_id=32))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JSGE', insn='BPF_JSGE', insn_class='BPF_JMP_REG',
+                            skip=False, intro_ver="v4.14", suffix_id=33))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JSLT', insn='BPF_JSLT', insn_class='BPF_JMP_REG',
+                            skip=False, intro_ver="v4.14", suffix_id=34))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JSLE', insn='BPF_JSLE', insn_class='BPF_JMP_REG',
+                            skip=False, intro_ver="v4.14", suffix_id=35))
+
+# 32-bit jump ops
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JA_32', insn='BPF_JA', insn_class='BPF_JMP32_REG',
+                                    skip=True, intro_ver="5.1", suffix_id=36))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JEQ_32', insn='BPF_JEQ', insn_class='BPF_JMP32_REG',
+                            skip=False, intro_ver="5.1", suffix_id=37))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JGT_32', insn='BPF_JGT', insn_class='BPF_JMP32_REG',
+                            skip=False, intro_ver="5.1", suffix_id=38))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JGE_32', insn='BPF_JGE', insn_class='BPF_JMP32_REG',
+                            skip=False, intro_ver="5.1", suffix_id=39))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JSET_32', insn='BPF_JSET', insn_class='BPF_JMP32_REG',
+                            skip=True, intro_ver="5.1", suffix_id=40))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JNE_32', insn='BPF_JNE', insn_class='BPF_JMP32_REG',
+                            skip=False, intro_ver="5.1", suffix_id=41))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JLT_32', insn='BPF_JLT', insn_class='BPF_JMP32_REG',
+                            skip=False, intro_ver="5.1", suffix_id=42))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JLE_32', insn='BPF_JLE', insn_class='BPF_JMP32_REG',
+                            skip=False, intro_ver="5.1", suffix_id=43))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JSGT_32', insn='BPF_JSGT', insn_class='BPF_JMP32_REG',
+                            skip=False, intro_ver="5.1", suffix_id=44))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JSGE_32', insn='BPF_JSGE', insn_class='BPF_JMP32_REG',
+                            skip=False, intro_ver="5.1", suffix_id=45))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JSLT_32', insn='BPF_JSLT', insn_class='BPF_JMP32_REG',
+                            skip=False, intro_ver="5.1", suffix_id=46))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_JSLE_32', insn='BPF_JSLE', insn_class='BPF_JMP32_REG',
+                            skip=False, intro_ver="5.1", suffix_id=47))
+
+# refinement ops
+bpf_ops.append(bpf_op_attrs(op_name='BPF_SYNC', insn='NA', insn_class="BPF_SYNC",
+                            skip=False, intro_ver="5.19", suffix_id=48))
 
 
 def insert_sync_wrapper(verifier_c_filepath, kernver):
@@ -143,14 +242,15 @@ def get_all_jmp_wrappers_concatenated(kernver):
         raise RuntimeError('Unsupported kernel version')
     assert (len(wrapper_jmp) != 0)
 
+    bpf_jmp_ops = [op for op in bpf_ops if op.insn_class == 'BPF_JMP_REG' and op.skip == False]
+    bpf_jmp32_ops = [op for op in bpf_ops if op.insn_class == 'BPF_JMP32_REG' and op.skip == False]
     s = ""
     for op in bpf_jmp_ops:
-        s += wrapper_jmp.format(op, op)
-
+        s += wrapper_jmp.format(op.op_name, op.insn)
     # no 32-bit jumps before 5.1-rc1
     if version.parse(kernver) >= version.parse("5.1-rc1"):
-        for op32, op in bpf_jmp32_ops.items():
-            s += wrapper_jmp32.format(op32, op)
+        for op in bpf_jmp32_ops:
+            s += wrapper_jmp32.format(op.op_name, op.insn)
 
     return s
 
@@ -233,12 +333,13 @@ def insert_wrapper_unknown(verifier_c_filepath):
 def get_all_alu_wrappers_concatenated():
     wrapper_alu = wrapper_alu_1
     wrapper_alu32 = wrapper_alu32_1
-
+    bpf_alu_ops = [op for op in bpf_ops if op.insn_class == 'BPF_ALU64_REG'  and op.skip == False]
+    bpf_alu32_ops = [op for op in bpf_ops if op.insn_class == 'BPF_ALU32_REG' and op.skip == False]
     s = ""
     for op in bpf_alu_ops:
-        s += wrapper_alu.format(op, op)
-    for op32, op in bpf_alu32_ops.items():
-        s += wrapper_alu32.format(op32, op)
+        s += wrapper_alu.format(op.op_name, op.insn)
+    for op in bpf_alu32_ops:
+        s += wrapper_alu32.format(op.op_name, op.insn)
     return s
 
 
@@ -559,11 +660,7 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument("--specific-op", dest='specific_op',
                         help='single specific BPF op to encode',
-                        choices= bpf_alu_ops +
-                        list(bpf_alu32_ops.keys()) +
-                        bpf_jmp_ops +
-                        list(bpf_jmp32_ops.keys()) +
-                        list(bpf_refinement_ops.keys()),
+                        choices = [op.op_name for op in bpf_ops],
                         type=str, required=False)
     parser.add_argument("--commit",
                         help="specific kernel commit, instead of a kernel version",
@@ -595,45 +692,12 @@ if __name__ == "__main__":
             'Unsupported kernel version. Only >= 4.14.214 supported.')
 
     if args.specific_op is not None:
-        if args.specific_op in bpf_alu_ops:
-            bpf_alu_ops = [args.specific_op]
-            bpf_alu32_ops = {}
-            bpf_jmp_ops = []
-            bpf_jmp32_ops = {}
-            bpf_refinement_ops = {}
-        elif args.specific_op in bpf_alu32_ops:
-            bpf_alu_ops = []
-            bpf_alu32_ops = {args.specific_op:bpf_alu32_ops[args.specific_op]}
-            bpf_jmp_ops = []
-            bpf_jmp32_ops = {}
-            bpf_refinement_ops = {}
-        elif args.specific_op in bpf_jmp_ops:
-            bpf_alu_ops = []
-            bpf_alu32_ops = {}
-            bpf_jmp_ops = [args.specific_op]
-            bpf_jmp32_ops = {}
-            bpf_refinement_ops = {}
-        elif args.specific_op in bpf_jmp32_ops:
-            bpf_alu_ops = []
-            bpf_alu32_ops = {}
-            bpf_jmp_ops = []
-            bpf_jmp32_ops = {args.specific_op:bpf_jmp32_ops[args.specific_op]}
-            bpf_refinement_ops = {}
-        elif args.specific_op in bpf_refinement_ops:
-            bpf_alu_ops = []
-            bpf_alu32_ops = {}
-            bpf_jmp_ops = []
-            bpf_jmp32_ops = {}
-            bpf_refinement_ops = {args.specific_op:bpf_refinement_ops[args.specific_op]}
-        else:
-            raise RuntimeError(
-                'Unsupported BPF op {}'.format(args.specific_op))
+        for op in bpf_ops:
+            if op.op_name != args.specific_op:
+                op.skip = True
 
-    print(bpf_alu_ops)
-    print(bpf_alu32_ops)
-    print(bpf_jmp_ops)
-    print(bpf_jmp32_ops)
-    print(bpf_refinement_ops)
+    print(", ".join([op.op_name for op in bpf_ops if op.skip == False]))
+
     if args.modular:
         # only support modular verification in kernels with "reg_bounds_sync"
         assert version.parse(args.kernver) >= version.parse("5.19-rc6")
@@ -840,37 +904,27 @@ if __name__ == "__main__":
     # ###################################
 
     input_llfile_fullpath = outdir_fullpath.joinpath("verifier_tnum.ll")
-    all_ops = bpf_alu_ops + list(bpf_alu32_ops.keys()) + bpf_jmp_ops + \
-                list(bpf_jmp32_ops.keys()) + list(bpf_refinement_ops.keys())
     error_ops = []
 
-    for i, op in enumerate(all_ops):
-        print(colored("Getting encoding for {}".format(op), 'green'), flush=True)
-        function_name = ""
-        if ((op in bpf_alu_ops) or (op in bpf_alu32_ops)):
-            function_name = "adjust_scalar_min_max_vals_wrapper_{}".format(op)
-        elif ((op in bpf_jmp_ops) or (op in bpf_jmp32_ops)):
-            function_name = "check_cond_jmp_op_wrapper_{}".format(op)
-        elif op in bpf_refinement_ops:
-            function_name = bpf_refinement_ops[op]
-        else:
-            raise RuntimeError('Unsupported BPF op {}'.format(op))
-
+    for op in bpf_ops:
+        if op.skip == True:
+            continue
+        print(colored("Getting encoding for {}".format(op.op_name), 'green'), flush=True)
         llvmpassrunner_for_op = LLVMPassRunner(
                 scriptsdir_fullpath=scriptsdir_fullpath,
                 llvmdir_fullpath=llvmdir_fullpath,
                 inputdir_fullpath=outdir_fullpath,
-                op=op,
+                op=op.op_name,
                 input_llfile_fullpath=input_llfile_fullpath,
-                function_name=function_name,
-                output_smtfile_name="{}.smt2".format(op),
-                global_bv_suffix=str(i),
+                function_name=op.function_name,
+                output_smtfile_name="{}.smt2".format(op.op_name),
+                global_bv_suffix=str(op.suffix_id),
                 logfile_name = logfile_name,
                 logfile_err_name = logfile_err_name)
         try:
             llvmpassrunner_for_op.run()
         except subprocess.CalledProcessError as e:
-            error_ops.append(op)
+            error_ops.append(op.op_name)
             continue
         del llvmpassrunner_for_op
         print(colored(" ... done", 'green'))
