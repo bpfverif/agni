@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+
 jobs:
   llvm-to-smt:
     continue-on-error: true
@@ -24,11 +25,14 @@ jobs:
             python3 python3-pip \
             make cmake libelf-dev \
             libjsoncpp-dev stress-ng
+
       - name: Check out repository code
         uses: actions/checkout@v4
+
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
+
       - name: Retrieve Linux sources
         run: |
           branch=v${{ matrix.kernel }}
@@ -55,6 +59,7 @@ jobs:
           rm -r .git
 
       - name: Generate encodings
+        id: generate-encodings
         run: |
           set -o xtrace
 
@@ -75,6 +80,7 @@ jobs:
             --specific-op ${{ matrix.insn }}
 
       - name: Upload artifacts
+        if: ${{ always() }} && steps.generate-encodings.outcome != 'skipped'
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: bpf-encodings-${{ matrix.kernel }}-${{ matrix.insn }}
