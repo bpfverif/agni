@@ -629,7 +629,14 @@ void FunctionEncoder::handleSelectInst(SelectInst &i) {
   }
 }
 
-void FunctionEncoder::handleBranchInst(BranchInst &i) {
+void FunctionEncoder::handleBranchInst(BranchInst &i,
+                                       FunctionEncoderPassType passID) {
+  if (passID != PathConditionsMapPass) {
+    outs() << "[handlePhiNode] "
+           << "nothing to do, returning...\n";
+    return;
+  }
+
   outs() << "[handleBranchInst] "
          << "EdgeAssertionsMap:\n";
   printEdgeAssertionsMap();
@@ -2261,8 +2268,7 @@ void FunctionEncoder::populateBBAssertionsMap(BasicBlock &B) {
            << "-------------------\n";
     if (I.isDebugOrPseudoInst()) {
       continue;
-    }
-    if (isa<BinaryOperator>(&I)) {
+    } else if (isa<BinaryOperator>(&I)) {
       handleBinaryOperatorInst(*(dyn_cast<BinaryOperator>(&I)));
     } else if (isa<CastInst>(&I)) {
       handleCastInst(*(dyn_cast<CastInst>(&I)));
@@ -2282,9 +2288,13 @@ void FunctionEncoder::populateBBAssertionsMap(BasicBlock &B) {
       handleCallInst(*dyn_cast<CallInst>(&I));
     } else if (isa<ExtractValueInst>(&I)) {
       handleExtractValueInst(*(dyn_cast<ExtractValueInst>(&I)));
+    } else if (isa<BranchInst>(&I)) {
+      handleBranchInst(*dyn_cast<BranchInst>(&I), BBAssertionsMapPass);
+    } else if (isa<ReturnInst>(&I)) {
+      handleReturnInst(*(dyn_cast<ReturnInst>(&I)), BBAssertionsMapPass);
     } else {
-      outs() << "Unknown instruction. Continuing...\n";
-      continue;
+      throw std::runtime_error(
+          "[populateBBAssertionsMap] Unknown instruction\n");
     }
   }
 }
@@ -2297,7 +2307,7 @@ void FunctionEncoder::populatePathConditionsMap(BasicBlock &B) {
            << I << "\n"
            << "-------------------\n";
     if (isa<BranchInst>(&I)) {
-      handleBranchInst(*(dyn_cast<BranchInst>(&I)));
+      handleBranchInst(*(dyn_cast<BranchInst>(&I)), PathConditionsMapPass);
     } else {
       continue;
     }
