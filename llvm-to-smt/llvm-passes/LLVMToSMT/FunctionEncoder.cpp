@@ -6,6 +6,7 @@
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Value.h>
 #include <z3++.h>
+#include <stdexcept>
 
 std::string FunctionEncoder::toString() {
   z3::expr f = z3::mk_and(this->functionEncodingZ3ExprVec);
@@ -480,8 +481,16 @@ bool FunctionEncoder::functionHasPointerArguments(Function &F) {
   return false;
 }
 
-void FunctionEncoder::handleReturnInst(ReturnInst &i) {
+void FunctionEncoder::handleReturnInst(ReturnInst &i,
+                                       FunctionEncoderPassType passID) {
   outs() << "[handleReturnInst]\n";
+  outs() << "passID: " << passID << "\n";
+  if (passID != HandleReturnInstPass) {
+    outs() << "[handleReturnInst] "
+           << "nothing to do, returning...\n";
+    return;
+  }
+
   auto l = i.getReturnValue();
   if (functionReturnsVoid) {
     outs() << "[handleReturnInst]"
@@ -861,14 +870,16 @@ void FunctionEncoder::handlePhiNode(PHINode &inst, int passID) {
   outs() << "[handlePhiNode]\n";
   outs() << "passID: " << passID << "\n";
 
-  if (passID == 1) {
+  if (passID == BBAssertionsMapPass) {
     handlePhiNodeSetupBitVecs(inst);
+  } else if (passID == PathConditionsMapPass) {
+    outs() << "[handlePhiNode] "
+           << "nothing to do, returning...\n";
     return;
-  }
-
-  if (passID == 3) {
+  } else if (passID == HandlePhiNodesPass) {
     handlePhiNodeResolvePathConditions(inst);
-    return;
+  } else {
+    throw std::runtime_error("[handlePhiNode] unknown passID\n");
   }
 }
 
@@ -1971,14 +1982,15 @@ bool_2 ==> (conjunction of all BBExprsI)
 
 In pass 3: bool_1 and bool_2 will be set according to EdgeAssertionsMap.
 */
-void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
+void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi,
+                                          FunctionEncoderPassType passID) {
   outs() << "[handleMemoryPhiNode] "
          << "Pass #" << passID << "\n";
 
   mostRecentMemoryDef = &mphi;
 
-  /* In pass 1, we populate MemoryPhiResolutionMap. */
-  if (passID == 1) {
+  /* In the first pass, we populate MemoryPhiResolutionMap. */
+  if (passID == BBAssertionsMapPass) {
 
     /* Create new Value:BVTree Map for this MemoryPhi node, and populate it
      * with BVTrees for only those Value(s) which are function arguments. */
@@ -2045,12 +2057,18 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
            << "MemoryPhiResolutionMap:\n";
     printMemoryPhiResolutionMap();
 
-    /* In pass 3, we have the path conditions for each BBPair populated in
-     * EdgeAssertionsMap. Use them, and the MemoryPhiResolutionMap, to figure
-     * what is the z3 expressions formed as a result of taking the particular
-     * edge.
-     */
-  } else if (passID == 3) {
+  }
+  /* In the second pass, we should'nt get here. We do nothing */
+  else if (passID == PathConditionsMapPass) {
+    outs() << "[handleMemoryPhiNode] "
+           << "nothing to do, returning...\n";
+    return;
+  }
+  /* In the third pass, we have the path conditions for each BBPair populated
+   * in EdgeAssertionsMap by the PathConditionsMapPass. Use them, and the
+   * MemoryPhiResolutionMap, to figure what is the z3 expressions formed as a
+   * result of taking the particular edge.*/
+  else if (passID == HandlePhiNodesPass) {
 
     auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
 
@@ -2065,6 +2083,8 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
              << phiResolveI.to_string().c_str() << "\n";
       BBAsstVecIter->second.push_back(phiResolveI);
     }
+  } else {
+    throw std::runtime_error("[handleMemoryPhiNode] Unknown passID\n");
   }
 }
 
@@ -2232,9 +2252,7 @@ void FunctionEncoder::handleCallInst(CallInst &i) {
   }
 }
 
-/*
-Go instruction by instruction in the BasicBlock, and build BBAssertionsMap
- */
+/* Go instruction by instruction in the BasicBlock, and build BBAssertionsMap */
 void FunctionEncoder::populateBBAssertionsMap(BasicBlock &B) {
   for (Instruction &I : B) {
     FunctionEncoder::currentInstruction = &I;
@@ -2253,7 +2271,7 @@ void FunctionEncoder::populateBBAssertionsMap(BasicBlock &B) {
     } else if (isa<SelectInst>(&I)) {
       handleSelectInst(*(dyn_cast<SelectInst>(&I)));
     } else if (isa<PHINode>(&I)) {
-      handlePhiNode(*(dyn_cast<PHINode>(&I)), 1);
+      handlePhiNode(*(dyn_cast<PHINode>(&I)), BBAssertionsMapPass);
     } else if (isa<GetElementPtrInst>(&I)) {
       handleGEPInst(*dyn_cast<GetElementPtrInst>(&I));
     } else if (isa<LoadInst>(&I)) {
@@ -2271,6 +2289,8 @@ void FunctionEncoder::populateBBAssertionsMap(BasicBlock &B) {
   }
 }
 
+/* Go basic-block by basic-block, and build PathConditionsMap  and
+ * EdgeAssertionsMap */
 void FunctionEncoder::populatePathConditionsMap(BasicBlock &B) {
   for (Instruction &I : B) {
     outs() << "-------------------\n"
@@ -2463,27 +2483,29 @@ z3::expr_vector FunctionEncoder::encodeFunctionBody(Function &F) {
   /* First pass: populate BBAssertionsMap */
   outs()
       << "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>\n"
-      << "Pass #1: populateBBAssertionsMap\n"
+      << "Pass #" << BBAssertionsMapPass << " populateBBAssertionsMap\n"
       << "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>\n";
 
   for (BasicBlock &BB : F) {
-    /* Update current BasicBlock */
+
     currentBB = &BB;
+    outs() << "=========================\n";
+    outs() << currentBB->getName() << "\n";
+    outs() << "=========================\n";
+
     /* Make entry for BasicBlock in BBAssertionsMap if it doesn't exist*/
     z3::expr_vector BBAsstVec(ctx);
     if (BBAssertionsMap.find(currentBB) == BBAssertionsMap.end()) {
       BBAssertionsMap.insert({currentBB, BBAsstVec});
     }
 
-    outs() << "=========================\n";
-    outs() << currentBB->getName() << "\n";
-    outs() << "=========================\n";
-
-    /* check if current BB has a MemoryPhi associated with it*/
+    /* Check if current BB has a MemoryPhi associated with it, and handle it
+    accordingly */
     MemoryPhi *memoryPhiCurrentBB =
         currentMemorySSA->getMemoryAccess(currentBB);
     if (memoryPhiCurrentBB) {
-      FunctionEncoder::handleMemoryPhiNode(*memoryPhiCurrentBB, 1);
+      FunctionEncoder::handleMemoryPhiNode(*memoryPhiCurrentBB,
+                                           BBAssertionsMapPass);
     }
 
     populateBBAssertionsMap(BB);
@@ -2492,44 +2514,45 @@ z3::expr_vector FunctionEncoder::encodeFunctionBody(Function &F) {
   /* Second pass: populate pathConditionsMap */
   outs()
       << "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>\n"
-      << "Pass #2: populatePathConditionsMap\n"
+      << "Pass #" << PathConditionsMapPass << " populatePathConditionsMap\n"
       << "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>\n";
 
   for (BasicBlock &BB : F) {
-    // Update current BasicBlock
-    currentBB = &BB;
-    outs() << "================\n";
-    outs() << currentBB->getName() << "\n";
-    outs() << "================\n";
 
-    /* Nothing really happens to memoryPhiNodes in this pass. This is just a
-     * placeholder to maintain the invariant that whenever we are iterating a
+    currentBB = &BB;
+    outs() << "=========================\n";
+    outs() << currentBB->getName() << "\n";
+    outs() << "=========================\n";
+
+    /* Just to maintain the invariant that whenever we are iterating a
      * basicblock, the mostRecentMemoryDef stays updated. */
     MemoryPhi *memoryPhiCurrentBB =
         currentMemorySSA->getMemoryAccess(currentBB);
     if (memoryPhiCurrentBB) {
-      FunctionEncoder::handleMemoryPhiNode(*memoryPhiCurrentBB, 2);
+      mostRecentMemoryDef = memoryPhiCurrentBB;
     }
+
     populatePathConditionsMap(BB);
   }
 
-  /* Third pass: FunctionEncoder::handlePhiNodes (including MemoryPhi) */
+  /* Third pass: handle both phi and MemoryPhi */
   outs()
       << "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>\n"
-      << "Pass #3: FunctionEncoder::handlePhiNodes\n"
+      << "Pass #" << HandlePhiNodesPass << " handlePhiNodes\n"
       << "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>\n";
 
   for (BasicBlock &BB : F) {
-    currentBB = &BB; // update current BB
 
-    outs() << "================\n";
+    currentBB = &BB; // update current BB
+    outs() << "=========================\n";
     outs() << currentBB->getName() << "\n";
-    outs() << "================\n";
+    outs() << "=========================\n";
 
     /* check if current BB has a MemoryPhi associated with it */
     MemoryPhi *memoryPhiCurrentBB = currentMemorySSA->getMemoryAccess(&BB);
     if (memoryPhiCurrentBB) {
-      FunctionEncoder::handleMemoryPhiNode(*memoryPhiCurrentBB, 3);
+      FunctionEncoder::handleMemoryPhiNode(*memoryPhiCurrentBB,
+                                           HandlePhiNodesPass);
     }
 
     for (Instruction &I : BB) {
@@ -2537,29 +2560,43 @@ z3::expr_vector FunctionEncoder::encodeFunctionBody(Function &F) {
         outs() << "-------------------\n"
                << I << "\n"
                << "-------------------\n";
-        FunctionEncoder::handlePhiNode(*(dyn_cast<PHINode>(&I)), 3);
+        FunctionEncoder::handlePhiNode(*(dyn_cast<PHINode>(&I)),
+                                       HandlePhiNodesPass);
       }
     }
   }
 
+  /* Fourth pass: handle the return instruction */
   outs()
       << "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>\n"
-      << "Pass #4: FunctionEncoder::handleReturnInst\n"
+      << "Pass #" << HandleReturnInstPass << " handleReturnInst\n"
       << "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>\n";
   outs().flush();
+
   for (BasicBlock &BB : F) {
-    currentBB = &BB; /* update current BB */
+
+    currentBB = &BB;
+    outs() << "=========================\n";
+    outs() << currentBB->getName() << "\n";
+    outs() << "=========================\n";
+
+    /* Keep updating the mostRecentMemoryDef as you encounter MemoryDef created
+    by stores or MemoryPhis. */
     MemoryPhi *memoryPhiCurrentBB = currentMemorySSA->getMemoryAccess(&BB);
     if (memoryPhiCurrentBB) {
       mostRecentMemoryDef = memoryPhiCurrentBB;
     }
     for (Instruction &I : BB) {
       if (isa<StoreInst>(&I)) {
+        outs() << "-------------------\n"
+               << I << "\n"
+               << "-------------------\n";
         mostRecentMemoryDef = currentMemorySSA->getMemoryAccess(&I);
         continue;
       }
       if (isa<ReturnInst>(&I)) {
-        FunctionEncoder::handleReturnInst(*(dyn_cast<ReturnInst>(&I)));
+        FunctionEncoder::handleReturnInst(*(dyn_cast<ReturnInst>(&I)),
+                                          HandleReturnInstPass);
       }
     }
   }
