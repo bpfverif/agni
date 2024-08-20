@@ -1,7 +1,11 @@
 #include "FunctionEncoder.hpp"
 #include <llvm/Analysis/MemorySSA.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/IR/IntrinsicInst.h>
+#include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Value.h>
+#include <z3++.h>
 
 std::string FunctionEncoder::toString() {
   z3::expr f = z3::mk_and(this->functionEncodingZ3ExprVec);
@@ -205,7 +209,7 @@ void FunctionEncoder::handleCastInst(CastInst &i) {
   outs() << "[handleCastInst]\n";
 
   if (isa<BitCastInst>(&i)) {
-    throw std::runtime_error("[handleCallInst]"
+    throw std::runtime_error("[handleCastInst]"
                              "bitcast instruction not supported\n");
   }
 
@@ -325,6 +329,79 @@ void FunctionEncoder::handleBinaryOperatorInst(BinaryOperator &i) {
     break;
   }
   outs() << resultExpr.to_string().c_str() << "\n";
+  BBAsstVecIter->second.push_back(resultExpr);
+}
+
+/*
+Intrinsics return aggregate types (e.g. @llvm.sadd.with.overflow.i32, returns a
+{i32, i1}), and these intrinsics are typically followed by extractvalue
+instructions, that choose the value from the aggregate type returned by the
+intrinsic.
+
+Example:
+%c = call { i32, i1 } @llvm.sadd.with.overflow.i32(i32 %a, i32 %b)
+%c1 = extractvalue { i32, i1 } %c, 1 ; yields i32
+%c0 = extractvalue { i32, i1 } %c, 0 ; yields i1
+
+We already stored the bitvectors corresponding to the aggregate type in
+BBValueBVTreeMap when we encountered the intrinsic call instruction. After
+retreiving them, it is just a matter of extracting the appropriate bitvectors,
+and asserting equivalences:
+
+c1_bv == res_i32_bv
+c0_bv == res_i1_bv
+*/
+void FunctionEncoder::handleExtractValueInst(ExtractValueInst &i) {
+
+  outs() << "[handleExtractValueInst]\n";
+  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+  Value *extractValueInstVal = dyn_cast<Value>(&i);
+  Value *extractValueOperand = i.getAggregateOperand();
+  outs() << "[handleExtractValueInst] "
+         << "extractValueOperand: " << *extractValueOperand << "\n";
+
+  if (!isa<IntrinsicInst>(extractValueOperand)) {
+    throw std::invalid_argument(
+        "[handleExtractValueInst] extractvalue instructions only supported "
+        "on operands that were derived from llvm.intrinsic calls.\n");
+  }
+  StructType *aggStructType =
+      dyn_cast<StructType>(extractValueOperand->getType());
+  if (!aggStructType) {
+    outs() << i;
+    throw std::invalid_argument(
+        "[handleExtractValueInst] extractvalue instructions only supported"
+        "when operand is a struct type\n");
+  }
+
+  assert(i.getNumIndices() == 1);
+  auto structAccessIndex = i.getIndices()[0];
+  outs() << "[handleExtractValueInst] "
+         << "index: " << structAccessIndex << "\n";
+
+  ValueBVTreeMap *currentBBValueBVTreeMap =
+      this->BBValueBVTreeMap.at(currentBB);
+  printValueBVTreeMap(*currentBBValueBVTreeMap);
+  outs().flush();
+
+  z3::expr resultExpr(ctx);
+  BVTree *oldTree = currentBBValueBVTreeMap->at(extractValueOperand);
+  outs() << "[handleExtractValueInst] "
+         << "BVTree for " << extractValueOperand->getName() << ":"
+         << oldTree->toString() << "\n";
+  auto bv0 = oldTree->getSubTree(0)->bv;
+  auto bv1 = oldTree->getSubTree(1)->bv;
+  auto exp = BitVecHelper::getBitVecSingValType(extractValueInstVal);
+  if (structAccessIndex == 0) {
+    resultExpr = bv0 == exp;
+  } else if (structAccessIndex == 1) {
+    resultExpr = bv1 == exp;
+  } else {
+    throw std::invalid_argument(
+        "[handleExtractValueInst] Unknown extractvalue index\n");
+  }
+  outs() << "[handleExtractValueInst] " << resultExpr.to_string().c_str()
+         << "\n";
   BBAsstVecIter->second.push_back(resultExpr);
 }
 
@@ -1991,9 +2068,168 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi, int passID) {
   }
 }
 
+/*
+Example:
+%res = call {i32, i1} @llvm.sadd.with.overflow.i32(i32 %a, i32 %b)
+
+This instruction performs a signed addition of the two variables, and returns a
+structure — the first element of which is the signed summation, and the second
+element of which is a bit specifying if the signed summation resulted in an
+overflow.
+
+Consider the above instruction. We first create two bitvectors and store them in
+a bitvector tree: [res_i32_bv, res_i1_bv]. We store this tree in the global map
+BBValueBVTreeMap to be retreived later. Finally, we assert that: if the signed
+addition did *not* overflow, then the bitvector res_i1_bv (that corresponds to
+the whether the result *overflowed* in llvm) is set to 0, else it is set to 1.
+
+According to llvm LangRef the semantics of llvm.sadd.with.overflow is defined
+such that it is meant to detect both positive overflow (sum of two positive
+numbers yields a negative result) and negative overflow (sum of two negative
+numbers yields a positive result). The semantics is similarly defined for other
+llvm.*.with.overflow intrinsics.
+
+For addition, Z3 has the predicates BVAddNoOverflow, BVAddNoUnderflow. Per Z3,
+an overflow occurs when there is positive overflow and underflow occurs when
+there is negative overflow.
+
+So, in order to encode the semantics of llvm.sadd.with.overflow, we need to
+assert in Z3 that either overflow or underflow occured: (!BVAddNoOverflow \/
+!BVAddNoUnderflow). Alternatively, (BVAddNoOverflow /\ BVAddNoUnderflow) asserts
+overflow did *not* occur.
+
+z3.If(
+  z3.And(z3.BVAddNoOverflow(a_bv, b_bv, True), z3.BVAddNoUnderflow(a_bv, b_bv)),
+  res_i1_bv == 0,
+  res_i1_bv == 1
+)
+
+res_i32_bv == a_bv + b_bv
+*/
+void FunctionEncoder::handleAddSubWithOverflowIntrinsic(IntrinsicInst &i) {
+
+  outs() << "[handleAddSubWithOverflowIntrinsic] "
+         << "\n";
+  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+  Value *intrinsicInstValue = dyn_cast<Value>(&i);
+  Value *callOperand0 = i.getOperand(0);
+  Value *callOperand1 = i.getOperand(1);
+
+  auto callOperand0BV = BitVecHelper::getBitVecSingValType(callOperand0);
+  auto callOperand1BV = BitVecHelper::getBitVecSingValType(callOperand1);
+  outs() << "[handleAddSubWithOverflowIntrinsic]"
+         << "callOperand0: " << *callOperand0
+         << " (bv: " << callOperand0BV.to_string().c_str() << ")"
+         << "\n";
+  outs() << "[handleAddSubWithOverflowIntrinsic]"
+         << "callOperand1: " << *callOperand1
+         << " (bv: " << callOperand1BV.to_string().c_str() << ")"
+         << "\n";
+  StructType *instRetType = dyn_cast<StructType>(i.getType());
+  if (!instRetType && instRetType->getNumElements() != 2) {
+    throw std::runtime_error(
+        "[handleAddSubWithOverflowIntrinsic]"
+        "Unsupported type for add_with_overflow intrinsic."
+        "Only struct types like {i32, i1} or {i64, i1} are supported\n");
+  }
+  outs() << "[handleAddSubWithOverflowIntrinsic]"
+         << "instRetType: " << *instRetType << "\n";
+
+  ValueBVTreeMap *currentBBValueBVTreeMap;
+  if (this->BBValueBVTreeMap.find(currentBB) == this->BBValueBVTreeMap.end()) {
+    currentBBValueBVTreeMap = new ValueBVTreeMap();
+    BBValueBVTreeMap.insert({currentBB, currentBBValueBVTreeMap});
+  } else {
+    currentBBValueBVTreeMap = this->BBValueBVTreeMap.at(currentBB);
+  }
+
+  // the call instruction returns a struct of type {i32, i1},
+  // create a bitvector tree of the same structure.
+  BVTree *newTree = setupBVTreeForArg(intrinsicInstValue,
+                                      intrinsicInstValue->getName().str());
+  outs() << "[handleAddSubWithOverflowIntrinsic] "
+         << "newTree: " << newTree->toString() << "\n";
+  currentBBValueBVTreeMap->insert({intrinsicInstValue, newTree});
+
+  auto resBV = newTree->getSubTree(0)->bv;
+  auto overflowBV = newTree->getSubTree(1)->bv;
+  outs() << "[handleAddSubWithOverflowIntrinsic] "
+         << "resBV: " << resBV.get_sort().to_string().c_str() << "\n";
+  outs() << "[handleAddSubWithOverflowIntrinsic] "
+         << "overflowBV: " << overflowBV.get_sort().to_string().c_str() << "\n";
+
+  z3::expr resultExprNoOverflowOrUnderflow(ctx), resultExpr(ctx);
+  switch (i.getIntrinsicID()) {
+  case Intrinsic::sadd_with_overflow: {
+    resultExprNoOverflowOrUnderflow =
+        z3::ite((z3::bvadd_no_overflow(callOperand0BV, callOperand1BV, true) &&
+                 z3::bvadd_no_underflow(callOperand0BV, callOperand1BV)),
+                overflowBV == 0, overflowBV == 1);
+    resultExpr = resBV == callOperand0BV + callOperand1BV;
+  } break;
+  case Intrinsic::uadd_with_overflow: {
+    resultExprNoOverflowOrUnderflow =
+        z3::ite((z3::bvadd_no_overflow(callOperand0BV, callOperand1BV, false) &&
+                 z3::bvadd_no_underflow(callOperand0BV, callOperand1BV)),
+                overflowBV == 0, overflowBV == 1);
+    resultExpr = resBV == callOperand0BV + callOperand1BV;
+  } break;
+  case Intrinsic::ssub_with_overflow: {
+    resultExprNoOverflowOrUnderflow =
+        z3::ite((z3::bvsub_no_overflow(callOperand0BV, callOperand1BV) &&
+                 z3::bvsub_no_underflow(callOperand0BV, callOperand1BV, true)),
+                overflowBV == 0, overflowBV == 1);
+    resultExpr = resBV == callOperand0BV - callOperand1BV;
+  } break;
+  case Intrinsic::usub_with_overflow: {
+    resultExprNoOverflowOrUnderflow =
+        z3::ite((z3::bvsub_no_overflow(callOperand0BV, callOperand1BV) &&
+                 z3::bvsub_no_underflow(callOperand0BV, callOperand1BV, false)),
+                overflowBV == 0, overflowBV == 1);
+    resultExpr = resBV == callOperand0BV - callOperand1BV;
+  } break;
+  }
+
+  assert(resultExprNoOverflowOrUnderflow && resultExpr);
+
+  outs() << "[handleAddSubWithOverflowIntrinsic] "
+         << "resultExprNoOverflow: "
+         << resultExprNoOverflowOrUnderflow.to_string().c_str() << "\n";
+  BBAsstVecIter->second.push_back(resultExprNoOverflowOrUnderflow);
+
+  outs() << "[handleAddSubWithOverflowIntrinsic] "
+         << "resultExpr: " << resultExpr.to_string().c_str() << "\n";
+  BBAsstVecIter->second.push_back(resultExpr);
+}
+
+void FunctionEncoder::handleIntrinsicCallInst(IntrinsicInst &i) {
+  outs() << "[handleIntrinsicCallInst] "
+         << "\n";
+
+  switch (i.getIntrinsicID()) {
+  case Intrinsic::sadd_with_overflow:
+  case Intrinsic::uadd_with_overflow:
+  case Intrinsic::ssub_with_overflow:
+  case Intrinsic::usub_with_overflow:
+    handleAddSubWithOverflowIntrinsic(i);
+    break;
+  default:
+    throw std::runtime_error("[handleIntrinsicCallInst]"
+                             " this intrinsic is not supported\n");
+  }
+}
+
 void FunctionEncoder::handleCallInst(CallInst &i) {
-  throw std::runtime_error("[handleCallInst]"
-                           "call instruction not supported\n");
+  outs() << "[handleCallInst] "
+         << "\n";
+
+  if (isa<IntrinsicInst>(&i)) {
+    handleIntrinsicCallInst(*dyn_cast<IntrinsicInst>(&i));
+  } else {
+    throw std::runtime_error(
+        "[handleCallInst]"
+        "only llvm intrinsic call instructions are supported\n");
+  }
 }
 
 /*
@@ -2026,6 +2262,8 @@ void FunctionEncoder::populateBBAssertionsMap(BasicBlock &B) {
       handleStoreInst(*dyn_cast<StoreInst>(&I));
     } else if (isa<CallInst>(&I)) {
       handleCallInst(*dyn_cast<CallInst>(&I));
+    } else if (isa<ExtractValueInst>(&I)) {
+      handleExtractValueInst(*(dyn_cast<ExtractValueInst>(&I)));
     } else {
       outs() << "Unknown instruction. Continuing...\n";
       continue;

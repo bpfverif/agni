@@ -112,10 +112,10 @@ public:
 
   std::unordered_map<Value *, std::vector<ValueBBPair>> PhiMap;
 
-  /* Associate with each BasicBlock, a ValueBVTreeMap; to resolve
-   * to resolve insertValue instructions (instead of piggy-backing on the
-   * MemoryAccessValueBVTreeMap). Used to store BVTrees for aggregate types.
-   * Also used for handling struct return types. */
+  /* Associate with each BasicBlock, a ValueBVTreeMap; to track insertValue
+   * instructions or intrinsic call instructions that return an aggregate type.
+   * This map will store BVTrees for aggregate types that can be retreived
+   * later. */
   std::unordered_map<BasicBlock *, ValueBVTreeMap *> BBValueBVTreeMap;
 
   /* Functions to print things */
@@ -137,6 +137,7 @@ public:
   /* Functions that handle individual llvm instructions */
   void handleCastInst(CastInst &i);
   void handleBinaryOperatorInst(BinaryOperator &i);
+  void handleExtractValueInst(ExtractValueInst &i);
   void handleReturnInstPointerArgs(ReturnInst &i);
   bool functionHasPointerArguments(Function &F);
   void handleReturnInst(ReturnInst &i);
@@ -151,6 +152,8 @@ public:
   void handleStoreInst(StoreInst &i);
   void handleMemoryPhiNode(MemoryPhi &mphi, int passID);
   void handleCallInst(CallInst &i);
+  void handleIntrinsicCallInst(IntrinsicInst &i);
+  void handleAddSubWithOverflowIntrinsic(IntrinsicInst &i);
   void handleGEPInstFromSelect(GetElementPtrInst &i);
   void handleGEPInstFromPHI(GetElementPtrInst &i);
   void handlePhiInstPointer(PHINode &inst);
