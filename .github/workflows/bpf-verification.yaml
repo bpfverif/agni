@@ -22,6 +22,7 @@ jobs:
         kernel: [5.9]
         spec: ["no-weak-spec", "weak-spec"]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Install dependencies
         run: |
