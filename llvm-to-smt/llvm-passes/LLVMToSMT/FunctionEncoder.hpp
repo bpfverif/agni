@@ -32,6 +32,13 @@ typedef std::pair<Value *, BasicBlock *> ValueBBPair;
 
 extern z3::context ctx;
 
+enum FunctionEncoderPassType {
+  BBAssertionsMapPass = 1,
+  PathConditionsMapPass = 2,
+  HandlePhiNodesPass = 3,
+  HandleReturnInstPass = 4
+};
+
 class FunctionEncoder {
 
 public:
@@ -140,7 +147,7 @@ public:
   void handleExtractValueInst(ExtractValueInst &i);
   void handleReturnInstPointerArgs(ReturnInst &i);
   bool functionHasPointerArguments(Function &F);
-  void handleReturnInst(ReturnInst &i);
+  void handleReturnInst(ReturnInst &i, FunctionEncoderPassType passID);
   void handleICmpInst(ICmpInst &i);
   void handleSelectInst(SelectInst &i);
   void handleBranchInst(BranchInst &i);
@@ -150,7 +157,7 @@ public:
   void handleGEPInst(GetElementPtrInst &i);
   void handleLoadInst(LoadInst &i);
   void handleStoreInst(StoreInst &i);
-  void handleMemoryPhiNode(MemoryPhi &mphi, int passID);
+  void handleMemoryPhiNode(MemoryPhi &mphi, FunctionEncoderPassType passID);
   void handleCallInst(CallInst &i);
   void handleIntrinsicCallInst(IntrinsicInst &i);
   void handleAddSubWithOverflowIntrinsic(IntrinsicInst &i);
