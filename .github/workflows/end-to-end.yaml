@@ -33,8 +33,7 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        # BPF_ADD* and BPF_SUB* are excluded for now due to a kernel regression wrt to encoding generation.
-        insn: [BPF_SYNC, BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_ARSH, BPF_JLT, BPF_JLE, BPF_JSLT, BPF_JSLE, BPF_JEQ, BPF_JNE, BPF_JGE, BPF_JGT, BPF_JSGE, BPF_JSGT, BPF_OR_32, BPF_AND_32, BPF_XOR_32, BPF_LSH_32, BPF_RSH_32, BPF_ARSH_32, BPF_JLT_32, BPF_JLE_32, BPF_JSLT_32, BPF_JSLE_32, BPF_JEQ_32, BPF_JNE_32, BPF_JGE_32, BPF_JGT_32, BPF_JSGE_32, BPF_JSGT_32]
+        insn: [BPF_SYNC, BPF_ADD, BPF_SUB, BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_ARSH, BPF_JLT, BPF_JLE, BPF_JSLT, BPF_JSLE, BPF_JEQ, BPF_JNE, BPF_JGE, BPF_JGT, BPF_JSGE, BPF_JSGT, BPF_ADD_32, BPF_SUB_32, BPF_OR_32, BPF_AND_32, BPF_XOR_32, BPF_LSH_32, BPF_RSH_32, BPF_ARSH_32, BPF_JLT_32, BPF_JLE_32, BPF_JSLT_32, BPF_JSLE_32, BPF_JEQ_32, BPF_JNE_32, BPF_JGE_32, BPF_JGT_32, BPF_JSGE_32, BPF_JSGT_32]
         tree: ["torvalds_linux", "bpf_bpf-next"]
     runs-on: ubuntu-latest
     steps:
