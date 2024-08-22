@@ -485,6 +485,7 @@ void FunctionEncoder::handleReturnInst(ReturnInst &i,
                                        FunctionEncoderPassType passID) {
   outs() << "[handleReturnInst]\n";
   outs() << "passID: " << passID << "\n";
+
   if (passID != HandleReturnInstPass) {
     outs() << "[handleReturnInst] "
            << "nothing to do, returning...\n";
@@ -631,8 +632,11 @@ void FunctionEncoder::handleSelectInst(SelectInst &i) {
 
 void FunctionEncoder::handleBranchInst(BranchInst &i,
                                        FunctionEncoderPassType passID) {
+  outs() << "[handleBranchInst]\n";
+  outs() << "passID: " << passID << "\n";
+
   if (passID != PathConditionsMapPass) {
-    outs() << "[handlePhiNode] "
+    outs() << "[handleBranchInst] "
            << "nothing to do, returning...\n";
     return;
   }
@@ -877,16 +881,19 @@ void FunctionEncoder::handlePhiNode(PHINode &inst, int passID) {
   outs() << "[handlePhiNode]\n";
   outs() << "passID: " << passID << "\n";
 
-  if (passID == BBAssertionsMapPass) {
+  switch (passID) {
+  case BBAssertionsMapPass: {
     handlePhiNodeSetupBitVecs(inst);
-  } else if (passID == PathConditionsMapPass) {
+  } break;
+  case HandlePhiNodesPass: {
+    handlePhiNodeResolvePathConditions(inst);
+
+  } break;
+  default: {
+    /* In all other passes, we should'nt get here. We do nothing */
     outs() << "[handlePhiNode] "
            << "nothing to do, returning...\n";
-    return;
-  } else if (passID == HandlePhiNodesPass) {
-    handlePhiNodeResolvePathConditions(inst);
-  } else {
-    throw std::runtime_error("[handlePhiNode] unknown passID\n");
+  } break;
   }
 }
 
@@ -1997,7 +2004,8 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi,
   mostRecentMemoryDef = &mphi;
 
   /* In the first pass, we populate MemoryPhiResolutionMap. */
-  if (passID == BBAssertionsMapPass) {
+  switch (passID) {
+  case BBAssertionsMapPass: {
 
     /* Create new Value:BVTree Map for this MemoryPhi node, and populate it
      * with BVTrees for only those Value(s) which are function arguments. */
@@ -2063,19 +2071,12 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi,
     outs() << "[handleMemoryPhiNode] "
            << "MemoryPhiResolutionMap:\n";
     printMemoryPhiResolutionMap();
-
-  }
-  /* In the second pass, we should'nt get here. We do nothing */
-  else if (passID == PathConditionsMapPass) {
-    outs() << "[handleMemoryPhiNode] "
-           << "nothing to do, returning...\n";
-    return;
-  }
+  } break;
   /* In the third pass, we have the path conditions for each BBPair populated
    * in EdgeAssertionsMap by the PathConditionsMapPass. Use them, and the
    * MemoryPhiResolutionMap, to figure what is the z3 expressions formed as a
    * result of taking the particular edge.*/
-  else if (passID == HandlePhiNodesPass) {
+  case HandlePhiNodesPass: {
 
     auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
 
@@ -2090,8 +2091,12 @@ void FunctionEncoder::handleMemoryPhiNode(MemoryPhi &mphi,
              << phiResolveI.to_string().c_str() << "\n";
       BBAsstVecIter->second.push_back(phiResolveI);
     }
-  } else {
-    throw std::runtime_error("[handleMemoryPhiNode] Unknown passID\n");
+  } break;
+  default: {
+    /* In all other passes, we should'nt get here. We do nothing */
+    outs() << "[handleMemoryPhiNode] "
+           << "nothing to do, returning...\n";
+  } break;
   }
 }
 
