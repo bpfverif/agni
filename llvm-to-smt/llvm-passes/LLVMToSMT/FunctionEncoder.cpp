@@ -5,8 +5,8 @@
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Value.h>
-#include <z3++.h>
 #include <stdexcept>
+#include <z3++.h>
 
 std::string FunctionEncoder::toString() {
   z3::expr f = z3::mk_and(this->functionEncodingZ3ExprVec);
@@ -1365,162 +1365,6 @@ void FunctionEncoder::handleLoadInst(LoadInst &loadInst) {
   printBBAssertionsMap();
 }
 
-#if 0
-
-%struct.bpf_reg_state = type { i32, i64, i64, i64, i64}
-
-define dso_local void @foo(%struct.bpf_reg_state* %dst_reg, %struct.bpf_reg_state* %src_reg) local_unnamed_addr align 16 {
-entry:
-  %umin_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 1
-; MemoryUse(liveOnEntry) MayAlias
-  %umin_src_load = load i64, i64* %umin_src, align 8
-  %type_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 0
-; MemoryUse(liveOnEntry) MayAlias
-  %type_src_load = load i32, i32* %type_src, align 8
-  %type_src_is_zero = icmp eq i32 %type_src_load, 0
-  br i1 %type_src_is_zero, label %ltrue, label %lend
-
-ltrue:                                            ; preds = %entry
-  %smin_dst = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %dst_reg, i64 0, i32 3
-; 1 = MemoryDef(liveOnEntry)
-  store i64 0, i64* %smin_dst, align 8
-  br label %lend
-
-lend:                                             ; preds = %ltrue, %entry
-; 3 = MemoryPhi({entry,liveOnEntry},{ltrue,1})
-  %phi_reg = phi %struct.bpf_reg_state* [ %dst_reg, %ltrue ], [ %src_reg, %entry ]
-  %smin_phi = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %phi_reg, i64 0, i32 3
-; 2 = MemoryDef(3)
-  store i64 %umin_src_load, i64* %smin_phi, align 8
-  ret void
-}
-
-#endif
-
-/*
-Consider the above function foo. Before we encounter the store instruction, we
-have: ; GEPMap: {{umin, src_reg, [1]},{type_src, src_reg, [0],{smin_dst,
-dst_reg, [3]}, {smin_phi, phi_reg, [3]}}
-
-MemoryViewMap:
-(liveOnEntry): {
-%src_reg: [s0_bv, s1_bv, s2_bv, s3_bv, s4_bv]
-%dst_reg: [d0_bv, d1_bv, d2_bv, d3_bv, d4_bv]
-}
-
-1 = MemoryDef(liveOnEntry) : {
-%src_reg: [s0_bv, s1_bv, s2_bv, 0x0, s4_bv]
-%dst_reg: [d0_bv, d1_bv, d2_bv, d3_bv, d4_bv]
-}
-
-3 = MemoryPhi({entry,liveOnEntry},{ltrue,1}): {
-%src_reg: [s0_p_bv, s1_p_bv, s2_p_bv, s3_p_bv, s4_p_bv]
-%dst_reg: [d0_p_bv, d1_p_bv, d2_p_bv, d3_p_bv, d4_p_bv]
-}
-
-PhiMap:
-phi_reg : {<dst_reg, ltrue>, <src_reg, entry>}
-
-PhiResolutionMap:
-{{<ltrue, lend>: ltrue_lend_pc},{<entry, lend>: entry_lend_pc}}
-
----
-
-To encode the store, we first create a copy of the MemoryDef the
-store modifies. In this case,
-
-; 2 = MemoryDef(3)
-; %src_reg: [s0_p_bv, s1_p_bv, s2_p_bv, phi_resolve_bv_1, s4_p_bv]
-; %dst_reg: [d0_p_bv, d1_p_bv, d2_p_bv, phi_resolve_bv_2, d4_p_bv]
-
-Then we encode the store:
-  ; (ite (= entry_lend_pc #b1)
-  ;      (= phi_resolve_bv_1 umin_src_load_bv)
-  ;      (= phi_resolve_bv_1 s3_p_bv))
-  ; (ite (= ltrue_lend_pc #b1)
-  ;      (= phi_resolve_bv_2 umin_src_load_bv)
-  ;      (= phi_resolve_bv_1 d3_p_bv))
-
-*/
-
-void FunctionEncoder::handleStoreToGEPPtrDerivedFromPhi(
-    z3::expr BVToStore, PHINode &phiInst, std::vector<int> *GEPMapIndices,
-    ValueBVTreeMap *newValueBVTreeMap, MemoryUseOrDef *storeMemoryAccess) {
-  outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-         << "\n";
-
-  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
-
-  BasicBlock *phiPtrInstBB = phiInst.getParent();
-  outs() << "[handleStoreToGEPPtrDerivedFromPhi] phiPtrInstBB: "
-         << phiPtrInstBB->getName() << "\n";
-  outs().flush();
-  std::vector<ValueBBPair> phiValueBBPairs = PhiMap.at(&phiInst);
-
-  for (auto kv : phiValueBBPairs) {
-    Value *phiArgValI = kv.first;
-    BasicBlock *phiArgBBI = kv.second;
-
-    BVTree *parentBVTreeI = newValueBVTreeMap->at(phiArgValI);
-    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-           << "parentBVTreeI:\n";
-    outs() << parentBVTreeI->toString() << "\n";
-
-    z3::expr phiStoreResolveBVI =
-        BitVecHelper::getBitVec(BVToStore.get_sort().bv_size(), "phi_resolve_");
-
-    BVTree *subTreeI;
-    if (GEPMapIndices->size() == 1) {
-      int idx = GEPMapIndices->at(0);
-      subTreeI = parentBVTreeI->getSubTree(idx);
-    } else if (GEPMapIndices->size() == 2) {
-      int idx0 = GEPMapIndices->at(0);
-      int idx1 = GEPMapIndices->at(1);
-      subTreeI = parentBVTreeI->getSubTree(idx0)->getSubTree(idx1);
-    } else {
-      throw std::runtime_error("[handleStoreToGEPPtrDerivedFromPhi]: "
-                               "Unexpected GEPMapIndices size\n");
-    }
-
-    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-           << "subTreeI: " << subTreeI->toString() << "\n";
-    z3::expr oldStoreBVI = subTreeI->bv;
-    assert(oldStoreBVI);
-    subTreeI->bv = phiStoreResolveBVI;
-    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-           << "subTreeI updated: " << subTreeI->toString() << "\n";
-
-    // ------------------------------------------------------------------
-    BBPair BBPairI = std::make_pair(phiArgBBI, phiPtrInstBB);
-    z3::expr phiConditionBoolI = PhiResolutionMap.at(BBPairI);
-    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-           << "phiConditionBoolI: expr: "
-           << phiConditionBoolI.to_string().c_str()
-           << "sort: " << phiConditionBoolI.get_sort().to_string().c_str()
-           << "\n";
-
-    outs().flush();
-
-    z3::expr storeFromPhiEncodingI =
-        z3::ite(phiConditionBoolI, phiStoreResolveBVI == BVToStore,
-                phiStoreResolveBVI == oldStoreBVI);
-
-    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-           << "storeFromPhiEncodingI: \n"
-           << storeFromPhiEncodingI.to_string() << "\n";
-
-    BBAsstVecIter->second.push_back(storeFromPhiEncodingI);
-  }
-
-  MemoryAccessValueBVTreeMap.insert({storeMemoryAccess, *newValueBVTreeMap});
-  mostRecentMemoryDef = storeMemoryAccess;
-  outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
-         << "MemoryAccessValueBVTreeMap:\n";
-  printMemoryAccessValueBVTreeMap();
-  printBBAssertionsMap(currentBB);
-  outs().flush();
-}
-
 void FunctionEncoder::handleStoreToPhiPtrDerivedFromPhi(
     z3::expr BVToStore, PHINode &phiInst, std::vector<int> *GEPMapIndices,
     ValueBVTreeMap *newValueBVTreeMap, MemoryUseOrDef *storeMemoryAccess,
@@ -1546,7 +1390,7 @@ void FunctionEncoder::handleStoreToPhiPtrDerivedFromPhi(
     outs() << parentBVTreeI->toString() << "\n";
 
     z3::expr phiStoreResolveBVI =
-        BitVecHelper::getBitVec(BVToStore.get_sort().bv_size(), "phi_resolve_");
+        BitVecHelper::getBitVec(BVToStore.get_sort().bv_size(), "phi_resolve");
 
     BVTree *subTreeI;
     if (GEPMapIndices->size() == 1) {
@@ -1711,24 +1555,199 @@ void FunctionEncoder::handleStoreToPhiPtr(z3::expr BVToStore,
 }
 
 #if 0
-%struct.reg_st = type { i64, i64, i64, i64, i64, i64, i64, i64}
-; Function Attrs: noinline nounwind uwtable
-define dso_local void @foo(%struct.reg_st* %dst_reg, %struct.reg_st* %src_reg) local_unnamed_addr #0 align 16 {
-  %umin = getelementptr inbounds %struct.reg_st, %struct.reg_st* %src_reg, i64 0, i32 4
+
+define dso_local void @foo(%struct.bpf_reg_state* %dst_reg, %struct.bpf_reg_state* %src_reg) {
+entry:
+  %umin_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 4
+; MemoryUse(liveOnEntry) MayAlias
+  %umin_src_load = load i64, i64* %umin_src, align 8
+  %type_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 0
+; MemoryUse(liveOnEntry) MayAlias
+  %type_src_load = load i32, i32* %type_src, align 8
+  %type_src_is_zero = icmp eq i32 %type_src_load, 0
+  br i1 %type_src_is_zero, label %ltrue, label %lend
+
+ltrue:                                            ; preds = %entry
+  %smin_dst = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %dst_reg, i64 0, i32 2
+; 1 = MemoryDef(liveOnEntry)
+  store i64 0, i64* %smin_dst, align 8
+  br label %lend
+
+lend:                                             ; preds = %ltrue, %entry
+; 3 = MemoryPhi({entry,liveOnEntry},{ltrue,1})
+  %phi_reg = phi %struct.bpf_reg_state* [ %dst_reg, %ltrue ], [ %src_reg, %entry ]
+  %smin_phi = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %phi_reg, i64 0, i32 2
+; 2 = MemoryDef(3)
+  store i64 %umin_src_load, i64* %smin_phi, align 8
+  ret void
+}
+
+#endif
+
+/*
+Consider the above function foo. Before we encounter the store instruction, we
+have:
+
+GEPMap:
+umin, src_reg, [4]
+type_src, src_reg, [0]
+smin_dst, dst_reg, [2]
+smin_phi, phi_reg, [2]
+
+MemoryViewMap:
+(liveOnEntry): {
+%dst_reg: [d0_bv, [d1_bv, d2_bv], d3_bv, d4_bv, d5_bv, d6_bv, d7_bv, d8_bv,
+          d9_bv]
+%src_reg: [s0_bv, [s1_bv, s2_bv], s3_bv, s4_bv, s5_bv, s6_bv, s7_bv, s8_bv,
+          s9_bv]
+}
+
+1 = MemoryDef(liveOnEntry) : {
+%dst_reg: [d0_bv, [d1_bv, d2_bv], 0x0, d4_bv, d5_bv, d6_bv, d7_bv, d8_bv,
+          d9_bv]
+%src_reg: [s0_bv, [s1_bv, s2_bv], s3_bv, s4_bv, s5_bv, s6_bv, s7_bv, s8_bv,
+          s9_bv]
+}
+
+3 = MemoryPhi({entry,liveOnEntry},{ltrue,1}): {
+%dst_reg: [d0_p_bv, [d1_p_bv, d2_p_bv], 0x0, d4_p_bv, d5_p_bv, d6_p_bv, d7_p_bv,
+          d8_p_bv, d9_p_bv]
+%src_reg: [s0_p_bv, [s1_p_bv, s2_p_bv], s3_p_bv, s4_p_bv, s5_p_bv, s6_p_bv,
+          s7_p_bv, s8_p_bv, s9_p_bv]
+}
+
+PhiMap:
+phi_reg : {<dst_reg, ltrue>, <src_reg, entry>}
+
+PhiResolutionMap:
+{{<ltrue, lend>: ltrue_lend_pc},{<entry, lend>: entry_lend_pc}}
+
+---
+
+To encode the store, we first create a copy of the MemoryDef the
+store modifies. In this case,
+
+; 2 = MemoryDef(3)
+%dst_reg: [d0_p_bv, [d1_p_bv, d2_p_bv], phi_resolve_bv_1, d4_p_bv, d5_p_bv,
+          d6_p_bv, d7_p_bv, d8_p_bv, d9_p_bv]
+%src_reg: [s0_p_bv, [s1_p_bv, s2_p_bv], phi_resolve_bv_2, s4_p_bv, s5_p_bv,
+          s6_p_bv,s7_p_bv, s8_p_bv, s9_p_bv]
+
+Then we encode the store:
+  ; (ite (= ltrue_lend_pc #b1)
+  ;      (= phi_resolve_bv_1 umin_src_load_bv)
+  ;      (= phi_resolve_bv_1 d3_p_bv))
+  ; (ite (= entry_lend_pc #b1)
+  ;      (= phi_resolve_bv_2 umin_src_load_bv)
+  ;      (= phi_resolve_bv_2 s3_p_bv))
+
+*/
+
+void FunctionEncoder::handleStoreToGEPPtrDerivedFromPhi(
+    z3::expr BVToStore, PHINode &phiInst, std::vector<int> *GEPMapIndices,
+    ValueBVTreeMap *newValueBVTreeMap, MemoryUseOrDef *storeMemoryAccess) {
+  outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
+         << "\n";
+
+  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+
+  BasicBlock *phiPtrInstBB = phiInst.getParent();
+  outs() << "[handleStoreToGEPPtrDerivedFromPhi] phiPtrInstBB: "
+         << phiPtrInstBB->getName() << "\n";
+  outs().flush();
+  std::vector<ValueBBPair> phiValueBBPairs = PhiMap.at(&phiInst);
+
+  for (auto kv : phiValueBBPairs) {
+    Value *phiArgValI = kv.first;
+    BasicBlock *phiArgBBI = kv.second;
+
+    BVTree *parentBVTreeI = newValueBVTreeMap->at(phiArgValI);
+    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
+           << "parentBVTreeI:\n";
+    outs() << parentBVTreeI->toString() << "\n";
+
+    z3::expr phiStoreResolveBVI =
+        BitVecHelper::getBitVec(BVToStore.get_sort().bv_size(), "phi_resolve_");
+
+    BVTree *subTreeI;
+    if (GEPMapIndices->size() == 1) {
+      int idx = GEPMapIndices->at(0);
+      subTreeI = parentBVTreeI->getSubTree(idx);
+    } else if (GEPMapIndices->size() == 2) {
+      int idx0 = GEPMapIndices->at(0);
+      int idx1 = GEPMapIndices->at(1);
+      subTreeI = parentBVTreeI->getSubTree(idx0)->getSubTree(idx1);
+    } else {
+      throw std::runtime_error("[handleStoreToGEPPtrDerivedFromPhi]: "
+                               "Unexpected GEPMapIndices size\n");
+    }
+
+    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
+           << "subTreeI: " << subTreeI->toString() << "\n";
+    z3::expr oldStoreBVI = subTreeI->bv;
+    assert(oldStoreBVI);
+    subTreeI->bv = phiStoreResolveBVI;
+    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
+           << "subTreeI updated: " << subTreeI->toString() << "\n";
+
+    // ------------------------------------------------------------------
+    BBPair BBPairI = std::make_pair(phiArgBBI, phiPtrInstBB);
+    z3::expr phiConditionBoolI = PhiResolutionMap.at(BBPairI);
+    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
+           << "phiConditionBoolI: expr: "
+           << phiConditionBoolI.to_string().c_str()
+           << "sort: " << phiConditionBoolI.get_sort().to_string().c_str()
+           << "\n";
+
+    outs().flush();
+
+    z3::expr storeFromPhiEncodingI =
+        z3::ite(phiConditionBoolI, phiStoreResolveBVI == BVToStore,
+                phiStoreResolveBVI == oldStoreBVI);
+
+    outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
+           << "storeFromPhiEncodingI: \n"
+           << storeFromPhiEncodingI.to_string() << "\n";
+
+    BBAsstVecIter->second.push_back(storeFromPhiEncodingI);
+  }
+
+  MemoryAccessValueBVTreeMap.insert({storeMemoryAccess, *newValueBVTreeMap});
+  mostRecentMemoryDef = storeMemoryAccess;
+  outs() << "[handleStoreToGEPPtrDerivedFromPhi] "
+         << "MemoryAccessValueBVTreeMap:\n";
+  printMemoryAccessValueBVTreeMap();
+  printBBAssertionsMap(currentBB);
+  outs().flush();
+}
+
+#if 0
+
+%struct.bpf_reg_state = type {i32, %struct.tnum, i64, i64, i64, i64, i32, i32, i32, i32}
+%struct.tnum = type { i64, i64 }
+
+define dso_local void @foo(%struct.bpf_reg_state* %dst_reg, %struct.bpf_reg_state* %src_reg) {
+  %umin = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 4
+; MemoryUse(liveOnEntry) MayAlias
   %umin_load = load i64, i64* %umin, align 8
   %umin_is_zero = icmp eq i64 %umin_load, 0
-  %select_false_reg = select i1 %umin_is_zero, %struct.reg_st* %src_reg, %struct.reg_st* %dst_reg
-  %umax_false_reg = getelementptr inbounds %struct.reg_st, %struct.reg_st* %select_false_reg, i64 0, i32 5
+  %select_false_reg = select i1 %umin_is_zero, %struct.bpf_reg_state* %src_reg, %struct.bpf_reg_state* %dst_reg
+  %umax_false_reg = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %select_false_reg, i64 0, i32 5
+; 1 = MemoryDef(liveOnEntry)
   store i64 %umin_load, i64* %umax_false_reg, align 8
   ret void
 }
+
 #endif
 
 /*
 Consider the above function foo. With the following MemoryViewMap on entry:
 (liveOnEntry):
-{%src_reg: [s0_bv, s1_bv, s2_bv, s3_bv, s4_bv, s5_bv]
-%dst_reg: [d0_bv, d1_bv, d2_bv, d3_bv, d4_bv, d5_bv]
+{
+%src_reg: [s0_bv, [s1_bv, s2_bv], s3_bv, s4_bv, s5_bv, s6_bv, s7_bv, s8_bv,
+          s9_bv]
+%dst_reg: [d0_bv, [d1_bv, d2_bv], d3_bv, d4_bv, d5_bv, d6_bv, d7_bv, d8_bv,
+          d9_bv]
 }
 
 Before we encounter the 2nd GEP, we have:
@@ -1755,8 +1774,11 @@ GEP (index 5).
 
 MemoryViewMap:
 1 = MemoryDef(liveOnEntry):
-{%src_reg: [s0_bv, s1_bv, s2_bv, s3_bv, s4_bv, select_resolve_bv_1]
-%dst_reg: [d0_bv, d1_bv, d2_bv, d3_bv, d4_bv, select_resolve_bv_2]
+{
+%src_reg: [s0_bv, [s1_bv, s2_bv], s3_bv, s4_bv, select_resolve_bv_1, s6_bv,
+          s7_bv, s8_bv, s9_bv]
+%dst_reg: [d0_bv, [d1_bv, d2_bv], d3_bv, d4_bv, select_resolve_bv_2, d6_bv,
+          d7_bv, d8_bv, d9_bv]
 }
 
 * We now need to assert that the MemoryViewMap at each location (src_reg[5]
