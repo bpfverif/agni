@@ -1866,6 +1866,129 @@ void FunctionEncoder::handleStoreToGEPPtrDerivedFromSelect(
   outs().flush();
 }
 
+#if 0
+%struct.bpf_reg_state = type {i32, %struct.tnum, i64, i64, i64, i64, i32, i32, i32, i32}
+%struct.tnum = type { i64, i64 }
+
+define dso_local void @foo(%struct.bpf_reg_state* %dst_reg, %struct.bpf_reg_state* %src_reg) {
+entry:
+  %smin_dst = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %dst_reg, i64 0, i32 2
+  ; 1 = MemoryDef(liveOnEntry)
+  store i64 0, i64* %smin_dst, align 8
+  ret void
+}
+#endif
+
+/*
+Consider the above function foo. With the following MemoryViewMap on entry:
+(liveOnEntry):
+{
+%src_reg: [s0_bv, [s1_bv, s2_bv], s3_bv, s4_bv, s5_bv, s6_bv, s7_bv, s8_bv,
+          s9_bv]
+%dst_reg: [d0_bv, [d1_bv, d2_bv], d3_bv, d4_bv, d5_bv, d6_bv, d7_bv, d8_bv,
+          d9_bv]
+}
+
+Before we encounter the store, we have:
+GEPMap: smin_dst, dst_reg, [2]
+
+To encode the store, we create a copy of the MemoryDef the store modifies,
+and then store the bitvector corresponding to the store at the index specified
+by the GEP instruction:
+
+; 1 = MemoryDef(liveOnEntry)
+{
+%src_reg: [s0_bv, [s1_bv, s2_bv], s3_bv, s4_bv, s5_bv, s6_bv, s7_bv, s8_bv,
+          s9_bv]
+%dst_reg: [d0_bv, [d1_bv, d2_bv], smin_dst_bv, d4_bv, d5_bv, d6_bv, d7_bv,
+          d8_bv, d9_bv]
+}
+
+*/
+
+void FunctionEncoder::handleStoreToGEPPtrDerivedFromFunctionArg(
+    z3::expr BVToStore, Value *destPointerValue,
+    std::vector<int> *GEPMapIndices, ValueBVTreeMap *newValueBVTreeMap,
+    MemoryUseOrDef *storeMemoryAccess) {
+  outs().flush();
+  Value *GEPMapValue = GEPMap.at(destPointerValue).first;
+  outs() << "[handleStoreToGEPPtrDerivedFromFunctionArg] "
+         << "GEPMapValue: " << GEPMapValue->getName() << "\n";
+  outs().flush();
+  outs() << "[handleStoreToGEPPtrDerivedFromFunctionArg] "
+         << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices) << "\n";
+  outs().flush();
+
+  BVTree *parentBVTree = newValueBVTreeMap->at(GEPMapValue);
+  BVTree *subTree;
+  if (GEPMapIndices->size() == 1) {
+    int idx = GEPMapIndices->at(0);
+    subTree = parentBVTree->getSubTree(idx);
+  } else if (GEPMapIndices->size() == 2) {
+    int idx0 = GEPMapIndices->at(0);
+    int idx1 = GEPMapIndices->at(1);
+    subTree = parentBVTree->getSubTree(idx0)->getSubTree(idx1);
+  } else {
+    throw std::runtime_error("Unexpected GEPMapIndices size\n");
+  }
+
+  outs() << "[handleStoreToGEPPtrDerivedFromFunctionArg] "
+         << "subTree: " << subTree->toString() << "\n";
+  assert(subTree->bv);
+  subTree->bv = BVToStore;
+  outs() << "[handleStoreToGEPPtrDerivedFromFunctionArg] "
+         << "subTree updated: " << subTree->toString() << "\n";
+
+  MemoryAccessValueBVTreeMap.insert({storeMemoryAccess, *newValueBVTreeMap});
+  mostRecentMemoryDef = storeMemoryAccess;
+  outs() << "[handleStoreToGEPPtrDerivedFromFunctionArg] "
+         << "MemoryAccessValueBVTreeMap:\n";
+  printMemoryAccessValueBVTreeMap();
+}
+
+void FunctionEncoder::handleStoreToGEPPtr(z3::expr BVToStore,
+                                          GetElementPtrInst &GEPInst,
+                                          ValueBVTreeMap *newValueBVTreeMap,
+                                          MemoryUseOrDef *storeMemoryAccess) {
+  outs() << "[handleStoreToGEPPtr] "
+         << "\n";
+  outs() << "[handleStoreToGEPPtr] "
+         << "GEPInst: " << GEPInst << "\n";
+  std::vector<int> *GEPMapIndices = GEPMap.at(&GEPInst).second;
+  outs() << "[handleStoreToGEPPtr] "
+         << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices) << "\n";
+  Value *GEPargVal = GEPInst.getOperand(0);
+  outs() << "[handleStoreToGEPPtr] "
+         << "GEPargVal: " << *GEPargVal << "\n";
+  if (isa<PHINode>(GEPargVal)) {
+    outs()
+        << "[handleStoreToGEPPtr] Store pointer came from a GEP on a phi ptr\n";
+    PHINode &phiInst = *dyn_cast<PHINode>(GEPargVal);
+    outs() << "[handleStoreToGEPPtr] the phi: " << phiInst << "\n";
+    handleStoreToGEPPtrDerivedFromPhi(BVToStore, phiInst, GEPMapIndices,
+                                      newValueBVTreeMap, storeMemoryAccess);
+  } else if (isa<SelectInst>(GEPargVal)) {
+    outs() << "[handleStoreToGEPPtr] Store pointer came from a GEP on a select "
+              "pointer\n ";
+    SelectInst &selectInst = *dyn_cast<SelectInst>(GEPargVal);
+    outs() << "[handleStoreToGEPPtr] The select: " << selectInst << "\n";
+    handleStoreToGEPPtrDerivedFromSelect(BVToStore, selectInst, GEPMapIndices,
+                                         newValueBVTreeMap, storeMemoryAccess);
+  } else if (FunctionArgs.find(GEPMap.at(&GEPInst).first) !=
+             FunctionArgs.end()) {
+    outs() << "[handleStoreToGEPPtr] Store pointer came from a GEP that "
+              "(directly or indirectly) indexes into a function argument\n";
+    handleStoreToGEPPtrDerivedFromFunctionArg(BVToStore, &GEPInst,
+                                              GEPMapIndices, newValueBVTreeMap,
+                                              storeMemoryAccess);
+  } else {
+    throw std::runtime_error(
+        "[handleStoreToGEPPtr] Store pointer came from a GEP. But this GEP "
+        "itself (a) does not index into a function argument, (b) does not "
+        "index into a PHI ptr, (c) does not index into a select ptr. This is "
+        "not supported.\n");
+  }
+}
 void FunctionEncoder::handleStoreInst(StoreInst &storeInst) {
 
   /* Syntax:
@@ -1882,7 +2005,7 @@ void FunctionEncoder::handleStoreInst(StoreInst &storeInst) {
   /* Get location where value is stored */
   Value *destPointerValue = storeInst.getPointerOperand();
   outs() << "[handleStoreInst] "
-         << "destPointerValue: " << destPointerValue->getName() << "\n";
+         << "destPointerValue: " << *destPointerValue << "\n";
   outs().flush();
 
   /* get MemoryAccess corresponding to this store */
@@ -1917,91 +2040,19 @@ void FunctionEncoder::handleStoreInst(StoreInst &storeInst) {
 
   if (isa<GetElementPtrInst>(destPointerValue)) {
     GetElementPtrInst &GEPInst = *dyn_cast<GetElementPtrInst>(destPointerValue);
-    std::vector<int> *GEPMapIndices =
-        GEPMap.at(storeInst.getPointerOperand()).second;
+    handleStoreToGEPPtr(BVToStore, GEPInst, &newValueBVTreeMap,
+                        storeMemoryAccess);
+  } else if (isa<PHINode>(destPointerValue)) {
+    PHINode &phiInst = *dyn_cast<PHINode>(destPointerValue);
     outs() << "[handleStoreInst] "
-           << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices) << "\n";
-    Value *GEPargVal = GEPInst.getOperand(0);
-    outs() << "[handleStoreInst] "
-           << "GEPargVal: " << GEPargVal->getName() << "\n";
-    if (isa<PHINode>(GEPargVal)) {
-      outs()
-          << "[handleStoreInst] Store pointer came from a GEP on a phi ptr\n";
-      PHINode &phiInst = *dyn_cast<PHINode>(GEPargVal);
-      outs() << "[handleStoreInst] the phi: " << phiInst << "\n";
-
-      handleStoreToGEPPtrDerivedFromPhi(BVToStore, phiInst, GEPMapIndices,
-                                        &newValueBVTreeMap, storeMemoryAccess);
-      return;
-    } else if (isa<SelectInst>(GEPargVal)) {
-      outs() << "[handleStoreInst] Store pointer came from a GEP on a select "
-                "pointer\n ";
-      SelectInst &selectInst = *dyn_cast<SelectInst>(GEPargVal);
-      outs() << "[handleStoreInst] The select: " << selectInst << "\n";
-      handleStoreToGEPPtrDerivedFromSelect(BVToStore, selectInst, GEPMapIndices,
-                                           &newValueBVTreeMap,
-                                           storeMemoryAccess);
-      return;
-    }
+           << "phiInst: " << phiInst << "\n";
+    handleStoreToPhiPtr(BVToStore, phiInst, &newValueBVTreeMap,
+                        storeMemoryAccess);
   } else {
-    if (isa<PHINode>(destPointerValue)) {
-      PHINode &phiInst = *dyn_cast<PHINode>(destPointerValue);
-      if (!(phiInst.getType()->isSingleValueType() &&
-            phiInst.getType()->isPointerTy())) {
-        throw std::runtime_error(
-            "[handleStoreInst] Store pointer did not come from a GEP, it came "
-            "from a phi. But this phi is not a pointer type and a single value "
-            "type. This is not supported.\n");
-      }
-      handleStoreToPhiPtr(BVToStore, phiInst, &newValueBVTreeMap,
-                          storeMemoryAccess);
-      return;
-    } else if (isa<SelectInst>(destPointerValue)) {
-      throw std::runtime_error(
-          "[handleStoreInst] Store pointer did not come from a GEP, it came "
-          "from a select. This is not supported.\n");
-    } else {
-      throw std::runtime_error(
-          "[handleStoreInst] Store pointer did not come from a "
-          "GEP or phi or select. This is not supported.\n");
-    }
+    throw std::runtime_error(
+        "[handleStoreInst] Store pointer did not come from a GEP or phi "
+        "pointer. This is not supported.\n");
   }
-
-  outs().flush();
-  Value *GEPMapValue = GEPMap.at(destPointerValue).first;
-  outs() << "[handleStoreInst] "
-         << "GEPMapValue: " << GEPMapValue->getName() << "\n";
-  outs().flush();
-  std::vector<int> *GEPMapIndices = GEPMap.at(destPointerValue).second;
-  outs() << "[handleStoreInst] "
-         << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices) << "\n";
-  outs().flush();
-
-  BVTree *parentBVTree = newValueBVTreeMap.at(GEPMapValue);
-  BVTree *subTree;
-  if (GEPMapIndices->size() == 1) {
-    int idx = GEPMapIndices->at(0);
-    subTree = parentBVTree->getSubTree(idx);
-  } else if (GEPMapIndices->size() == 2) {
-    int idx0 = GEPMapIndices->at(0);
-    int idx1 = GEPMapIndices->at(1);
-    subTree = parentBVTree->getSubTree(idx0)->getSubTree(idx1);
-  } else {
-    throw std::runtime_error("Unexpected GEPMapIndices size\n");
-  }
-
-  outs() << "[handleStoreInst] "
-         << "subTree: " << subTree->toString() << "\n";
-  assert(subTree->bv);
-  subTree->bv = BVToStore;
-  outs() << "[handleStoreInst] "
-         << "subTree updated: " << subTree->toString() << "\n";
-
-  MemoryAccessValueBVTreeMap.insert({storeMemoryAccess, newValueBVTreeMap});
-  mostRecentMemoryDef = storeMemoryAccess;
-  outs() << "[handleStoreInst] "
-         << "MemoryAccessValueBVTreeMap:\n";
-  printMemoryAccessValueBVTreeMap();
 }
 
 /* Note: variables defined in the given BB are visible from all BBs that are
