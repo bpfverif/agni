@@ -164,10 +164,17 @@ public:
   void handleGEPInstFromSelect(GetElementPtrInst &i);
   void handleGEPInstFromPHI(GetElementPtrInst &i);
   void handlePhiInstPointer(PHINode &inst);
+  void handleStoreToGEPPtrDerivedFromFunctionArg(
+      z3::expr BVToStore, Value *destPointerValue,
+      std::vector<int> *GEPMapIndices, ValueBVTreeMap *newValueBVTreeMap,
+      MemoryUseOrDef *storeMemoryAccess);
   void handleLoadFromGEPPtrDerivedFromSelect(LoadInst &i,
                                              SelectInst &selectInst);
   void handleLoadFromGEPPtrDerivedFromPhi(LoadInst &i, PHINode &phiNode);
 
+  void handleStoreToGEPPtr(z3::expr BVToStore, GetElementPtrInst &GEPInst,
+                           ValueBVTreeMap *newValueBVTreeMap,
+                           MemoryUseOrDef *storeMemoryAccess);
   void handleStoreToGEPPtrDerivedFromSelect(z3::expr BVToStore,
                                             SelectInst &selectInst,
                                             std::vector<int> *GEPMapIndices,
