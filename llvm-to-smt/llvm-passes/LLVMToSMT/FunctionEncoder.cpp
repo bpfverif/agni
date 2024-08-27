@@ -1365,26 +1365,155 @@ void FunctionEncoder::handleLoadInst(LoadInst &loadInst) {
   printBBAssertionsMap();
 }
 
-void FunctionEncoder::handleStoreToPhiPtrDerivedFromPhi(
-    z3::expr BVToStore, PHINode &phiInst, std::vector<int> *GEPMapIndices,
-    ValueBVTreeMap *newValueBVTreeMap, MemoryUseOrDef *storeMemoryAccess,
-    z3::expr PhiPathCondition) {
-  outs() << "[handleStoreToPhiPtrDerivedFromPhi] "
+#if 0
+
+%struct.bpf_reg_state = type {i32, %struct.tnum, i64, i64, i64, i64, i32, i32, i32, i32}
+%struct.tnum = type { i64, i64 }
+
+define dso_local void @foo(%struct.bpf_reg_state* %dst_reg, %struct.bpf_reg_state* %src_reg) align 16 {
+entry:
+  %var_off_dst = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %dst_reg, i64 0, i32 1
+  %var_off_value_dst = getelementptr %struct.tnum, %struct.tnum* %var_off_dst, i64 0, i32 0
+; 1 = MemoryDef(liveOnEntry)
+  store i64 0, i64* %var_off_value_dst, align 8
+  %smin_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 2
+; 2 = MemoryDef(1)
+  store i64 0, i64* %smin_src, align 8
+  %type_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 0
+; MemoryUse(1) MayAlias
+  %type_src_load = load i32, i32* %type_src, align 8
+  %type_src_is_zero = icmp eq i32 %type_src_load, 0
+  br i1 %type_src_is_zero, label %ltrue, label %lfalse
+
+ltrue:                                            ; preds = %entry
+  %var_off_mask_dst = getelementptr %struct.tnum, %struct.tnum* %var_off_dst, i64 0, i32 1
+; 3 = MemoryDef(2)
+  store i64 1, i64* %var_off_value_dst, align 8
+  br label %lend
+
+lfalse:                                           ; preds = %entry
+  %umin_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 4
+; 4 = MemoryDef(2)
+  store i64 1, i64* %smin_src, align 8
+  br label %lend
+
+lend:                                             ; preds = %lfalse, %ltrue
+; 6 = MemoryPhi({ltrue,3},{lfalse,4})
+  %umin_phi = phi i64* [ %var_off_mask_dst, %ltrue ], [ %umin_src, %lfalse ]
+; 5 = MemoryDef(6)
+  store i64 3, i64* %umin_phi, align 4
+  ret void
+}
+
+#endif
+
+/*
+Consider the above function foo. Before we encounter the store instruction, we
+have:
+
+GEPMap:
+...
+umin_src, src_reg, [4]
+var_off_mask_dst, dst_reg, [1, 1]
+
+
+MemoryViewMap:
+...
+6 = MemoryPhi({ltrue,3},{lfalse,4}): {
+%dst_reg: [d0_bv, [d1_bv, d2_bv], d3_bv, d4_bv, d5_bv, d6_bv, d7_bv, d8_bv,
+          d9_bv]
+%src_reg: [s0_bv, [s1_bv, s2_bv], s3_bv, s4_bv, s5_bv, s6_bv, s7_bv, s8_bv,
+          s9_bv]
+}
+
+PhiMap:
+umin_phi : {<var_off_mask_dst, ltrue>, <umin_src, lfalse>}
+
+PhiResolutionMap:
+<lfalse, lend>: lfalse_lend_pc
+<ltrue, lend>: ltrue_lend_pc
+
+--
+
+To encode the store, we first create a copy of the MemoryDef the store modifies,
+in this case 6 = MemoryPhi({ltrue,3},{lfalse,4}), and associate it to
+the MemoryDef the store creates, in this case 5 = MemoryDef(6).
+
+; 5 = MemoryDef(6): {
+%dst_reg: [d0_bv, [d1_bv, d2_bv], d3_bv, d4_bv, d5_bv, d6_bv, d7_bv, d8_bv,
+          d9_bv]
+%src_reg: [s0_bv, [s1_bv, s2_bv], s3_bv, s4_bv, s5_bv, s6_bv, s7_bv, s8_bv,
+          s9_bv]
+}
+
+We first figure out the Value-BB pairs associated with the phi pointer of
+the store instruction. In this case the pairs are <var_off_mask_dst, ltrue>
+and <umin_src, lfalse>. We iterate over these pairs, and for each of these
+pairs, create a bitvector and store them at the appropriate location in the
+MemoryViewMap (to do this we use the indexing from the GEPMap).
+
+; 5 = MemoryDef(6): {
+%dst_reg: [d0_bv, [d1_bv, phi_resolve_bv_0], d3_bv, d4_bv, d5_bv, d6_bv, d7_bv,
+          d8_bv, d9_bv]
+%src_reg: [s0_bv, [s1_bv, s2_bv], s3_bv, s4_bv, phi_resolve_bv_1, s6_bv, s7_bv,
+          s8_bv, s9_bv]
+}
+
+Then, we encode the store:
+(ite ltrue_lend_pc
+     (= phi_resolve_bv_0 #x0000000000000003)
+     (= phi_resolve_bv_0 d2_bv))
+(ite lfalse_lend_pc
+     (= phi_resolve_bv_1 #x0000000000000003)
+     (= phi_resolve_bv_1 s4_bv))
+*/
+
+void FunctionEncoder::handleStoreToPhiPtr(z3::expr BVToStore,
+                                          PHINode &phiPtrInst,
+                                          ValueBVTreeMap *newValueBVTreeMap,
+                                          MemoryUseOrDef *storeMemoryAccess) {
+  outs() << "[handleStoreToPhiPtr] "
          << "\n";
+  outs() << phiPtrInst << "\n";
+  outs().flush();
+
+  Type *phiPointerBaseType = phiPtrInst.getType()->getPointerElementType();
+  if (!phiPointerBaseType->isIntegerTy()) {
+    throw std::runtime_error("[handleStoreInst] Store pointer came from a phi. "
+                             "But this phi pointer's base type is not a single "
+                             "value type. This is not supported.\n");
+  }
 
   auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
 
-  BasicBlock *phiPtrInstBB = phiInst.getParent();
-  outs() << "[handleStoreToPhiPtrDerivedFromPhi] phiPtrInstBB: "
-         << phiPtrInstBB->getName() << "\n";
+  BasicBlock *phiPtrInstBB = phiPtrInst.getParent();
+  outs() << "[handleStoreToPhiPtr] phiPtrInstBB: " << phiPtrInstBB->getName()
+         << "\n";
   outs().flush();
-  std::vector<ValueBBPair> phiValueBBPairs = PhiMap.at(&phiInst);
+  std::vector<ValueBBPair> phiValueBBPairs = PhiMap.at(&phiPtrInst);
 
   for (auto kv : phiValueBBPairs) {
     Value *phiArgValI = kv.first;
     BasicBlock *phiArgBBI = kv.second;
+    outs() << "[handleStoreToPhiPtr] phiArgValI: " << *phiArgValI << "\n";
+    outs() << "[handleStoreToPhiPtr] phiArgBBI: " << phiArgBBI->getName()
+           << "\n";
+    Value *GEPMapValuePhiArgI = GEPMap.at(phiArgValI).first;
+    std::vector<int> *GEPMapIndices = GEPMap.at(phiArgValI).second;
 
-    BVTree *parentBVTreeI = newValueBVTreeMap->at(phiArgValI);
+    outs() << "[handleStoreToPhiPtr] GEPMapValuePhiArgI: "
+           << *GEPMapValuePhiArgI << "\n";
+    outs() << "[handleStoreInst] "
+           << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices) << "\n";
+
+    if (FunctionArgs.find(GEPMapValuePhiArgI) == FunctionArgs.end()) {
+      throw std::runtime_error(
+          "[handleStoreToPhiPtr] Store pointer came from a PHI. But this PHI "
+          "chooses between values that are not derived from function "
+          "arguments. This is not supported.\n");
+    }
+
+    BVTree *parentBVTreeI = newValueBVTreeMap->at(GEPMapValuePhiArgI);
     outs() << "[handleStoreToPhiPtrDerivedFromPhi] "
            << "parentBVTreeI:\n";
     outs() << parentBVTreeI->toString() << "\n";
@@ -1419,9 +1548,9 @@ void FunctionEncoder::handleStoreToPhiPtrDerivedFromPhi(
     BBPair BBPairI = std::make_pair(phiArgBBI, phiPtrInstBB);
     z3::expr phiConditionBoolI = PhiResolutionMap.at(BBPairI);
 
-    z3::expr storeFromPhiEncodingI = z3::ite(
-        (PhiPathCondition && phiConditionBoolI),
-        phiStoreResolveBVI == BVToStore, phiStoreResolveBVI == oldStoreBVI);
+    z3::expr storeFromPhiEncodingI =
+        z3::ite((phiConditionBoolI), phiStoreResolveBVI == BVToStore,
+                phiStoreResolveBVI == oldStoreBVI);
     outs() << "[handleStoreToPhiPtrDerivedFromPhi] "
            << "storeFromPhiEncodingI: \n"
            << storeFromPhiEncodingI.to_string() << "\n";
@@ -1436,122 +1565,6 @@ void FunctionEncoder::handleStoreToPhiPtrDerivedFromPhi(
   printMemoryAccessValueBVTreeMap();
   printBBAssertionsMap(currentBB);
   outs().flush();
-}
-
-#if 0
-define dso_local void @foo(%struct.bpf_reg_state* %dst_reg, %struct.bpf_reg_state* %src_reg) align 16 {
-entry:
-  %type_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 0
-  %type_src_load = load i32, i32* %type_src, align 8
-  %type_src_is_zero = icmp eq i32 %type_src_load, 0
-  br i1 %type_src_is_zero, label %ltrue, label %lfalse
-
-ltrue:                                            ; preds = %entry
-  %smin_dst = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %dst_reg, i64 0, i32 2
-  store i64 0, i64* %smin_dst, align 8
-  br label %lend
-
-lfalse:                                           ; preds = %entry
-  %smin_src = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 2
-  store i64 0, i64* %smin_src, align 8
-  br label %lend
-
-lend:                                             ; preds = %lfalse, %ltrue
-  %phi_reg = phi %struct.bpf_reg_state* [ %dst_reg, %ltrue ], [ %src_reg, %lfalse ]
-  %type_phi = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %phi_reg, i64 0, i32 0
-  %type_phi_load = load i32, i32* %type_phi, align 8
-  %type_phi_is_zero = icmp eq i32 %type_phi_load, 0
-  br i1 %type_phi_is_zero, label %lyes, label %lno
-
-lyes:                                             ; preds = %lend
-  %umin_phi = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %phi_reg, i64 0, i32 1
-  store i64 1, i64* %umin_phi, align 8
-  br label %lfinal
-
-lno:                                              ; preds = %lend
-  %smin_phi = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %phi_reg, i64 0, i32 2
-  store i64 2, i64* %smin_phi, align 8
-  br label %lfinal
-
-lfinal:                                           ; preds = %lno, %lyes
-  %phi_min = phi i64* [ %umin_phi, %lyes ], [ %smin_phi, %lno ]
-  store i64 4, i64* %phi_min, align 8
-  ret void
-}
-#endif
-
-/*
-Handle stores to phi pointers, e.g.
-
-%phi_min = phi i64* [ %umin_phi, %lyes ], [ %smin_phi, %lno ]
-store i64 4, i64* %phi_min, align 8
-
-Only handles cases where the store to the phi pointer itself chooses between
-values themselves derived from a previous phi. e.g.:
-
-%phi_reg = phi
-      %struct.bpf_reg_state* [ %dst_reg, %ltrue ], [ %src_reg, %lfalse ]
-...
-%umin_phi = getelementptr inbounds %struct.bpf_reg_state,
-            %struct.bpf_reg_state* %phi_reg, i64 0, i32 1
-
-
-
-*/
-void FunctionEncoder::handleStoreToPhiPtr(z3::expr BVToStore,
-                                          PHINode &phiPtrInst,
-                                          ValueBVTreeMap *newValueBVTreeMap,
-                                          MemoryUseOrDef *storeMemoryAccess) {
-  outs() << "[handleStoreToPhiPtr] "
-         << "\n";
-  outs().flush();
-
-  BasicBlock *phiPtrInstBB = phiPtrInst.getParent();
-  outs() << "[handleStoreToPhiPtr] phiPtrInstBB: " << phiPtrInstBB->getName()
-         << "\n";
-  outs().flush();
-  std::vector<ValueBBPair> phiValueBBPairs = PhiMap.at(&phiPtrInst);
-
-  for (auto kv : phiValueBBPairs) {
-    Value *phiArgValI = kv.first;
-    BasicBlock *phiArgBBI = kv.second;
-    outs() << "[handleStoreToPhiPtr] phiArgValI: " << *phiArgValI << "\n";
-    outs() << "[handleStoreToPhiPtr] phiArgBBI: " << phiArgBBI->getName()
-           << "\n";
-    Value *GEPMapValuePhiArg = GEPMap.at(phiArgValI).first;
-    std::vector<int> *GEPMapIndices = GEPMap.at(phiArgValI).second;
-
-    outs() << "[handleStoreToPhiPtr] GEPMapValuePhiArg: " << *GEPMapValuePhiArg
-           << "\n";
-
-    if (isa<PHINode>(GEPMapValuePhiArg)) {
-      outs() << "[handleStoreToPhiPtr] "
-             << "store to phi ptr, where the arguments to the phi ptr were "
-                "themselves derived from a phi \n";
-      PHINode *phi = dyn_cast<PHINode>(GEPMapValuePhiArg);
-      outs() << "[handleStoreToPhiPtr] PHINode:"
-             << *dyn_cast<PHINode>(GEPMapValuePhiArg) << "\n";
-
-      BBPair BBPairI = std::make_pair(phiArgBBI, phiPtrInstBB);
-      z3::expr phiConditionBoolI = PhiResolutionMap.at(BBPairI);
-      outs() << "[handleStoreToPhiPtr] "
-             << "phiConditionBoolI: " << phiConditionBoolI.to_string().c_str()
-             << "\n";
-
-      handleStoreToPhiPtrDerivedFromPhi(BVToStore, *phi, GEPMapIndices,
-                                        newValueBVTreeMap, storeMemoryAccess,
-                                        phiConditionBoolI);
-
-      outs().flush();
-    } else if (isa<SelectInst>(GEPMapValuePhiArg)) {
-      SelectInst *select = dyn_cast<SelectInst>(GEPMapValuePhiArg);
-      outs() << "[handleStoreToPhiPtr] SelectInst:" << *select << "\n";
-    } else {
-      throw std::runtime_error("[handleStoreToPhiPtr]: "
-                               "GEPMapValuePhiArg is neither a selectInst nor "
-                               "a PHINode. This is not supported.\n");
-    }
-  }
 }
 
 #if 0
