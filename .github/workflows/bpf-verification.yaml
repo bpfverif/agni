@@ -47,7 +47,7 @@ jobs:
           cd bpf-verification
           python3 src/bpf_alu_jmp_synthesis.py --${{ matrix.spec }} \
             --kernver ${{ matrix.kernel }} \
-            --encodings_path ../bpf-encodings/${{ matrix.kernel }}/ \
+            --encodings_path ../bpf-encodings/${{ matrix.kernel }}-no-modular/ \
             --res_path ../results \
             --ver_set ${{ matrix.insn }}
 
