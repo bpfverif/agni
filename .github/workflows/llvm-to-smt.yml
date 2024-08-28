@@ -28,7 +28,6 @@ jobs:
           - kernel: "6.10"
             modular: "modular"
     runs-on: ubuntu-latest
-    timeout-minutes: 40
     steps:
       - name: Install dependencies
         run: |
