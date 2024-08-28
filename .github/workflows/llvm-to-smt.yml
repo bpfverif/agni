@@ -19,6 +19,14 @@ jobs:
     strategy:
       matrix:
         kernel: ["5.10", "5.15", "6.1", "6.6", "6.10"]
+        modular: ["no-modular"]
+        include:
+          - kernel: "6.1"
+            modular: "modular"
+          - kernel: "6.6"
+            modular: "modular"
+          - kernel: "6.10"
+            modular: "modular"
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -81,7 +89,7 @@ jobs:
           cd "${{ github.workspace }}/linux"
           commit=$(git rev-parse HEAD)
           cd -
-          mkdir -p bpf-encodings/${{ matrix.kernel }}
+          mkdir -p bpf-encodings/${{ matrix.kernel }}-${{ matrix.modular }}
           cd llvm-to-smt
           version=v${{ matrix.kernel }}
           if [ "${{ matrix.kernel }}" = "linus" ] || [ "${{ matrix.kernel }}" = "bpf-next" ]; then
@@ -91,7 +99,8 @@ jobs:
           python3 generate_encodings.py \
             --kernver $version --commit $commit \
             --kernbasedir "${{ github.workspace }}/linux" \
-            --outdir ../bpf-encodings/${{ matrix.kernel }}
+            --outdir ../bpf-encodings/${{ matrix.kernel }}-${{ matrix.modular }} \
+            --${{ matrix.modular }}
 
       - name: Compare encodings
         run: |
@@ -105,5 +114,5 @@ jobs:
         if: ${{ always() }} && steps.generate-encodings.outcome != 'skipped'
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
-          name: bpf-encodings-${{ matrix.kernel }}
-          path: bpf-encodings/${{ matrix.kernel }}/
+          name: bpf-encodings-${{ matrix.kernel }}-${{ matrix.modular }}
+          path: bpf-encodings/${{ matrix.kernel }}-${{ matrix.modular }}/
