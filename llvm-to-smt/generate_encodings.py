@@ -535,12 +535,21 @@ def mark_reg_unknown_memset_remove(verifier_c_filepath):
     input_file_line_iter = iter(input_file_lines)
     for i, line in enumerate(input_file_line_iter):
         if not memset_removal_done:
-            if r"static void __mark_reg_unknown(const struct bpf_verifier_env *env," in line:
+            if r"static void __mark_reg_unknown(" in line:
+                # this is just a function declaration, continue.
+                if ";" in line:
+                    tmpfile_handle.write(line)
+                    continue
                 next_line = next(input_file_line_iter)
                 line += next_line
+                # this is just a function declaration, continue.
+                if ";" in next_line:
+                    tmpfile_handle.write(line)
+                    continue
                 next_next_line = next(input_file_line_iter)
                 line += next_next_line
-                if "struct bpf_reg_state *reg)" in next_line and "{" in next_next_line:
+                # this is the actual function definition.
+                if "{" in next_line or "{" in next_next_line:
                     func_start_found = True
             if func_start_found and "memset" in line:
                 num_parens_open = line.count("(")
