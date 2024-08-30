@@ -1,4 +1,4 @@
-#include "LLVMToSMT.h"
+#include "LLVMToSMT.hpp"
 
 /* -----------------------------------------------------------------------------
  * The LLVMToSMT pass implementation, an analysis pass which builds the SMT
