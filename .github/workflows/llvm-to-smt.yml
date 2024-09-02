@@ -102,7 +102,7 @@ jobs:
           cd "${{ github.workspace }}/linux"
           commit=$(git rev-parse HEAD)
           cd -
-          mkdir -p bpf-encodings/${{ matrix.kernel }}-${{ matrix.modular }}
+          mkdir -p bpf-encodings/${{ matrix.kernel }}
           cd llvm-to-smt
           version=v${{ matrix.kernel }}
           if [ "${{ matrix.kernel }}" = "linus" ] || [ "${{ matrix.kernel }}" = "bpf-next" ]; then
@@ -112,9 +112,12 @@ jobs:
           python3 generate_encodings.py \
             --kernver $version --commit $commit \
             --kernbasedir "${{ github.workspace }}/linux" \
-            --outdir ../bpf-encodings/${{ matrix.kernel }}-${{ matrix.modular }} \
+            --outdir ../bpf-encodings/${{ matrix.kernel }} \
             --specific-op ${{ matrix.insn }} \
             --${{ matrix.modular }}
+
+          mv ../bpf-encodings/${{ matrix.kernel }}/${{ matrix.insn }}/*.smt2 ../bpf-encodings/${{ matrix.kernel }}-${{ matrix.modular }}/${{ matrix.insn }}/
+          mv ../bpf-encodings/${{ matrix.kernel }}/${{ matrix.insn }}.smt2 ../bpf-encodings/${{ matrix.kernel }}-${{ matrix.modular }}/
 
       - name: Compare encodings
         run: |
