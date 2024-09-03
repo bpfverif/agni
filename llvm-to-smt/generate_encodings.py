@@ -671,6 +671,10 @@ if __name__ == "__main__":
                         help='single specific BPF op to encode',
                         choices = [op.op_name for op in bpf_ops],
                         type=str, required=False)
+    parser.add_argument("--bv-suffix-override", dest='bv_suffix_override',
+                        help='use a different bitvector suffix than the default, i.e. use default + 1000',
+                        action=argparse.BooleanOptionalAction,
+                        required=False)
     parser.add_argument("--commit",
                         help="specific kernel commit, instead of a kernel version",
                         type=str, required=False, default="-")
@@ -710,6 +714,14 @@ if __name__ == "__main__":
     if args.modular:
         # only support modular verification in kernels with "reg_bounds_sync"
         assert version.parse(args.kernver) >= version.parse("5.19-rc6")
+
+    if args.bv_suffix_override:
+        if args.specific_op is None:
+            raise RuntimeError(
+            '--bv-suffix-override can only be used with --specific-op')
+        for op in bpf_ops:
+            if op.op_name == args.specific_op:
+                op.suffix_id = op.suffix_id + 1000
 
     ####################
     #  setup logging   #
