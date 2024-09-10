@@ -19,8 +19,9 @@ jobs:
     strategy:
       matrix:
         insn: [BPF_AND, BPF_JSLT]
-        kernel: [5.9]
+        kernel: [6.6]
         spec: ["no-weak-spec", "weak-spec"]
+        modular: ["no-modular", "modular"]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -47,7 +48,7 @@ jobs:
           cd bpf-verification
           python3 src/bpf_alu_jmp_synthesis.py --${{ matrix.spec }} \
             --kernver ${{ matrix.kernel }} \
-            --encodings_path ../bpf-encodings/${{ matrix.kernel }}/ \
+            --encodings_path ../bpf-encodings/${{ matrix.kernel }}-${{ matrix.modular }}/ \
             --res_path ../results \
             --ver_set ${{ matrix.insn }}
 
@@ -55,5 +56,5 @@ jobs:
         if: ${{ always() }} && steps.bpf-verification.outcome != 'skipped'
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
-          name: results-${{ matrix.kernel }}-${{ matrix.insn }}-${{ matrix.spec }}
+          name: results-${{ matrix.kernel }}-${{ matrix.insn }}-${{ matrix.spec }}-${{ matrix.modular }}
           path: results/${{ matrix.kernel }}_res
