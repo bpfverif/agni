@@ -10,39 +10,12 @@ on:
       - reopened
 
 jobs:
-  download-linux:
-    strategy:
-      matrix:
-        tree: ["torvalds_linux", "bpf_bpf-next", "bpf_bpf"]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Retrieve Linux sources
-        run: |
-          name=${{ matrix.tree }}
-          suffix=${name//_/\/}
-          tree=git://git.kernel.org/pub/scm/linux/kernel/git/$suffix.git
-          git clone -qb master --depth 1 $tree linux
-
-      - name: Compress Linux sources
-        run: |
-          tar -zc linux -f linux.tgz
-
-      - name: Upload Linux sources
-        uses: actions/upload-artifact@master
-        with:
-          name: ${{ matrix.tree }}
-          path: linux.tgz
-
   end-to-end:
-    needs: download-linux
-    continue-on-error: true
     strategy:
       matrix:
-        insn: [BPF_SYNC, BPF_ADD, BPF_SUB, BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_ARSH, BPF_JLT, BPF_JLE, BPF_JSLT, BPF_JSLE, BPF_JEQ, BPF_JNE, BPF_JGE, BPF_JGT, BPF_JSGE, BPF_JSGT, BPF_ADD_32, BPF_SUB_32, BPF_OR_32, BPF_AND_32, BPF_XOR_32, BPF_LSH_32, BPF_RSH_32, BPF_ARSH_32, BPF_JLT_32, BPF_JLE_32, BPF_JSLT_32, BPF_JSLE_32, BPF_JEQ_32, BPF_JNE_32, BPF_JGE_32, BPF_JGT_32, BPF_JSGE_32, BPF_JSGT_32]
-        tree: ["torvalds_linux", "bpf_bpf-next", "bpf_bpf"]
+        commit: ["bed2eb964c70b780fb55925892a74f26cb590b25", "2ddec2c80b4402c293c7e6e0881cecaaf77e8cec", "314a53623cd4e62e1b88126e5ed2bc87073d90ee", "682158ab532a5bd24399fec25b65fec561f0f6e9", "7c05e7f3e74e7e550534d524e04d7e6f78d6fa24"]
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 200
     steps:
       - name: Install dependencies
         run: |
@@ -62,52 +35,45 @@ jobs:
           cd bpf-verification
           pip install .
 
-      - name: Download Linux sources
-        uses: actions/download-artifact@master
-        with:
-          name: ${{ matrix.tree }}
-          path: ./
-
-      - name: Uncompress Linux sources
+      - name: Retrieve Linux sources
         run: |
-          file linux.tgz
-          tar -zxf linux.tgz
+          tree=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+          git clone -q $tree linux
+          cd linux
+          git checkout ${{ matrix.commit }}
 
       - name: Generate encodings
         id: generate-encodings
         run: |
           set -o xtrace
 
-          cd "${{ github.workspace }}/linux"
-          commit=$(git rev-parse HEAD)
-          cd -
-          mkdir -p bpf-encodings/${{ matrix.tree }}
+          mkdir -p bpf-encodings/${{ matrix.commit }}
           cd llvm-to-smt
 
           python3 generate_encodings.py \
-            --kernver 6.10 --commit $commit \
+            --kernver 6.10 --commit ${{ matrix.commit }} \
             --kernbasedir "${{ github.workspace }}/linux" \
-            --outdir ../bpf-encodings/${{ matrix.tree }} \
-            --specific-op ${{ matrix.insn }} \
+            --outdir ../bpf-encodings/${{ matrix.commit }} \
+            --specific-op BPF_SYNC \
             --modular
 
       - name: Upload encodings
         if: ${{ always() }} && steps.generate-encodings.outcome != 'skipped'
         uses: actions/upload-artifact@master
         with:
-          name: bpf-encodings-${{ matrix.tree }}-${{ matrix.insn }}
-          path: bpf-encodings/${{ matrix.tree }}/${{ matrix.insn }}/
+          name: bpf-encodings-${{ matrix.commit }}-BPF_SYNC
+          path: bpf-encodings/${{ matrix.commit }}/BPF_SYNC/
 
-      - name: Verify ${{ matrix.insn }} on v${{ matrix.tree }}
+      - name: Verify BPF_SYNC on v${{ matrix.commit }}
         id: bpf-verification
         run: |
-          mkdir results-${{ matrix.tree }}
+          mkdir results-${{ matrix.commit }}
           cd bpf-verification
-          python3 src/bpf_alu_jmp_synthesis.py --kernver 6.10 --encodings_path ../bpf-encodings/${{ matrix.tree }}/ --res_path ../results-${{ matrix.tree }} --ver_set ${{ matrix.insn }}
+          python3 src/bpf_alu_jmp_synthesis.py --kernver 6.10 --encodings_path ../bpf-encodings/${{ matrix.commit }}/ --res_path ../results-${{ matrix.commit }} --ver_set BPF_SYNC
 
       - name: Upload results
         if: ${{ always() }} && steps.bpf-verification.outcome != 'skipped'
         uses: actions/upload-artifact@master
         with:
-          name: results-${{ matrix.tree }}-${{ matrix.insn }}
-          path: results-${{ matrix.tree }}/6.10_res
+          name: results-${{ matrix.commit }}-BPF_SYNC
+          path: results-${{ matrix.commit }}/6.10_res
