@@ -10,39 +10,13 @@ on:
       - reopened
 
 jobs:
-  download-linux:
-    strategy:
-      matrix:
-        tree: ["torvalds_linux", "bpf_bpf-next", "bpf_bpf"]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Retrieve Linux sources
-        run: |
-          name=${{ matrix.tree }}
-          suffix=${name//_/\/}
-          tree=git://git.kernel.org/pub/scm/linux/kernel/git/$suffix.git
-          git clone -qb master --depth 1 $tree linux
-
-      - name: Compress Linux sources
-        run: |
-          tar -zc linux -f linux.tgz
-
-      - name: Upload Linux sources
-        uses: actions/upload-artifact@master
-        with:
-          name: ${{ matrix.tree }}
-          path: linux.tgz
-
   end-to-end:
-    needs: download-linux
-    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
-        insn: [BPF_SYNC, BPF_ADD, BPF_SUB, BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_ARSH, BPF_JLT, BPF_JLE, BPF_JSLT, BPF_JSLE, BPF_JEQ, BPF_JNE, BPF_JGE, BPF_JGT, BPF_JSGE, BPF_JSGT, BPF_ADD_32, BPF_SUB_32, BPF_OR_32, BPF_AND_32, BPF_XOR_32, BPF_LSH_32, BPF_RSH_32, BPF_ARSH_32, BPF_JLT_32, BPF_JLE_32, BPF_JSLT_32, BPF_JSLE_32, BPF_JEQ_32, BPF_JNE_32, BPF_JGE_32, BPF_JGT_32, BPF_JSGE_32, BPF_JSGT_32]
-        tree: ["torvalds_linux", "bpf_bpf-next", "bpf_bpf"]
+        kernel: ["4.19", "5.4", "5.10", "5.15", "6.1", "6.2", "6.3", "6.4"]
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 259200 # 72h
     steps:
       - name: Install dependencies
         run: |
@@ -62,52 +36,35 @@ jobs:
           cd bpf-verification
           pip install .
 
-      - name: Download Linux sources
-        uses: actions/download-artifact@master
-        with:
-          name: ${{ matrix.tree }}
-          path: ./
-
-      - name: Uncompress Linux sources
+      - name: Retrieve Linux sources
         run: |
-          file linux.tgz
-          tar -zxf linux.tgz
+          tree=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+          git clone --depth 1 -q -b v${{ matrix.kernel }} $tree linux
 
       - name: Generate encodings
         id: generate-encodings
         run: |
           set -o xtrace
 
-          cd "${{ github.workspace }}/linux"
-          commit=$(git rev-parse HEAD)
-          cd -
-          mkdir -p bpf-encodings/${{ matrix.tree }}
+          mkdir -p bpf-encodings/${{ matrix.kernel }}
           cd llvm-to-smt
 
           python3 generate_encodings.py \
-            --kernver 6.10 --commit $commit \
+            --kernver ${{ matrix.kernel }} \
             --kernbasedir "${{ github.workspace }}/linux" \
-            --outdir ../bpf-encodings/${{ matrix.tree }} \
-            --specific-op ${{ matrix.insn }} \
-            --modular
+            --outdir ../bpf-encodings/${{ matrix.kernel }}
 
       - name: Upload encodings
         if: ${{ always() }} && steps.generate-encodings.outcome != 'skipped'
         uses: actions/upload-artifact@master
         with:
-          name: bpf-encodings-${{ matrix.tree }}-${{ matrix.insn }}
-          path: bpf-encodings/${{ matrix.tree }}/${{ matrix.insn }}/
+          name: bpf-encodings-${{ matrix.kernel }}
+          path: bpf-encodings/${{ matrix.kernel }}/
 
-      - name: Verify ${{ matrix.insn }} on v${{ matrix.tree }}
+      - name: Verify on v${{ matrix.kernel }}
         id: bpf-verification
         run: |
-          mkdir results-${{ matrix.tree }}
+          mkdir results-${{ matrix.kernel }}
           cd bpf-verification
-          python3 src/bpf_alu_jmp_synthesis.py --kernver 6.10 --encodings_path ../bpf-encodings/${{ matrix.tree }}/ --res_path ../results-${{ matrix.tree }} --ver_set ${{ matrix.insn }}
+          python3 src/bpf_alu_jmp_synthesis.py --kernver ${{ matrix.kernel }} --encodings_path ../bpf-encodings/${{ matrix.kernel }} --res_path ../results-${{ matrix.kernel }}
 
-      - name: Upload results
-        if: ${{ always() }} && steps.bpf-verification.outcome != 'skipped'
-        uses: actions/upload-artifact@master
-        with:
-          name: results-${{ matrix.tree }}-${{ matrix.insn }}
-          path: results-${{ matrix.tree }}/6.10_res
