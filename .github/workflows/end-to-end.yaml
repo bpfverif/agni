@@ -13,7 +13,7 @@ jobs:
   end-to-end:
     strategy:
       matrix:
-        commit: ["bed2eb964c70b780fb55925892a74f26cb590b25", "2ddec2c80b4402c293c7e6e0881cecaaf77e8cec", "314a53623cd4e62e1b88126e5ed2bc87073d90ee", "682158ab532a5bd24399fec25b65fec561f0f6e9", "7c05e7f3e74e7e550534d524e04d7e6f78d6fa24"]
+        commit: ["e8f897f4afef0031fe618a8e94127a0934896aba", "bee109b7b3e50739b88252a219fa07ecd78ad628", "d5c47719f24438838e60bcbf97008179d6f737a8", "b2ee6d27e9c6be0409e96591dcee62032a8e0156", "9f5469b84577500375b311a98ffa8f4a68b5c77a", "4bf79f9be434e000c8e12fe83b2f4402480f1460"]
     runs-on: ubuntu-latest
     timeout-minutes: 200
     steps:
@@ -37,7 +37,7 @@ jobs:
 
       - name: Retrieve Linux sources
         run: |
-          tree=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+          tree=git://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git
           git clone -q $tree linux
           cd linux
           git checkout ${{ matrix.commit }}
