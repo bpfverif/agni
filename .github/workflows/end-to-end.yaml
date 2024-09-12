@@ -3,6 +3,11 @@ on:
   # Run once a day, every day.
   schedule:
     - cron:  '0 0 * * *'
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 jobs:
   download-linux:
