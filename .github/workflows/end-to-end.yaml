@@ -13,7 +13,7 @@ jobs:
   end-to-end:
     strategy:
       matrix:
-        commit: ["491dd8edecbc5027ee317f3f1e7e9800fb66d88f", "45c226dde742a92e22dcd65b96bf7e02620a9c19", "53475287dad9b314ef477fc9a27b48b6999da053", "bb124da69c47dd98d69361ec13244ece50bec63e"]
+        commit: ["cf5fe3c71c5a34ac0108afc550407c672d0a032d", "3cf98cf594ea923b8b1e0385b580d3d8aae68c06", "5f99f312bd3bedb3b266b0d26376a8c500cdc97f", "96381879a370425a30b810906946f64c0726450e"]
     runs-on: ubuntu-latest
     timeout-minutes: 200
     steps:
