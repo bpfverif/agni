@@ -3,41 +3,19 @@ on:
   # Run once a day, every day.
   schedule:
     - cron:  '0 0 * * *'
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 jobs:
-  download-linux:
-    strategy:
-      matrix:
-        tree: ["torvalds_linux", "bpf_bpf-next", "bpf_bpf"]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Retrieve Linux sources
-        run: |
-          name=${{ matrix.tree }}
-          suffix=${name//_/\/}
-          tree=git://git.kernel.org/pub/scm/linux/kernel/git/$suffix.git
-          git clone -qb master --depth 1 $tree linux
-
-      - name: Compress Linux sources
-        run: |
-          tar -zc linux -f linux.tgz
-
-      - name: Upload Linux sources
-        uses: actions/upload-artifact@master
-        with:
-          name: ${{ matrix.tree }}
-          path: linux.tgz
-
   end-to-end:
-    needs: download-linux
-    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
-        insn: [BPF_SYNC, BPF_ADD, BPF_SUB, BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_ARSH, BPF_JLT, BPF_JLE, BPF_JSLT, BPF_JSLE, BPF_JEQ, BPF_JNE, BPF_JGE, BPF_JGT, BPF_JSGE, BPF_JSGT, BPF_ADD_32, BPF_SUB_32, BPF_OR_32, BPF_AND_32, BPF_XOR_32, BPF_LSH_32, BPF_RSH_32, BPF_ARSH_32, BPF_JLT_32, BPF_JLE_32, BPF_JSLT_32, BPF_JSLE_32, BPF_JEQ_32, BPF_JNE_32, BPF_JGE_32, BPF_JGT_32, BPF_JSGE_32, BPF_JSGT_32]
-        tree: ["torvalds_linux", "bpf_bpf-next", "bpf_bpf"]
+        kernel: ["5.19", "6.0"]
     runs-on: ubuntu-latest
-    timeout-minutes: 180
     steps:
       - name: Install dependencies
         run: |
@@ -57,16 +35,22 @@ jobs:
           cd bpf-verification
           pip install .
 
-      - name: Download Linux sources
-        uses: actions/download-artifact@master
-        with:
-          name: ${{ matrix.tree }}
-          path: ./
-
-      - name: Uncompress Linux sources
+      - name: Retrieve Linux sources
         run: |
-          file linux.tgz
-          tar -zxf linux.tgz
+          set -o xtrace
+
+          tree=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+          depth="--depth 1"
+          if [ "${{ matrix.kernel }}" == "6.8" ] || [ "${{ matrix.kernel }}" == "6.9" ]; then
+            depth=""
+          fi
+          git clone $depth -q -b v${{ matrix.kernel }} $tree linux
+          if [ "${{ matrix.kernel }}" == "6.8" ] || [ "${{ matrix.kernel }}" == "6.9" ]; then
+            cd linux
+            git config --global user.email "no-reply@example.com"
+            git config --global user.name "Agni Authors"
+            git cherry-pick 4c2a26fc80bcb851dc630
+          fi
 
       - name: Generate encodings
         id: generate-encodings
@@ -76,33 +60,27 @@ jobs:
           cd "${{ github.workspace }}/linux"
           commit=$(git rev-parse HEAD)
           cd -
-          mkdir -p bpf-encodings/${{ matrix.tree }}
+
+          mkdir -p bpf-encodings/${{ matrix.kernel }}
           cd llvm-to-smt
 
           python3 generate_encodings.py \
-            --kernver 6.10 --commit $commit \
+            --kernver ${{ matrix.kernel }} --commit $commit \
             --kernbasedir "${{ github.workspace }}/linux" \
-            --outdir ../bpf-encodings/${{ matrix.tree }} \
-            --specific-op ${{ matrix.insn }} \
+            --outdir ../bpf-encodings/${{ matrix.kernel }} \
             --modular
 
       - name: Upload encodings
         if: ${{ always() }} && steps.generate-encodings.outcome != 'skipped'
         uses: actions/upload-artifact@master
         with:
-          name: bpf-encodings-${{ matrix.tree }}-${{ matrix.insn }}
-          path: bpf-encodings/${{ matrix.tree }}/${{ matrix.insn }}/
+          name: bpf-encodings-${{ matrix.kernel }}
+          path: bpf-encodings/${{ matrix.kernel }}/
 
-      - name: Verify ${{ matrix.insn }} on v${{ matrix.tree }}
+      - name: Verify on v${{ matrix.kernel }}
         id: bpf-verification
         run: |
-          mkdir results-${{ matrix.tree }}
+          mkdir results-${{ matrix.kernel }}
           cd bpf-verification
-          python3 src/bpf_alu_jmp_synthesis.py --kernver 6.10 --encodings_path ../bpf-encodings/${{ matrix.tree }}/ --res_path ../results-${{ matrix.tree }} --ver_set ${{ matrix.insn }}
+          python3 src/bpf_alu_jmp_synthesis.py --kernver ${{ matrix.kernel }} --encodings_path ../bpf-encodings/${{ matrix.kernel }} --res_path ../results-${{ matrix.kernel }}
 
-      - name: Upload results
-        if: ${{ always() }} && steps.bpf-verification.outcome != 'skipped'
-        uses: actions/upload-artifact@master
-        with:
-          name: results-${{ matrix.tree }}-${{ matrix.insn }}
-          path: results-${{ matrix.tree }}/6.10_res
