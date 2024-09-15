@@ -14,9 +14,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kernel: ["4.19", "5.4", "5.10", "5.15", "6.1", "6.2", "6.3", "6.4"]
+        kernel: ["6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9", "6.10"]
     runs-on: ubuntu-latest
-    timeout-minutes: 259200 # 72h
     steps:
       - name: Install dependencies
         run: |
@@ -38,21 +37,38 @@ jobs:
 
       - name: Retrieve Linux sources
         run: |
+          set -o xtrace
+
           tree=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
-          git clone --depth 1 -q -b v${{ matrix.kernel }} $tree linux
+          depth="--depth 1"
+          if [ "${{ matrix.kernel }}" == "6.8" ] || [ "${{ matrix.kernel }}" == "6.9" ]; then
+            depth=""
+          fi
+          git clone $depth -q -b v${{ matrix.kernel }} $tree linux
+          if [ "${{ matrix.kernel }}" == "6.8" ] || [ "${{ matrix.kernel }}" == "6.9" ]; then
+            cd linux
+            git config --global user.email "no-reply@example.com"
+            git config --global user.name "Agni Authors"
+            git cherry-pick 4c2a26fc80bcb851dc630
+          fi
 
       - name: Generate encodings
         id: generate-encodings
         run: |
           set -o xtrace
 
+          cd "${{ github.workspace }}/linux"
+          commit=$(git rev-parse HEAD)
+          cd -
+
           mkdir -p bpf-encodings/${{ matrix.kernel }}
           cd llvm-to-smt
 
           python3 generate_encodings.py \
-            --kernver ${{ matrix.kernel }} \
+            --kernver ${{ matrix.kernel }} --commit $commit \
             --kernbasedir "${{ github.workspace }}/linux" \
-            --outdir ../bpf-encodings/${{ matrix.kernel }}
+            --outdir ../bpf-encodings/${{ matrix.kernel }} \
+            --modular
 
       - name: Upload encodings
         if: ${{ always() }} && steps.generate-encodings.outcome != 'skipped'
