@@ -210,6 +210,8 @@ public:
                                        std::string prefix);
   BVTree *setupBVTreeForArg(Value *argVal, std::string prefix);
   bool isRelevantStruct(StructType *s);
+
+  bool isFunctionCFGaDAG(llvm::Function &F);
   void buildSMT();
   std::string toString();
 };
