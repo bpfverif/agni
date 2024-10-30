@@ -2224,9 +2224,9 @@ z3.If(
 
 res_i32_bv == a_bv + b_bv
 */
-void FunctionEncoder::handleAddSubWithOverflowIntrinsic(IntrinsicInst &i) {
+void FunctionEncoder::handleLLVMOverflowInstrinsics(IntrinsicInst &i) {
 
-  outs() << "[handleAddSubWithOverflowIntrinsic] "
+  outs() << "[handleLLVMOverflowInstrinsics] "
          << "\n";
   auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
   Value *intrinsicInstValue = dyn_cast<Value>(&i);
@@ -2235,22 +2235,22 @@ void FunctionEncoder::handleAddSubWithOverflowIntrinsic(IntrinsicInst &i) {
 
   auto callOperand0BV = BitVecHelper::getBitVecSingValType(callOperand0);
   auto callOperand1BV = BitVecHelper::getBitVecSingValType(callOperand1);
-  outs() << "[handleAddSubWithOverflowIntrinsic]"
+  outs() << "[handleLLVMOverflowInstrinsics]"
          << "callOperand0: " << *callOperand0
          << " (bv: " << callOperand0BV.to_string().c_str() << ")"
          << "\n";
-  outs() << "[handleAddSubWithOverflowIntrinsic]"
+  outs() << "[handleLLVMOverflowInstrinsics]"
          << "callOperand1: " << *callOperand1
          << " (bv: " << callOperand1BV.to_string().c_str() << ")"
          << "\n";
   StructType *instRetType = dyn_cast<StructType>(i.getType());
   if (!instRetType && instRetType->getNumElements() != 2) {
     throw std::runtime_error(
-        "[handleAddSubWithOverflowIntrinsic]"
+        "[handleLLVMOverflowInstrinsics]"
         "Unsupported type for add_with_overflow intrinsic."
         "Only struct types like {i32, i1} or {i64, i1} are supported\n");
   }
-  outs() << "[handleAddSubWithOverflowIntrinsic]"
+  outs() << "[handleLLVMOverflowInstrinsics]"
          << "instRetType: " << *instRetType << "\n";
 
   ValueBVTreeMap *currentBBValueBVTreeMap;
@@ -2265,15 +2265,15 @@ void FunctionEncoder::handleAddSubWithOverflowIntrinsic(IntrinsicInst &i) {
   // create a bitvector tree of the same structure.
   BVTree *newTree = setupBVTreeForArg(intrinsicInstValue,
                                       intrinsicInstValue->getName().str());
-  outs() << "[handleAddSubWithOverflowIntrinsic] "
+  outs() << "[handleLLVMOverflowInstrinsics] "
          << "newTree: " << newTree->toString() << "\n";
   currentBBValueBVTreeMap->insert({intrinsicInstValue, newTree});
 
   auto resBV = newTree->getSubTree(0)->bv;
   auto overflowBV = newTree->getSubTree(1)->bv;
-  outs() << "[handleAddSubWithOverflowIntrinsic] "
+  outs() << "[handleLLVMOverflowInstrinsics] "
          << "resBV: " << resBV.get_sort().to_string().c_str() << "\n";
-  outs() << "[handleAddSubWithOverflowIntrinsic] "
+  outs() << "[handleLLVMOverflowInstrinsics] "
          << "overflowBV: " << overflowBV.get_sort().to_string().c_str() << "\n";
 
   z3::expr resultExprNoOverflowOrUnderflow(ctx), resultExpr(ctx);
@@ -2306,16 +2306,30 @@ void FunctionEncoder::handleAddSubWithOverflowIntrinsic(IntrinsicInst &i) {
                 overflowBV == 0, overflowBV == 1);
     resultExpr = resBV == callOperand0BV - callOperand1BV;
   } break;
+  case Intrinsic::smul_with_overflow: {
+    resultExprNoOverflowOrUnderflow =
+        z3::ite((z3::bvmul_no_overflow(callOperand0BV, callOperand1BV, true) &&
+                 z3::bvmul_no_underflow(callOperand0BV, callOperand1BV)),
+                overflowBV == 0, overflowBV == 1);
+    resultExpr = resBV == callOperand0BV * callOperand1BV;
+  } break;
+  case Intrinsic::umul_with_overflow: {
+    resultExprNoOverflowOrUnderflow =
+        z3::ite((z3::bvmul_no_overflow(callOperand0BV, callOperand1BV, false) &&
+                 z3::bvmul_no_underflow(callOperand0BV, callOperand1BV)),
+                overflowBV == 0, overflowBV == 1);
+    resultExpr = resBV == callOperand0BV * callOperand1BV;
+  } break;
   }
 
   assert(resultExprNoOverflowOrUnderflow && resultExpr);
 
-  outs() << "[handleAddSubWithOverflowIntrinsic] "
+  outs() << "[handleLLVMOverflowInstrinsics] "
          << "resultExprNoOverflow: "
          << resultExprNoOverflowOrUnderflow.to_string().c_str() << "\n";
   BBAsstVecIter->second.push_back(resultExprNoOverflowOrUnderflow);
 
-  outs() << "[handleAddSubWithOverflowIntrinsic] "
+  outs() << "[handleLLVMOverflowInstrinsics] "
          << "resultExpr: " << resultExpr.to_string().c_str() << "\n";
   BBAsstVecIter->second.push_back(resultExpr);
 }
@@ -2329,7 +2343,9 @@ void FunctionEncoder::handleIntrinsicCallInst(IntrinsicInst &i) {
   case Intrinsic::uadd_with_overflow:
   case Intrinsic::ssub_with_overflow:
   case Intrinsic::usub_with_overflow:
-    handleAddSubWithOverflowIntrinsic(i);
+  case Intrinsic::smul_with_overflow:
+  case Intrinsic::umul_with_overflow:
+    handleLLVMOverflowInstrinsics(i);
     break;
   default:
     throw std::runtime_error("[handleIntrinsicCallInst]"
