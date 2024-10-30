@@ -160,7 +160,7 @@ public:
   void handleMemoryPhiNode(MemoryPhi &mphi, FunctionEncoderPassType passID);
   void handleCallInst(CallInst &i);
   void handleIntrinsicCallInst(IntrinsicInst &i);
-  void handleAddSubWithOverflowIntrinsic(IntrinsicInst &i);
+  void handleLLVMOverflowInstrinsics(IntrinsicInst &i);
   void handleGEPInstFromSelect(GetElementPtrInst &i);
   void handleGEPInstFromPHI(GetElementPtrInst &i);
   void handlePhiInstPointer(PHINode &inst);
