@@ -2907,8 +2907,30 @@ void FunctionEncoder::populateInputAndOutputJsonDict() {
   }
 }
 
+bool FunctionEncoder::isFunctionCFGaDAG(Function &F) {
+  DominatorTree DT(F);
+  for (BasicBlock &BB : F) {
+    for (BasicBlock *Succ : successors(&BB)) {
+      /* properlyDominates - Returns true iff A dominates B and A != B. */
+      if (DT.properlyDominates(Succ, &BB)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 /* This method implements what the pass does */
 void FunctionEncoder::buildSMT() {
+
+  /* Exit early if the function for which we are obtaining the SMT encoding has
+   * a backward edge */
+  if (!this->isFunctionCFGaDAG(*this->currentFunction)) {
+    throw std::runtime_error("The function " +
+                             this->currentFunction->getName().str() +
+                             " is not a DAG. That is, it contains a backward "
+                             "edge. This is not supported.\n");
+  }
 
   this->mostRecentMemoryDef = this->currentMemorySSA->getLiveOnEntryDef();
 
