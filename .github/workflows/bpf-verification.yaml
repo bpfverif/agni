@@ -15,8 +15,8 @@ concurrency:
 
 jobs:
   bpf-verification:
-    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         insn: [BPF_AND, BPF_JSLT]
         kernel: [5.9]
