@@ -15,8 +15,8 @@ concurrency:
 
 jobs:
   llvm-to-smt:
-    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         insn: [BPF_AND, BPF_JSLT]
         kernel: ["5.4", "5.10", "5.15", "6.1", "6.6", "6.10"]
