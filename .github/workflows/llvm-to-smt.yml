@@ -20,7 +20,7 @@ jobs:
       matrix:
         insn: [BPF_AND, BPF_JSLT]
         kernel: ["5.4", "5.10", "5.15", "6.1", "6.6", "6.10"]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 40
     steps:
       - name: Install dependencies
