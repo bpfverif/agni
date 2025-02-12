@@ -45,9 +45,9 @@ echo $cmd
 eval $cmd || exit 1
 
 # echo "--------------------------------------"
-# echo "running --instnamer, --verify, and --strip-debug pass "
+# echo "running, --verify, and --strip-debug pass "
 # echo "--------------------------------------"
-# cmd="${LLVM_DIR}/bin/opt -S --instnamer --strip-debug --verify $2 -o  $2.ll"
+# cmd="${LLVM_DIR}/bin/opt -S --strip-debug --verify $2 -o  $2.ll"
 # cmd="${cmd} && mv $2.ll $2"
 
 # echo $cmd

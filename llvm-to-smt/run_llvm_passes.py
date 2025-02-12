@@ -57,9 +57,9 @@ class LLVMPassRunner:
 
     def run_opt_pass(self, O1=True):
         llvm_opt_fullpath = self.llvmdir_fullpath.joinpath("bin", "opt")
-        cmd_opt_O1 = '''{llvm_opt_fullpath} -O1 --strip-debug --instnamer --stats -S  {input_llfile_fullpath} -o {output_llfile_fullpath}'''
-        # cmd_opt_O0 = '''{llvm_opt_fullpath} -S --instnamer --simplifycfg --sroa --mergereturn --dce --deadargelim --memoryssa --always-inline --function-attrs --argpromotion --instcombine {input_llfile_fullpath} -o {output_llfile_fullpath}'''
-        cmd_opt_O0 = '''{llvm_opt_fullpath} -S --instnamer --sroa --adce --bdce --dce --globaldce --deadargelim --unreachableblockelim --lowerswitch --function-attrs --argpromotion --instcombine {input_llfile_fullpath} -o {output_llfile_fullpath}'''
+        cmd_opt_O1 = '''{llvm_opt_fullpath} -O1 --strip-debug --stats -S  {input_llfile_fullpath} -o {output_llfile_fullpath}'''
+        # cmd_opt_O0 = '''{llvm_opt_fullpath} -S --simplifycfg --sroa --mergereturn --dce --deadargelim --memoryssa --always-inline --function-attrs --argpromotion --instcombine {input_llfile_fullpath} -o {output_llfile_fullpath}'''
+        cmd_opt_O0 = '''{llvm_opt_fullpath} -S --sroa --adce --bdce --dce --globaldce --deadargelim --unreachableblockelim --lowerswitch --function-attrs --argpromotion --instcombine {input_llfile_fullpath} -o {output_llfile_fullpath}'''
         if O1 == True:
             output_llfile_fullpath = self.curr_llfile_fullpath.parent.joinpath(
                 self.curr_llfile_fullpath.stem + ".O1" + ".ll")
