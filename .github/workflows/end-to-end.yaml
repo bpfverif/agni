@@ -1,5 +1,7 @@
 name: End-to-End Tests
 on:
+  # To trigger manually.
+  workflow_dispatch:
   # Run once a day, every day.
   schedule:
     - cron:  '0 0 * * *'
