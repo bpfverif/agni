@@ -148,6 +148,34 @@ void adjust_scalar_min_max_vals_wrapper_{}(struct bpf_reg_state *dst_reg,
 wrapper_alu32_1 = wrapper_alu_1.replace("BPF_ALU64_REG", "BPF_ALU32_REG")
 
 
+wrapper_alu_mul_1 = """
+
+void scalar_min_max_mul_wrapper_{}(struct bpf_reg_state *dst_reg,
+					struct bpf_reg_state *src_reg)
+{{
+	struct bpf_insn insn = BPF_ALU64_REG({}, BPF_REG_1, BPF_REG_2);
+	dst_reg->type = SCALAR_VALUE;
+	src_reg->type = SCALAR_VALUE;
+
+	scalar_min_max_mul(dst_reg, src_reg);
+
+}}
+"""
+
+wrapper_alu32_mul_1 = """
+
+void scalar32_min_max_mul_wrapper_{}(struct bpf_reg_state *dst_reg,
+					struct bpf_reg_state *src_reg)
+{{
+	struct bpf_insn insn = BPF_ALU32_REG({}, BPF_REG_1, BPF_REG_2);
+	dst_reg->type = SCALAR_VALUE;
+	src_reg->type = SCALAR_VALUE;
+
+	scalar32_min_max_mul(dst_reg, src_reg);
+
+}}
+"""
+
 # 4.14.214 to 4.16-rc1
 wrapper_jmp_0 = '''
 

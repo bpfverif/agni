@@ -34,6 +34,18 @@ class bpf_op_attrs:
             raise RuntimeError(
                 'Unsupported BPF insn_class {}'.format(insn_class))
 
+        if self.op_name == 'BPF_MUL':
+            self.function_name = "scalar_min_max_mul"
+            self.skip = False
+            self.function_name = "scalar_min_max_mul_wrapper_{}".format(
+                self.op_name)
+
+        if self.op_name == 'BPF_MUL_32':
+            self.function_name = "scalar32_min_max_mul"
+            self.skip = False
+            self.function_name = "scalar32_min_max_mul_wrapper_{}".format(
+                self.op_name)
+
     def __repr__(self):
         s = self.op_name + "_" + str(self.suffix_id)
         if self.skip:
@@ -331,8 +343,8 @@ def insert_wrapper_unknown(verifier_c_filepath):
 
 
 def get_all_alu_wrappers_concatenated():
-    wrapper_alu = wrapper_alu_1
-    wrapper_alu32 = wrapper_alu32_1
+    wrapper_alu = wrapper_alu_mul_1
+    wrapper_alu32 = wrapper_alu32_mul_1
     bpf_alu_ops = [op for op in bpf_ops if op.insn_class == 'BPF_ALU64_REG'  and op.skip == False]
     bpf_alu32_ops = [op for op in bpf_ops if op.insn_class == 'BPF_ALU32_REG' and op.skip == False]
     s = ""
