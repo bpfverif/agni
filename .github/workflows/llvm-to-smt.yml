@@ -26,10 +26,18 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get install -y \
-            clang-14 llvm-14 llvm-14-tools llvm \
             python3 python3-pip \
             make cmake libelf-dev \
             libjsoncpp-dev stress-ng
+
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 16 all
+
+          for b in clang clang++ llvm-link opt llvm-extract; do
+            sudo rm /usr/bin/$b || true;
+            sudo ln -s /usr/bin/$b-16 /usr/bin/$b;
+          done
 
       - name: Check out repository code
         uses: actions/checkout@v4

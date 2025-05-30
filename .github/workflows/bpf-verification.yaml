@@ -21,7 +21,7 @@ jobs:
         insn: [BPF_AND, BPF_JSLT]
         kernel: [5.9]
         spec: ["no-weak-spec", "weak-spec"]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Install dependencies
