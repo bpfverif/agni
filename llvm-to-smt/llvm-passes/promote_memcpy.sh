@@ -35,7 +35,7 @@ echo "FUNCTION_TO_PROMOTE_MEMCPY: ${FUNCTION_TO_PROMOTE_MEMCPY}"
 echo "--------------------------------------"
 echo "running pass promote-memcpy"
 echo "--------------------------------------"
-cmd="$LLVM_DIR/bin/opt -load-pass-plugin ${BUILD_DIR}/libPromoteMemcpy.so --passes=\"promote-memcpy\" ${inputllfile} -S -o ${outfile_final}"
+cmd="$LLVM_DIR/bin/opt -opaque-pointers=0 -load-pass-plugin ${BUILD_DIR}/libPromoteMemcpy.so --passes=\"promote-memcpy\" ${inputllfile} -S -o ${outfile_final}"
 
 echo $cmd
 eval $cmd || exit 1

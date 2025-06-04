@@ -11,7 +11,7 @@ set(LT_LLVM_INSTALL_DIR "" CACHE PATH "LLVM installation directory")
 # find_package can locate it)
 list(APPEND CMAKE_PREFIX_PATH "${LT_LLVM_INSTALL_DIR}/lib/cmake/llvm/")
 
-find_package(LLVM 14.0.0 REQUIRED CONFIG)
+find_package(LLVM 16.0.0 REQUIRED CONFIG)
 
 # LLVMToSMT includes headers from LLVM - update the include paths accordingly
 include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
@@ -20,7 +20,7 @@ include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
 # 2. LLVM-TUTOR BUILD CONFIGURATION
 #===============================================================================
 # Use the same C++ standard as LLVM does
-set(CMAKE_CXX_STANDARD 14 CACHE STRING "")
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "")
 
 # Build type
 if (NOT CMAKE_BUILD_TYPE)
