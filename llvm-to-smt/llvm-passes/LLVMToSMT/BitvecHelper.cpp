@@ -28,11 +28,7 @@ z3::expr BitVecHelper::getBool(std::string prefix) {
 }
 
 bool BitVecHelper::isValueConstantInt(Value *v) {
-  if (ConstantInt *CI = dyn_cast<ConstantInt>(v)) {
-    return true;
-  } else {
-    return false;
-  }
+  return isa<ConstantInt>(v);
 }
 
 /* TODO should this always return an int? */
