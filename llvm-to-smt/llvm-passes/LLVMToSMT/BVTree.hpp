@@ -22,7 +22,7 @@ public:
   BVTree *emptyCopy();
   static BVTree *merge(BVTree *, BVTree *, z3::expr_vector &,
                        z3::expr_vector &);
-  BVTree *getSubTree(int idx);
+  BVTree *getSubTree(std::vector<BVTree*>::size_type idx);
   void replaceBV(unsigned int oldbv_ast_id, z3::expr &newbv);
   z3::expr_vector getOutputEquivalenceZ3ExprVector();
   BVTree *deepCopy();

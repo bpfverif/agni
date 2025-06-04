@@ -54,7 +54,7 @@ void BVTree::merge(BVTree *t1, BVTree *t2, BVTree *tMerge, z3::expr_vector &v1,
       v2.push_back(t2->bv == tMerge->bv);
     }
   } else {
-    for (auto i = 0; i < t1->children.size(); i++) {
+    for (std::vector<BVTree*>::size_type i = 0; i < t1->children.size(); i++) {
       BVTree *aChildI = t1->children[i];
       BVTree *bChildI = t2->children[i];
       BVTree *nChildI = tMerge->children[i];
@@ -74,7 +74,7 @@ void BVTree::deepCopy(BVTree *tNew) {
   if (this->children.empty()) {
     tNew->bv = BitVecHelper::getBitVec(this->bv.get_sort().bv_size());
   } else {
-    for (auto i = 0; i < this->children.size(); i++) {
+    for (std::vector<BVTree*>::size_type i = 0; i < this->children.size(); i++) {
       BVTree *t1ChildI = this->children[i];
       BVTree *t2ChildT = tNew->children[i];
       t1ChildI->deepCopy(t2ChildT);
@@ -90,7 +90,7 @@ BVTree *BVTree::deepCopy() {
 
 bool BVTree::hasSubTree() { return (this->children.size() > 0); }
 
-BVTree *BVTree::getSubTree(int idx) {
+BVTree *BVTree::getSubTree(std::vector<BVTree*>::size_type idx) {
   assert(this->children.size() > idx);
   return this->children[idx];
 }
@@ -114,7 +114,7 @@ void BVTree::setAllBVsToValue(int value) {
     this->bv = ctx.bv_val(value, this->bv.get_sort().bv_size());
     return;
   }
-  for (auto i = 0; i < this->children.size(); i++) {
+  for (std::vector<BVTree*>::size_type i = 0; i < this->children.size(); i++) {
     BVTree *subTree = getSubTree(i);
     subTree->setAllBVsToValue(value);
   }
@@ -146,7 +146,7 @@ void BVTree::getEquivVector(BVTree *t1, BVTree *t2, z3::expr_vector &v) {
       assert(!t1hasBV && !t2hasBV);
     }
   } else {
-    for (auto i = 0; i < t1->children.size(); i++) {
+    for (std::vector<BVTree*>::size_type i = 0; i < t1->children.size(); i++) {
       BVTree *t1childI = t1->children[i];
       BVTree *t2childI = t2->children[i];
       getEquivVector(t1childI, t2childI, v);
