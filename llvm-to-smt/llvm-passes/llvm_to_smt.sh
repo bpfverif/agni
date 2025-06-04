@@ -45,7 +45,7 @@ echo "SMT2LIB_OUTPUT_FILEPATH: ${SMT2LIB_OUTPUT_FILEPATH}"
 echo "FUNCTION_UNDER_EVAL: ${FUNCTION_UNDER_EVAL}"
 echo "GLOBAL_BITVECTOR_SUFFIX: ${GLOBAL_BITVECTOR_SUFFIX}"
 
-e="${LLVM_DIR}/bin/opt -load-pass-plugin ${BUILD_DIR}/libLLVMToSMT.so --passes=\"print<llvm-to-smt>\" --disable-output ${llfile}"
+e="${LLVM_DIR}/bin/opt -opaque-pointers=0 -load-pass-plugin ${BUILD_DIR}/libLLVMToSMT.so --passes=\"print<llvm-to-smt>\" --disable-output ${llfile}"
 echo $e
 eval $e || exit 1
 

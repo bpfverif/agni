@@ -39,7 +39,7 @@ export FUNCTION_TO_START_REMOVE=${functiontostart}
 echo "FUNCTIONS_TO_REMOVE_TXT: ${FUNCTIONS_TO_REMOVE_TXT}"
 echo "FUNCTION_TO_START_REMOVE: ${FUNCTION_TO_START_REMOVE}"
 
-cmd="$LLVM_DIR/bin/opt -load-pass-plugin ${BUILD_DIR}/libRemoveFunctionCalls.so --passes=\"remove-func-calls\" ${inputllfile} -S -o ${outfile_final}"
+cmd="$LLVM_DIR/bin/opt -opaque-pointers=0 -load-pass-plugin ${BUILD_DIR}/libRemoveFunctionCalls.so --passes=\"remove-func-calls\" ${inputllfile} -S -o ${outfile_final}"
 
 echo $cmd
 eval $cmd || exit 1

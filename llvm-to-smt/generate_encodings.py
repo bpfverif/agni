@@ -817,7 +817,7 @@ if __name__ == "__main__":
     logfile.write(cmdout_make_verifier.stdout)
     logfile.write("\n")
 
-    additional_clang_options = r''' -fno-discard-value-names -emit-llvm -S -O0 -Xclang -disable-O0-optnone'''
+    additional_clang_options = r''' -fno-discard-value-names -emit-llvm -S -O0 -Xclang -no-opaque-pointers -Xclang -disable-O0-optnone'''
 
     # search for verifier.o clang compile command
     verifier_re_search_pattern = r'([\s]*)(.*,kernel\/bpf\/\.verifier\.o\.d.*)(-c -o.*)'
@@ -840,7 +840,7 @@ if __name__ == "__main__":
     logfile.write("\n")
 
     # search for tnum.o clang compile command
-    tnum_re_search_pattern = '([\s]*)(.*,kernel\/bpf\/\.tnum\.o\.d.*)(-c -o.*)'
+    tnum_re_search_pattern = r'([\s]*)(.*,kernel\/bpf\/\.tnum\.o\.d.*)(-c -o.*)'
     regex_res_tnum = re.search(tnum_re_search_pattern, cmdout_make_tnum.stdout)
     res_str_tnum = regex_res_tnum.group(2)
     res_str_tnum = res_str_tnum.replace("-Werror ", "")
@@ -898,7 +898,7 @@ if __name__ == "__main__":
     os.chdir(str(outdir_fullpath))
 
     llvm_link_fullpath = llvmdir_fullpath.joinpath("bin", "llvm-link")
-    cmd_link = [str(llvm_link_fullpath), '-S', 'tnum.ll',
+    cmd_link = [str(llvm_link_fullpath), '-S', 'tnum.ll', '-opaque-pointers=0',
                 'verifier.ll', '-o', 'verifier_tnum.ll']
     print(" ".join(cmd_link))
     cmdout_link = subprocess.run(

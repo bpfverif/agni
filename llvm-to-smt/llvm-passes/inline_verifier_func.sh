@@ -36,7 +36,7 @@ echo "--------------------------------------"
 export FUNCTION_TO_INLINE=$2
 echo "FUNCTION_TO_INLINE: ${FUNCTION_TO_INLINE}"
 
-cmd="$LLVM_DIR/bin/opt -load-pass-plugin ${BUILD_DIR}/libInlineFunctionCalls.so --passes=\"inline-func-calls\" ${inputllfile} -S -o ${outfile_final}"
+cmd="$LLVM_DIR/bin/opt -opaque-pointers=0 -load-pass-plugin ${BUILD_DIR}/libInlineFunctionCalls.so --passes=\"inline-func-calls\" ${inputllfile} -S -o ${outfile_final}"
 
 echo $cmd
 eval $cmd || exit 1
