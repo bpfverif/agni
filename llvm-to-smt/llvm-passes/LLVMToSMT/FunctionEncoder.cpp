@@ -2334,6 +2334,54 @@ void FunctionEncoder::handleLLVMOverflowInstrinsics(IntrinsicInst &i) {
   BBAsstVecIter->second.push_back(resultExpr);
 }
 
+void FunctionEncoder::handleInstrinsicLLVMMax(IntrinsicInst &i) {
+
+  outs() << "[handleInstrinsicLLVMMax] "
+         << "\n";
+  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+  Value *resVal = dyn_cast<Value>(&i);
+  Value *op0Val = i.getOperand(0);
+  Value *op1Val = i.getOperand(1);
+
+  auto resBV = BitVecHelper::getBitVecSingValType(resVal);
+  auto op0BV = BitVecHelper::getBitVecSingValType(op0Val);
+  auto op1BV = BitVecHelper::getBitVecSingValType(op1Val);
+  outs() << "[handleInstrinsicLLVMMax]"
+         << "resVal: " << *resVal << " (bv: " << resBV.to_string().c_str()
+         << ")"
+         << "\n";
+  outs() << "[handleInstrinsicLLVMMax]"
+         << "op0Val: " << *op0Val << " (bv: " << op0BV.to_string().c_str()
+         << ")"
+         << "\n";
+  outs() << "[handleInstrinsicLLVMMax]"
+         << "op1Val: " << *op1Val << " (bv: " << op1BV.to_string().c_str()
+         << ")"
+         << "\n";
+
+  z3::expr resultExpr(ctx);
+  switch (i.getIntrinsicID()) {
+  case Intrinsic::smin: {
+    resultExpr = resBV == z3::ite(z3::sle(op0BV, op1BV), op0BV, op1BV);
+  } break;
+  case Intrinsic::smax: {
+    resultExpr = resBV == z3::ite(z3::sge(op0BV, op1BV), op0BV, op1BV);
+  } break;
+  case Intrinsic::umin: {
+    resultExpr = resBV == z3::ite(z3::ule(op0BV, op1BV), op0BV, op1BV);
+  } break;
+  case Intrinsic::umax: {
+    resultExpr = resBV == z3::ite(z3::uge(op0BV, op1BV), op0BV, op1BV);
+  } break;
+  }
+
+  assert(resultExpr);
+
+  outs() << "[handleInstrinsicLLVMMax] "
+         << "resultExpr: " << resultExpr.to_string().c_str() << "\n";
+  BBAsstVecIter->second.push_back(resultExpr);
+}
+
 void FunctionEncoder::handleIntrinsicCallInst(IntrinsicInst &i) {
   outs() << "[handleIntrinsicCallInst] "
          << "\n";
@@ -2346,6 +2394,12 @@ void FunctionEncoder::handleIntrinsicCallInst(IntrinsicInst &i) {
   case Intrinsic::smul_with_overflow:
   case Intrinsic::umul_with_overflow:
     handleLLVMOverflowInstrinsics(i);
+    break;
+  case Intrinsic::smin:
+  case Intrinsic::smax:
+  case Intrinsic::umin:
+  case Intrinsic::umax:
+    handleInstrinsicLLVMMax(i);
     break;
   default:
     throw std::runtime_error("[handleIntrinsicCallInst]"

@@ -161,6 +161,7 @@ public:
   void handleCallInst(CallInst &i);
   void handleIntrinsicCallInst(IntrinsicInst &i);
   void handleLLVMOverflowInstrinsics(IntrinsicInst &i);
+  void handleInstrinsicLLVMMax(IntrinsicInst &i);
   void handleGEPInstFromSelect(GetElementPtrInst &i);
   void handleGEPInstFromPHI(GetElementPtrInst &i);
   void handlePhiInstPointer(PHINode &inst);
