@@ -1,7 +1,7 @@
 import subprocess
 import sys
 import argparse
-from shutil import copy2
+from shutil import copy2, move
 from pathlib import Path
 from datetime import datetime
 from termcolor import colored
@@ -254,9 +254,10 @@ class LLVMPassRunner:
         self.logfile_err.flush()
         self.curr_llfile_fullpath = output_llfile_fullpath
 
-    def copy_encoding_to_parent_dir(self):
+    def move_encoding_to_parent_dir(self):
         op_encoding_path = self.op_dir_fullpath.joinpath(self.output_smtfile_name)
-        copy2(str(op_encoding_path), str(self.parentdir_fullpath))
+        parent_encoding_path = self.parentdir_fullpath.joinpath(self.output_smtfile_name)
+        move(str(op_encoding_path), str(parent_encoding_path))
 
     def run(self):
         try:
@@ -288,7 +289,7 @@ class LLVMPassRunner:
                 self.op, str(e)), 'red'), flush=True, end="")
             raise e
 
-        self.copy_encoding_to_parent_dir()
+        self.move_encoding_to_parent_dir()
 
         self.logfile.flush()
         self.logfile_err.flush()
