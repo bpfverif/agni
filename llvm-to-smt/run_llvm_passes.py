@@ -57,9 +57,9 @@ class LLVMPassRunner:
 
     def run_opt_pass(self, O1=True):
         llvm_opt_fullpath = self.llvmdir_fullpath.joinpath("bin", "opt")
-        cmd_opt_O1 = '''{llvm_opt_fullpath} -opaque-pointers=0 --strip-debug --passes="default<O1>,instnamer" --stats -S  {input_llfile_fullpath} -o {output_llfile_fullpath}'''
+        cmd_opt_O1 = '''{llvm_opt_fullpath} --strip-debug --passes="default<O1>,instnamer" --stats -S  {input_llfile_fullpath} -o {output_llfile_fullpath}'''
         # cmd_opt_O0 = '''{llvm_opt_fullpath} -S --instnamer --simplifycfg --sroa --mergereturn --dce --deadargelim --memoryssa --always-inline --function-attrs --argpromotion --instcombine {input_llfile_fullpath} -o {output_llfile_fullpath}'''
-        cmd_opt_O0 = '''{llvm_opt_fullpath} -S -opaque-pointers=0 --passes=instnamer,sroa,adce,bdce,dce,globaldce,deadargelim,unreachableblockelim,lowerswitch,function-attrs --passes=argpromotion,instcombine {input_llfile_fullpath} -o {output_llfile_fullpath}'''
+        cmd_opt_O0 = '''{llvm_opt_fullpath} -S --passes=instnamer,sroa,adce,bdce,dce,globaldce,deadargelim,unreachableblockelim,lowerswitch,function-attrs --passes=argpromotion,instcombine {input_llfile_fullpath} -o {output_llfile_fullpath}'''
         if O1 == True:
             output_llfile_fullpath = self.curr_llfile_fullpath.parent.joinpath(
                 self.curr_llfile_fullpath.stem + ".O1" + ".ll")
@@ -241,7 +241,7 @@ class LLVMPassRunner:
             "bin", "llvm-extract")
         output_llfile_fullpath = self.curr_llfile_fullpath.parent.joinpath(
             self.curr_llfile_fullpath.stem + ".ex" + ".ll")
-        cmd_extract = [str(llvm_extract_fullpath), '--func={}'.format(self.function_name), '-opaque-pointers=0',
+        cmd_extract = [str(llvm_extract_fullpath), '--func={}'.format(self.function_name),
                        '-S', str(self.curr_llfile_fullpath), '-o', str(output_llfile_fullpath)]
         self.logfile.write("Running llvm-extract\n")
         self.logfile.write(" ".join(cmd_extract))

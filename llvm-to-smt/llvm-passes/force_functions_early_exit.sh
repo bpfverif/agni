@@ -35,8 +35,8 @@ echo "--------------------------------------"
 export FUNCTIONS_EARLY_RETVALUE_MAP_TXT=$functions_retvalue_map
 echo "FUNCTIONS_EARLY_RETVALUE_MAP_TXT: ${FUNCTIONS_EARLY_RETVALUE_MAP_TXT}"
 
-cmd="$LLVM_DIR/bin/opt -opaque-pointers=0 -load-pass-plugin ${BUILD_DIR}/libForceFunctionEarlyExit.so --passes=\"force-function-early-exit\" ${inputllfile} -S -o ${outfile_final}"
-cmd="${cmd} && $LLVM_DIR/bin/opt -opaque-pointers=0 --passes=verify ${outfile_final} -S -o ${outfile_final}.ll"
+cmd="$LLVM_DIR/bin/opt -load-pass-plugin ${BUILD_DIR}/libForceFunctionEarlyExit.so --passes=\"force-function-early-exit\" ${inputllfile} -S -o ${outfile_final}"
+cmd="${cmd} && $LLVM_DIR/bin/opt --passes=verify ${outfile_final} -S -o ${outfile_final}.ll"
 cmd="${cmd} && mv ${outfile_final}.ll ${outfile_final}"
 
 echo $cmd
