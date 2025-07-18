@@ -2382,6 +2382,30 @@ void FunctionEncoder::handleInstrinsicLLVMMax(IntrinsicInst &i) {
   BBAsstVecIter->second.push_back(resultExpr);
 }
 
+void FunctionEncoder::handleIntrinsicLLVMCTPop(IntrinsicInst &i) {
+
+  outs() << "[handleIntrinsicLLVMCTPop] "
+         << "\n";
+
+  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+  Value *resVal = dyn_cast<Value>(&i);
+  Value *op0Val = i.getOperand(0);
+
+  z3::expr resBV = BitVecHelper::getBitVecSingValType(resVal);
+  z3::expr op0BV = BitVecHelper::getBitVecSingValType(op0Val);
+
+  int resBVSize = resBV.get_sort().bv_size();
+
+  z3::expr popCountSum = ctx.bv_val(0, resBVSize);
+
+  for (int i = 0; i < resBVSize; i++) {
+    z3::expr iBit = z3::zext(op0BV.extract(i, i), resBVSize - 1);
+    popCountSum = popCountSum + iBit;
+  }
+
+  BBAsstVecIter->second.push_back(resBV == popCountSum);
+}
+
 void FunctionEncoder::handleIntrinsicCallInst(IntrinsicInst &i) {
   outs() << "[handleIntrinsicCallInst] "
          << "\n";
@@ -2400,6 +2424,9 @@ void FunctionEncoder::handleIntrinsicCallInst(IntrinsicInst &i) {
   case Intrinsic::umin:
   case Intrinsic::umax:
     handleInstrinsicLLVMMax(i);
+    break;
+  case Intrinsic::ctpop:
+    handleIntrinsicLLVMCTPop(i);
     break;
   default:
     throw std::runtime_error("[handleIntrinsicCallInst]"

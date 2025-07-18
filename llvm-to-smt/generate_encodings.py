@@ -106,7 +106,7 @@ bpf_ops.append(bpf_op_attrs(op_name='BPF_JGT', insn='BPF_JGT', insn_class='BPF_J
 bpf_ops.append(bpf_op_attrs(op_name='BPF_JGE', insn='BPF_JGE', insn_class='BPF_JMP_REG',
                             skip=False, intro_ver="3.18", suffix_id=27))
 bpf_ops.append(bpf_op_attrs(op_name='BPF_JSET', insn='BPF_JSET', insn_class='BPF_JMP_REG',
-                            skip=True, intro_ver="3.18", suffix_id=28))
+                            skip=False, intro_ver="3.18", suffix_id=28))
 bpf_ops.append(bpf_op_attrs(op_name='BPF_JNE', insn='BPF_JNE', insn_class='BPF_JMP_REG',
                             skip=False, intro_ver="3.18", suffix_id=29))
 bpf_ops.append(bpf_op_attrs(op_name='BPF_JLT', insn='BPF_JLT', insn_class='BPF_JMP_REG',
@@ -132,7 +132,7 @@ bpf_ops.append(bpf_op_attrs(op_name='BPF_JGT_32', insn='BPF_JGT', insn_class='BP
 bpf_ops.append(bpf_op_attrs(op_name='BPF_JGE_32', insn='BPF_JGE', insn_class='BPF_JMP32_REG',
                             skip=False, intro_ver="5.1", suffix_id=39))
 bpf_ops.append(bpf_op_attrs(op_name='BPF_JSET_32', insn='BPF_JSET', insn_class='BPF_JMP32_REG',
-                            skip=True, intro_ver="5.1", suffix_id=40))
+                            skip=False, intro_ver="5.1", suffix_id=40))
 bpf_ops.append(bpf_op_attrs(op_name='BPF_JNE_32', insn='BPF_JNE', insn_class='BPF_JMP32_REG',
                             skip=False, intro_ver="5.1", suffix_id=41))
 bpf_ops.append(bpf_op_attrs(op_name='BPF_JLT_32', insn='BPF_JLT', insn_class='BPF_JMP32_REG',

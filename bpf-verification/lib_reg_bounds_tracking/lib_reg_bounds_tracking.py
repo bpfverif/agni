@@ -575,6 +575,7 @@ class config_setup:
             "BPF_JGT":      self.encodings_path + "BPF_JGT.smt2",
             "BPF_JSGE":     self.encodings_path + "BPF_JSGE.smt2",
             "BPF_JSGT":     self.encodings_path + "BPF_JSGT.smt2",
+            "BPF_JSET":     self.encodings_path + "BPF_JSET.smt2",
             "BPF_OR_32":       self.encodings_path + "BPF_OR_32.smt2",
             "BPF_AND_32":      self.encodings_path + "BPF_AND_32.smt2",
             "BPF_XOR_32":      self.encodings_path + "BPF_XOR_32.smt2",
@@ -592,7 +593,8 @@ class config_setup:
             "BPF_JGE_32":      self.encodings_path + "BPF_JGE_32.smt2",
             "BPF_JGT_32":      self.encodings_path + "BPF_JGT_32.smt2",
             "BPF_JSGE_32":     self.encodings_path + "BPF_JSGE_32.smt2",
-            "BPF_JSGT_32":     self.encodings_path + "BPF_JSGT_32.smt2"
+            "BPF_JSGT_32":     self.encodings_path + "BPF_JSGT_32.smt2",
+            "BPF_JSET_32":     self.encodings_path + "BPF_JSET_32.smt2"
             }
         #synthesis insn set pool
         if isinstance(config_file["insn_set"], list):
@@ -621,17 +623,18 @@ class config_setup:
     def set_ops(self, mode):
         if mode == "ALL":
             self.OPS_set = {"BPF_AND", "BPF_OR", "BPF_LSH", "BPF_RSH", "BPF_JLT", "BPF_JLE", "BPF_JEQ", "BPF_JNE", "BPF_JGE", "BPF_JGT", "BPF_JSGE", "BPF_JSGT", "BPF_JSLT", "BPF_JSLE", "BPF_ADD", "BPF_SUB", "BPF_XOR", "BPF_ARSH",
-            "BPF_OR_32", "BPF_AND_32", "BPF_LSH_32", "BPF_RSH_32", "BPF_ADD_32", "BPF_SUB_32", "BPF_XOR_32","BPF_ARSH_32", "BPF_JLT_32",  "BPF_JLE_32", "BPF_JSLT_32", "BPF_JSLE_32", "BPF_JEQ_32", "BPF_JNE_32", "BPF_JGE_32", "BPF_JGT_32", "BPF_JSGE_32", "BPF_JSGT_32"}
+            "BPF_OR_32", "BPF_AND_32", "BPF_LSH_32", "BPF_RSH_32", "BPF_ADD_32", "BPF_SUB_32", "BPF_XOR_32","BPF_ARSH_32", "BPF_JLT_32",  "BPF_JLE_32", "BPF_JSLT_32", "BPF_JSLE_32", "BPF_JEQ_32", "BPF_JNE_32", "BPF_JGE_32", "BPF_JGT_32", "BPF_JSGE_32", "BPF_JSGT_32",
+            "BPF_JSET", "BPF_JSET_32"}
         elif mode == "ALL32":
-            self.OPS_set = {"BPF_OR_32", "BPF_AND_32", "BPF_LSH_32", "BPF_RSH_32", "BPF_ADD_32", "BPF_SUB_32", "BPF_XOR_32","BPF_ARSH_32", "BPF_JLT_32",  "BPF_JLE_32", "BPF_JSLT_32", "BPF_JSLE_32", "BPF_JEQ_32", "BPF_JNE_32", "BPF_JGE_32", "BPF_JGT_32", "BPF_JSGE_32", "BPF_JSGT_32"}
+            self.OPS_set = {"BPF_OR_32", "BPF_AND_32", "BPF_LSH_32", "BPF_RSH_32", "BPF_ADD_32", "BPF_SUB_32", "BPF_XOR_32","BPF_ARSH_32", "BPF_JLT_32",  "BPF_JLE_32", "BPF_JSLT_32", "BPF_JSLE_32", "BPF_JEQ_32", "BPF_JNE_32", "BPF_JGE_32", "BPF_JGT_32", "BPF_JSGE_32", "BPF_JSGT_32", "BPF_JSET_32"}
         elif mode =="JMP32":
-            self.OPS_set = {"BPF_JLT_32",  "BPF_JLE_32", "BPF_JSLT_32", "BPF_JSLE_32", "BPF_JEQ_32", "BPF_JNE_32", "BPF_JGE_32", "BPF_JGT_32", "BPF_JSGE_32", "BPF_JSGT_32"}
+            self.OPS_set = {"BPF_JLT_32",  "BPF_JLE_32", "BPF_JSLT_32", "BPF_JSLE_32", "BPF_JEQ_32", "BPF_JNE_32", "BPF_JGE_32", "BPF_JGT_32", "BPF_JSGE_32", "BPF_JSGT_32", "BPF_JSET_32"}
         elif mode =="ALU32":
             self.OPS_set = {"BPF_OR_32", "BPF_AND_32", "BPF_LSH_32", "BPF_RSH_32", "BPF_ADD_32", "BPF_SUB_32", "BPF_XOR_32","BPF_ARSH_32"}
         elif mode == "ALL64":
-            self.OPS_set = {"BPF_AND", "BPF_OR", "BPF_LSH", "BPF_RSH", "BPF_JLT", "BPF_JLE", "BPF_JEQ", "BPF_JNE", "BPF_JGE", "BPF_JGT", "BPF_JSGE", "BPF_JSGT", "BPF_JSLT", "BPF_JSLE", "BPF_ADD", "BPF_SUB", "BPF_XOR", "BPF_ARSH"}
+            self.OPS_set = {"BPF_AND", "BPF_OR", "BPF_LSH", "BPF_RSH", "BPF_JLT", "BPF_JLE", "BPF_JEQ", "BPF_JNE", "BPF_JGE", "BPF_JGT", "BPF_JSGE", "BPF_JSGT", "BPF_JSLT", "BPF_JSLE", "BPF_ADD", "BPF_SUB", "BPF_XOR", "BPF_ARSH", "BPF_JSET"}
         elif mode =="JMP64":
-            self.OPS_set = {"BPF_JLT", "BPF_JLE", "BPF_JEQ", "BPF_JNE", "BPF_JGE", "BPF_JGT", "BPF_JSGE", "BPF_JSGT", "BPF_JSLT", "BPF_JSLE"}
+            self.OPS_set = {"BPF_JLT", "BPF_JLE", "BPF_JEQ", "BPF_JNE", "BPF_JGE", "BPF_JGT", "BPF_JSGE", "BPF_JSGT", "BPF_JSLT", "BPF_JSLE", "BPF_JSET"}
         elif mode =="ALU64":
             self.OPS_set = {"BPF_AND", "BPF_OR", "BPF_LSH", "BPF_RSH", "BPF_ADD", "BPF_SUB", "BPF_XOR", "BPF_ARSH"}
 
@@ -865,6 +868,17 @@ class verification_synth_module:
                         self.input_dst_reg_list[i].conc64 == self.input_src_reg_list[i].conc64,
                         self.set_true_branch(i),
                         self.set_false_branch(i)))
+            elif(self.prog[i] == "BPF_JSET_32"):
+                formula.append(If(
+                        (self.input_dst_reg_list[i].conc32 & self.input_src_reg_list[i].conc32) != 0,
+                        self.set_true_branch(i),
+                        self.set_false_branch(i)))
+            elif(self.prog[i] == "BPF_JSET"):
+                formula.append(If(
+                        (self.input_dst_reg_list[i].conc64 & self.input_src_reg_list[i].conc64) != 0,
+                        self.set_true_branch(i),
+                        self.set_false_branch(i)))
+
 
     def set_true_branch(self, i):
         return And(
