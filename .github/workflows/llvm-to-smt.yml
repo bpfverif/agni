@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        insn: [BPF_AND, BPF_JSLT]
+        insn: [BPF_AND, BPF_JSLT, BPF_JSET_32]
         kernel: ["5.4", "5.10", "5.15", "6.1", "6.6", "6.12"]
     runs-on: ubuntu-22.04
     timeout-minutes: 40
