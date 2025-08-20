@@ -29,7 +29,7 @@ class bpf_op_attrs:
             self.function_name = "check_cond_jmp_op_wrapper_{}".format(
                 self.op_name)
         elif self.insn_class == 'BPF_SYNC':
-            self.function_name = "reg_bounds_sync___"
+            self.function_name = insn
         else:
             raise RuntimeError(
                 'Unsupported BPF insn_class {}'.format(insn_class))
@@ -149,8 +149,14 @@ bpf_ops.append(bpf_op_attrs(op_name='BPF_JSLE_32', insn='BPF_JSLE', insn_class='
                             skip=False, intro_ver="5.1", suffix_id=47))
 
 # refinement ops
-bpf_ops.append(bpf_op_attrs(op_name='BPF_SYNC', insn='NA', insn_class="BPF_SYNC",
+bpf_ops.append(bpf_op_attrs(op_name='BPF_SYNC', insn='reg_bounds_sync___', insn_class="BPF_SYNC",
                             skip=False, intro_ver="5.19", suffix_id=48))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_SYNC1', insn='__update_reg_bounds', insn_class="BPF_SYNC",
+                            skip=False, intro_ver="4.14", suffix_id=49))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_SYNC2', insn='__reg_deduce_bounds', insn_class="BPF_SYNC",
+                            skip=False, intro_ver="4.14", suffix_id=50))
+bpf_ops.append(bpf_op_attrs(op_name='BPF_SYNC3', insn='__reg_bound_offset', insn_class="BPF_SYNC",
+                            skip=False, intro_ver="4.14", suffix_id=51))
 
 
 def insert_sync_wrapper(verifier_c_filepath, kernver):

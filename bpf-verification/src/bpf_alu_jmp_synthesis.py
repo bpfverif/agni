@@ -31,7 +31,7 @@ def main():
     parser.add_argument('--res_path', type=str, required=True, help="set path to directory where results will be written")
     parser.add_argument('--synth_iter', type=int, help="set sequence length to synthesize", default=3)
     parser.add_argument('--synth_set', type=str, metavar='bpf instruction', help="choose instructions use as priors for synthesis (meaning they won't be the last instructions in the sequence)", nargs="*", choices=bpf_instructions_set, default=bpf_instructions_set)
-    bpf_instructions_set_w_sync.append("BPF_SYNC")
+    bpf_instructions_set_w_sync += ["BPF_SYNC", "BPF_SYNC1", "BPF_SYNC2", "BPF_SYNC3"]
     parser.add_argument('--ver_set', type=str, metavar='bpf instruction', help="choose instructions to verify", nargs="*", choices=bpf_instructions_set_w_sync, default=bpf_instructions_set_w_sync)
     args = parser.parse_args()
 

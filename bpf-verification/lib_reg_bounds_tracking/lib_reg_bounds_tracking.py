@@ -557,6 +557,9 @@ class config_setup:
         self.num_iter = config_file["num_synthesis_iter"]
         self.OP_to_smt_file_map = {
             "BPF_SYNC":     self.encodings_path + "BPF_SYNC.smt2",
+            "BPF_SYNC1":    self.encodings_path + "BPF_SYNC1.smt2",
+            "BPF_SYNC2":    self.encodings_path + "BPF_SYNC2.smt2",
+            "BPF_SYNC3":    self.encodings_path + "BPF_SYNC3.smt2",
             "BPF_OR":       self.encodings_path + "BPF_OR.smt2",
             "BPF_AND":      self.encodings_path + "BPF_AND.smt2",
             "BPF_XOR":      self.encodings_path + "BPF_XOR.smt2",
@@ -738,12 +741,12 @@ class verification_synth_module:
             #input registers are always the same mapping regardless of the
             #instruction - however, src_reg isn't used in sync for example
             self.input_dst_reg_list[i].update_bv_mappings(json_in[i][dst_in_key][json_off:], self.kernver)
-            if self.prog[i] != "BPF_SYNC":
+            if not self.prog[i].startswith("BPF_SYNC"):
                 self.input_src_reg_list[i].update_bv_mappings(json_in[i]["src_reg"][json_off:], self.kernver)
 
             #if the insn is alu or SYNC use "dst_reg" mapping for output
             #alu has 2 in, 1 out; sync has 1 in, 1 out
-            if self.prog[i][4] != "J" or self.prog[i] == "BPF_SYNC":
+            if self.prog[i][4] != "J" or self.prog[i].startswith("BPF_SYNC"):
                 dst_out_key = list(json_out[i].keys())[0]
                 self.output_dst_reg_list[i].update_bv_mappings(json_out[i][dst_out_key][json_off:], self.kernver)
 
@@ -892,7 +895,7 @@ class verification_synth_module:
     #function to set concrete to remain unchanged between inputs and output for jmps and SYNC
     def set_unchanged_concrete_jmps(self, formula):
         for i in range(self.prog_size):
-            if self.prog[i][4] == "J" or self.prog[i] == "BPF_SYNC":
+            if self.prog[i][4] == "J" or self.prog[i].startswith("BPF_SYNC"):
                 formula.append(And(
                     self.output_dst_reg_list[i].conc32 == self.input_dst_reg_list[i].conc32, 
                     self.output_dst_reg_list[i].conc64 == self.input_dst_reg_list[i].conc64))
