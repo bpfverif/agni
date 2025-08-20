@@ -16,6 +16,7 @@ public:
   std::vector<BVTree *> children;
 
   BVTree();
+  ~BVTree();
   BVTree(z3::expr &bv_);
   std::string toString();
   BVTree *copy();
