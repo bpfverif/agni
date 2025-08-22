@@ -10,16 +10,16 @@ jobs:
   download-linux:
     strategy:
       matrix:
-        tree: ["torvalds_linux", "bpf_bpf-next", "bpf_bpf"]
+        tree: ["bpf_bpf-next", "bpf_bpf", "stable_linux_linux-6.12.y", "stable_linux_linux-6.6.y", "stable_linux_linux-6.1.y", "stable_linux_linux-5.15.y", "stable_linux_linux-5.10.y", "stable_linux_linux-5.4.y"]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Retrieve Linux sources
         run: |
-          name=${{ matrix.tree }}
-          suffix=${name//_/\/}
-          tree=git://git.kernel.org/pub/scm/linux/kernel/git/$suffix.git
-          git clone -qb master --depth 1 $tree linux
+          IFS='_' read -r -a tree <<< "${{ matrix.tree }}"
+          url=git://git.kernel.org/pub/scm/linux/kernel/git/${tree[0]}/${tree[1]}.git
+          branch=${tree[2]:-master}
+          git clone -qb $branch --depth 1 $url linux
 
       - name: Compress Linux sources
         run: |
@@ -37,7 +37,7 @@ jobs:
       fail-fast: false
       matrix:
         insn: [BPF_SYNC1, BPF_SYNC2, BPF_SYNC3, BPF_ADD, BPF_SUB, BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_ARSH, BPF_JLT, BPF_JLE, BPF_JSLT, BPF_JSLE, BPF_JEQ, BPF_JNE, BPF_JGE, BPF_JGT, BPF_JSGE, BPF_JSGT, BPF_JSET, BPF_ADD_32, BPF_SUB_32, BPF_OR_32, BPF_AND_32, BPF_XOR_32, BPF_LSH_32, BPF_RSH_32, BPF_ARSH_32, BPF_JLT_32, BPF_JLE_32, BPF_JSLT_32, BPF_JSLE_32, BPF_JEQ_32, BPF_JNE_32, BPF_JGE_32, BPF_JGT_32, BPF_JSGE_32, BPF_JSGT_32, BPF_JSET_32]
-        tree: ["torvalds_linux", "bpf_bpf-next", "bpf_bpf"]
+        tree: ["bpf_bpf-next", "bpf_bpf", "stable_linux_linux-6.12.y", "stable_linux_linux-6.6.y", "stable_linux_linux-6.1.y", "stable_linux_linux-5.15.y", "stable_linux_linux-5.10.y", "stable_linux_linux-5.4.y"]
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
@@ -64,6 +64,20 @@ jobs:
           cd bpf-verification
           pip install .
 
+      - name: Deduce kernel version
+        id: version
+        run: |
+          version="6.17"
+          # If it's a stable tree, we can get a more precise kernel version.
+          if [[ ${{ matrix.tree }} =~ stable_linux_linux-([0-9]+\.[0-9]+)\.y ]]; then
+              version="${BASH_REMATCH[1]}"
+          fi
+          # We support only 5.4.210 as the minimum 5.4.x version.
+          if [[ "$version" == "5.4" ]]; then
+            version="5.4.210"
+          fi
+          echo "version=$version" >> $GITHUB_OUTPUT
+
       - name: Download Linux sources
         uses: actions/download-artifact@master
         with:
@@ -87,7 +101,7 @@ jobs:
           cd llvm-to-smt
 
           python3 generate_encodings.py \
-            --kernver 6.10 --commit $commit \
+            --kernver ${{ steps.version.outputs.version }} --commit $commit \
             --kernbasedir "${{ github.workspace }}/linux" \
             --outdir ../bpf-encodings/${{ matrix.tree }} \
             --specific-op ${{ matrix.insn }} \
@@ -105,11 +119,11 @@ jobs:
         run: |
           mkdir results-${{ matrix.tree }}
           cd bpf-verification
-          python3 src/bpf_alu_jmp_synthesis.py --kernver 6.10 --encodings_path ../bpf-encodings/${{ matrix.tree }}/ --res_path ../results-${{ matrix.tree }} --ver_set ${{ matrix.insn }}
+          python3 src/bpf_alu_jmp_synthesis.py --kernver ${{ steps.version.outputs.version }} --encodings_path ../bpf-encodings/${{ matrix.tree }}/ --res_path ../results-${{ matrix.tree }} --ver_set ${{ matrix.insn }}
 
       - name: Upload results
         if: ${{ always() }} && steps.bpf-verification.outcome != 'skipped'
         uses: actions/upload-artifact@master
         with:
           name: results-${{ matrix.tree }}-${{ matrix.insn }}
-          path: results-${{ matrix.tree }}/6.10_res
+          path: results-${{ matrix.tree }}/${{ steps.version.outputs.version }}_res
