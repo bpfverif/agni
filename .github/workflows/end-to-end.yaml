@@ -100,12 +100,27 @@ jobs:
           mkdir -p bpf-encodings/${{ matrix.tree }}
           cd llvm-to-smt
 
+          version=${{ steps.version.outputs.version }}
+
+          # Some ops aren't compatible with modular mode on older kernels.
+          modular="--modular"
+          if  [[ ${{ matrix.insn }} =~ ^(BPF_OR|BPF_AND|BPF_XOR) ]]; then
+            if [ $version == "5.4.210" ] || [ $version == "5.10" ] || [ $version == "5.15" ] || [ $version == "6.1" ] || [ $version == "6.6" ]; then
+              modular=""
+              python3 generate_encodings.py \
+                --kernver $version --commit $commit \
+                --kernbasedir "${{ github.workspace }}/linux" \
+                --outdir ../bpf-encodings/${{ matrix.tree }} \
+                --specific-op BPF_SYNC
+            fi
+          fi
+
           python3 generate_encodings.py \
-            --kernver ${{ steps.version.outputs.version }} --commit $commit \
+            --kernver $version --commit $commit \
             --kernbasedir "${{ github.workspace }}/linux" \
             --outdir ../bpf-encodings/${{ matrix.tree }} \
             --specific-op ${{ matrix.insn }} \
-            --modular
+            $modular
 
       - name: Upload encodings
         if: ${{ always() }} && steps.generate-encodings.outcome != 'skipped'
