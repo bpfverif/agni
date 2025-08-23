@@ -14,6 +14,7 @@ from run_llvm_passes import LLVMPassRunner
 from wrappers import *
 from typing import List
 
+
 class bpf_op_attrs:
     def __init__(self, op_name, insn, insn_class, skip, intro_ver, suffix_id):
         self.op_name = op_name
@@ -152,6 +153,8 @@ bpf_ops.append(bpf_op_attrs(op_name='BPF_JSLE_32', insn='BPF_JSLE', insn_class='
 bpf_ops.append(bpf_op_attrs(op_name='BPF_SYNC', insn='NA', insn_class="BPF_SYNC",
                             skip=False, intro_ver="5.19", suffix_id=48))
 
+# Ops that are broken on < 6.10 kernels when using modular mode.
+broken_ops_modular = ['BPF_AND', 'BPF_OR', 'BPF_XOR', 'BPF_AND_32', 'BPF_OR_32', 'BPF_XOR_32']
 
 def insert_sync_wrapper(verifier_c_filepath, kernver):
     wrapper_sync = ''
@@ -712,8 +715,11 @@ if __name__ == "__main__":
     print(", ".join([op.op_name for op in bpf_ops if op.skip == False]))
 
     if args.modular:
-        # only support modular verification in kernels with "reg_bounds_sync"
-        assert version.parse(args.kernver) >= version.parse("5.19-rc6")
+        if version.parse(args.kernver) < version.parse("5.19-rc6"):
+            raise RuntimeError('Modular mode requires kernels >= 5.19-rc6 with reg_bounds_sync.')
+        if (version.parse(args.kernver) < version.parse("6.10-rc1") and
+            (args.specific_op is None or args.specific_op in broken_ops_modular)):
+            raise RuntimeError('Modular mode requires kernels >= 6.10-rc1 for some of the targeted ops.')
 
     if args.bv_suffix_override:
         if args.specific_op is None:
