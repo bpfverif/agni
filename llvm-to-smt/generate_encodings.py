@@ -695,8 +695,8 @@ if __name__ == "__main__":
     print(", ".join([op.op_name for op in bpf_ops if op.skip == False]))
 
     if args.modular:
-        if version.parse(args.kernver) < version.parse("5.19-rc6"):
-            raise RuntimeError('Modular mode requires kernels >= 5.19-rc6 with reg_bounds_sync.')
+        if version.parse(args.kernver) < version.parse("4.14"):
+            raise RuntimeError('Modular mode requires kernels >= 4.14.')
         if (version.parse(args.kernver) < version.parse("6.10-rc1") and
             (args.specific_op is None or args.specific_op in broken_ops_modular)):
             raise RuntimeError('Modular mode requires kernels >= 6.10-rc1 for some of the targeted ops.')
