@@ -173,7 +173,7 @@ public:
   void handleLoadFromGEPPtrDerivedFromSelect(LoadInst &i,
                                              SelectInst &selectInst);
   void handleLoadFromGEPPtrDerivedFromPhi(LoadInst &i, PHINode &phiNode);
-
+  void handleLoadFromPhiPtr(LoadInst &loadInst, PHINode &phiInst);
   void handleStoreToGEPPtr(z3::expr BVToStore, GetElementPtrInst &GEPInst,
                            ValueBVTreeMap *newValueBVTreeMap,
                            MemoryUseOrDef *storeMemoryAccess);
