@@ -1042,6 +1042,140 @@ void FunctionEncoder::handleGEPInst(GetElementPtrInst &GEPInst) {
   printGEPMap();
 }
 
+#if 0
+
+define dso_local void @foo(%struct.bpf_reg_state* %dst_reg, %struct.bpf_reg_state* %src_reg) align 16 {
+entry:
+  %type = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %dst_reg, i64 0, i32 0
+; 1 = MemoryDef(liveOnEntry)
+  store i32 1, i32* %type, align 8
+; MemoryUse(1)
+  %type_load = load i32, i32* %type, align 8
+  %cmp = icmp ne i32 %type_load, 1
+  br i1 %cmp, label %ltrue, label %lfalse
+
+ltrue:                                            ; preds = %entry
+  %umax1 = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %dst_reg, i64 0, i32 4
+; MemoryUse(liveOnEntry)
+  %i1 = load i64, i64* %umax1, align 8
+  br label %lend
+
+lfalse:                                           ; preds = %entry
+  %umax2 = getelementptr inbounds %struct.bpf_reg_state, %struct.bpf_reg_state* %src_reg, i64 0, i32 4
+; MemoryUse(1)
+  %i2 = load i64, i64* %umax2, align 8
+  br label %lend
+
+lend:                                             ; preds = %lfalse, %ltrue
+  %umin_phi = phi i64* [ %umax1, %ltrue ], [ %umax2, %lfalse ]
+; MemoryUse(1)
+  %umin_phi_load = load i64, i64* %umin_phi, align 8
+  ret void
+}
+
+#endif
+
+/*
+Consider the above instruction sequence in foo, starting from the lend
+basic block.
+
+- Before the phi instruciton, the GEPMap was populated with:
+GEPMap:
+  umax1, dst_reg, [7]
+  umax2, src_reg, [7]
+  type, dst_reg, [0]
+
+- On encountering the phi instruction, the PhiMap and the PhiResolutionMap are
+  updated:
+PhiMap:
+  umin_phi, <umax1, ltrue>, <umax2, lfalse>
+PhiResolutionMap:
+  <ltrue, lend>: ltrue_lend_1_90
+  <lfalse, lend>: lfalse_lend_1_88
+
+- Finally, on encountering the load instruction, we first figure out in
+handleLoadInst() that the load pointer came from a phi, and that this
+is a pointer to a single value type. We call handleLoadFromPhiPtr().
+
+We make the following assertions, one for each incoming edge to the phi node, by
+indexing into the appropriate value in the ValueBVTreeMap that this load
+instruction accesses.
+
+(=> lfalse_lend_1_88 (= umin_phi_load dst_reg_7_bv)
+(=> ltrue_lend_1_90 (= umin_phi_load src_reg_7_bv)
+
+*/
+
+void FunctionEncoder::handleLoadFromPhiPtr(LoadInst &loadInst,
+                                           PHINode &phiInst) {
+  outs() << "[handleLoadFromPhiPtr] "
+         << "\n";
+  outs() << "[handleLoadFromPhiPtr] printPhiMap: ";
+  printPhiMap();
+  Value *loadInstValue = dyn_cast<Value>(&loadInst);
+  MemoryAccess *oldMemoryAccess =
+      currentMemorySSA->getMemoryAccess(&loadInst)->getDefiningAccess();
+  outs() << "[handleLoadFromPhiPtr] "
+         << "definingAccess: " << *oldMemoryAccess << "\n";
+
+  BasicBlock *phiBB = phiInst.getParent();
+
+  z3::expr loadBV = BitVecHelper::getBitVecSingValType(loadInstValue);
+  ValueBVTreeMap oldValueBVTreeMap =
+      MemoryAccessValueBVTreeMap.at(oldMemoryAccess);
+  outs() << "[handleLoadFromPhiPtr] "
+         << "oldValueBVTreeMap:\n";
+  printValueBVTreeMap(oldValueBVTreeMap);
+
+  auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+  std::vector<ValueBBPair> phiValueBBPairs = PhiMap.at(&phiInst);
+  for (auto kv : phiValueBBPairs) {
+    Value *phiArgValI = kv.first;
+    BasicBlock *phiArgBBI = kv.second;
+
+    outs() << "[handleLoadFromPhiPtr] "
+           << "phiArgValI: " << phiArgValI->getName() << "\n";
+    outs() << "[handleLoadFromPhiPtr] "
+           << "phiArgBBI: " << phiArgBBI->getName() << "\n";
+
+    Value *GEPMapValue = GEPMap.at(phiArgValI).first;
+    outs() << "[handleLoadFromPhiPtr] "
+           << "GEPMapValue: " << *GEPMapValue << "\n";
+
+    std::vector<int> *GEPMapIndices = GEPMap.at(phiArgValI).second;
+    outs() << "[handleLoadFromPhiPtr] "
+           << "GEPMapIndices: " << stdVectorIntToString(*GEPMapIndices) << "\n";
+
+    BBPair BBPairI = std::make_pair(phiArgBBI, phiBB);
+    z3::expr phiConditionBoolI = PhiResolutionMap.at(BBPairI);
+    outs() << "[handleLoadFromPhiPtr] "
+           << "phiConditionBoolI: " << phiConditionBoolI.to_string().c_str()
+           << "\n";
+
+    BVTree *subTreeI;
+    BVTree *parentBVTreeI = oldValueBVTreeMap.at(GEPMapValue);
+    outs() << "[handleLoadFromPhiPtr] "
+           << "parentBVTree: " << parentBVTreeI->toString() << "\n";
+
+    if (GEPMapIndices->size() == 1) {
+      int idx = GEPMapIndices->at(0);
+      subTreeI = parentBVTreeI->getSubTree(idx);
+    } else if (GEPMapIndices->size() == 2) {
+      int idx0 = GEPMapIndices->at(0);
+      int idx1 = GEPMapIndices->at(1);
+      subTreeI = parentBVTreeI->getSubTree(idx0)->getSubTree(idx1);
+    } else {
+      throw std::runtime_error("Unexpected GEPMapIndices size\n");
+    }
+
+    z3::expr loadEncodingI =
+        z3::implies(phiConditionBoolI, loadBV == subTreeI->bv);
+    outs() << "[handleLoadFromPhiPtr] " << loadEncodingI.to_string().c_str()
+           << "\n";
+    BBAsstVecIter->second.push_back(loadEncodingI);
+  }
+}
+
 /*
 The details are very similar to handleLoadFromGEPPtrDerivedFromSelect.
 
@@ -1317,10 +1451,14 @@ void FunctionEncoder::handleLoadInst(LoadInst &loadInst) {
       handleLoadFromGEPPtrDerivedFromSelect(loadInst, selectInst);
       return;
     }
+  } else if (isa<PHINode>(pointerValue)) {
+    outs() << "[handleLoadInst] load pointer came from a Phi pointer\n";
+    handleLoadFromPhiPtr(loadInst, *dyn_cast<PHINode>(pointerValue));
+    return;
   } else {
     throw std::runtime_error(
         "[handleLoadInst] load pointer did not come from a "
-        "GEP, this is not supported.\n");
+        "GEP pointer or a Phi pointer, this is not supported.\n");
   }
 
   outs() << "[handleLoadInst] "
