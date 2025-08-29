@@ -1,6 +1,7 @@
 #ifndef LLVM2SMT_FUNCTIONENCODER_H
 #define LLVM2SMT_FUNCTIONENCODER_H
 
+#include <llvm-16/llvm/IR/DataLayout.h>
 #include <llvm/Analysis/MemorySSA.h>
 #include <llvm/IR/Argument.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -45,7 +46,9 @@ public:
   Instruction *currentInstruction;
   BasicBlock *currentBB;
   Function *currentFunction;
-  MemorySSA *currentMemorySSA;
+  const MemorySSA *currentMemorySSA;
+  const DataLayout *currentDataLayout;
+  const StructType *BPFRegStateStructType;
   MemoryAccess *mostRecentMemoryDef;
   bool functionReturnsVoid = false;
   z3::expr_vector functionEncodingZ3ExprVec;
@@ -54,9 +57,10 @@ public:
   Json::Value *inputJsonDict;
   Json::Value *outputJsonDict;
 
-  FunctionEncoder(Function *F, MemorySSA *MSSA)
-      : currentFunction(F), currentMemorySSA(MSSA),
-        functionEncodingZ3ExprVec(ctx) {
+  FunctionEncoder(Function *F, const MemorySSA *MSSA, const DataLayout *DL,
+                  const StructType *BPFRegSt)
+      : currentFunction(F), currentMemorySSA(MSSA), currentDataLayout(DL),
+        BPFRegStateStructType(BPFRegSt), functionEncodingZ3ExprVec(ctx) {
     this->inputValueBVTreeMap = new ValueBVTreeMap();
     this->outputValueBVTreeMap = new ValueBVTreeMap();
   };
@@ -92,10 +96,8 @@ public:
   /* A list of structs relevent to the encoding. All other structs are ignored
    * when creating BVTrees. */
   /* TODO move this to a file, and read from file to populate this set */
-  std::unordered_set<std::string> relevantStructs{
-      "struct.bpf_reg_state",  "struct.bpf_verifier_env",
-      "struct.bpf_func_state", "struct.bpf_verifier_state",
-      "struct.tnum",           "struct.bpf_insn"};
+  std::unordered_set<std::string> relevantStructs{"struct.bpf_reg_state",
+                                                  "struct.tnum"};
 
   /* A map to keep track of what Type a bitcasted value originally came from */
   std::unordered_map<Value *, Type *> BitCastTypeMap;
@@ -155,6 +157,9 @@ public:
   void handlePhiNodeSetupBitVecs(PHINode &inst);
   void handlePhiNodeResolvePathConditions(PHINode &inst);
   void handleGEPInst(GetElementPtrInst &i);
+  void populateGEPIndices(GetElementPtrInst &I, std::vector<int> &GEPIndices);
+  void decomposeOffsetIntoIndices(StructType *structType, uint64_t Offset,
+                                  std::vector<int> &Indices);
   void handleLoadInst(LoadInst &i);
   void handleStoreInst(StoreInst &i);
   void handleMemoryPhiNode(MemoryPhi &mphi, FunctionEncoderPassType passID);
@@ -210,7 +215,9 @@ public:
   void convertAggregateTypeArgToBVTree(BVTree *parent,
                                        StructType *baseStructType,
                                        std::string prefix);
-  BVTree *setupBVTreeForArg(Value *argVal, std::string prefix);
+  BVTree *setupBVTreeForArg(Value *argVal, const std::string &argName);
+  BVTree *setupBVTreeForStruct(StructType *outerFieldType,
+                               const std::string &fieldName);
   bool isRelevantStruct(StructType *s);
 
   bool isFunctionCFGaDAG(llvm::Function &F);

@@ -2,9 +2,9 @@
 #define LLVM2SMT_BITVEC_HELPER_HPP
 
 #include <sstream>
+#include <stdexcept>
 #include <unordered_map>
 #include <vector>
-#include <stdexcept>
 
 #include <z3++.h>
 
@@ -26,6 +26,11 @@ public:
   static bool isValueConstantInt(Value *);
   static int64_t getConstantIntValue(Value *);
   static void init(std::string);
+
+  static std::unordered_map<std::string, z3::expr> fieldBitVecMap;
+
+  static z3::expr getBitVecForField(Type *fieldType,
+                                    const std::string &fieldName);
 };
 
 #endif // LLVM2SMT_BITVEC_HELPER_HPP

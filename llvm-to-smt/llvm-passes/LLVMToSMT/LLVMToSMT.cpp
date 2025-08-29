@@ -33,12 +33,29 @@ LLVMToSMT::Result LLVMToSMT::run(Module &M, ModuleAnalysisManager &MAM) {
     throw std::invalid_argument(
         "Function not found: " + std::string(functionUnderEvalStr) + "\n");
   }
-  MemorySSA &MSSA = moduleEncoderInstance->getMemorySSA(*functionUnderEval);
+
+  const MemorySSA &MSSA =
+      moduleEncoderInstance->getMemorySSA(*functionUnderEval);
+
+  const DataLayout &DL = M.getDataLayout();
+
+  llvm::StructType *BPFRegStateStructType = nullptr;
+  std::string structName = "bpf_reg_state";
+  for (llvm::StructType *ST : M.getIdentifiedStructTypes()) {
+    if (ST->hasName()) {
+      std::string name = ST->getName().str();
+      if (name == structName || name == "struct." + structName) {
+        BPFRegStateStructType = ST;
+        break;
+      }
+    }
+  }
 
   /* Create new FunctionEncoder instance for FUNCTION_UNDER_EVAL and build
   the SMT for the function */
   FunctionEncoder *functionEncoder =
-      new FunctionEncoder(functionUnderEval, &MSSA);
+      new FunctionEncoder(functionUnderEval, &MSSA, &DL, BPFRegStateStructType);
+
   functionEncoder->buildSMT();
   return *functionEncoder;
 }
@@ -99,6 +116,7 @@ PreservedAnalyses LLVMToSMTPrinter::run(Module &M, ModuleAnalysisManager &MAM) {
 AnalysisKey LLVMToSMT::Key;
 
 PassPluginLibraryInfo getLLVMToSMTPassPluginInfo() {
+  fprintf(stderr, "LLVMToSMT plugin loaded!\n");
   return {LLVM_PLUGIN_API_VERSION, "llvm-to-smt", LLVM_VERSION_STRING,
           [](PassBuilder &PB) {
             // #1. Register for opt --passes=print<llvmtosmt>

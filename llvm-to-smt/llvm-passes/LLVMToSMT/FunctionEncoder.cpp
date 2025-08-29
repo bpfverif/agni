@@ -1,4 +1,8 @@
 #include "FunctionEncoder.hpp"
+#include "BitvecHelper.hpp"
+#include <list>
+#include <llvm-16/llvm/IR/Argument.h>
+#include <llvm-16/llvm/Support/Casting.h>
 #include <llvm/Analysis/MemorySSA.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Instructions.h>
@@ -897,10 +901,90 @@ void FunctionEncoder::handlePhiNode(PHINode &inst, int passID) {
   }
 }
 
-void populateGEPIndices(GetElementPtrInst &i, std::vector<int> &GEPIndices) {
+void FunctionEncoder::decomposeOffsetIntoIndices(StructType *structType,
+                                                 uint64_t Offset,
+                                                 std::vector<int> &Indices) {
+  outs() << "[decomposeOffsetIntoIndices] "
+         << "\n";
+
+  const StructLayout *SL =
+      currentDataLayout->getStructLayout(const_cast<StructType *>(structType));
+
+  for (unsigned i = 0; i < structType->getNumElements(); ++i) {
+    Type *elemTy = structType->getElementType(i);
+    outs() << "Member " << i << " (" << *elemTy << ")"
+           << " offset: " << SL->getElementOffset(i) << "\n";
+  }
+
+  unsigned fieldIdx = SL->getElementContainingOffset(Offset);
+  Indices.push_back(static_cast<int>(fieldIdx));
+  outs() << "fieldIdx " << fieldIdx << "\n";
+
+  Type *elemTy = BPFRegStateStructType->getElementType(fieldIdx);
+  outs() << "elemTy " << *elemTy << "\n";
+
+  uint64_t fieldOffset = SL->getElementOffset(fieldIdx);
+  uint64_t subOffset = Offset - fieldOffset;
+  outs() << "fieldOffset " << fieldOffset << "\n";
+  outs() << "subOffset " << subOffset << "\n";
+  if (elemTy->isStructTy()) {
+    decomposeOffsetIntoIndices(dyn_cast<StructType>(elemTy), subOffset,
+                               Indices);
+  }
+}
+
+void FunctionEncoder::populateGEPIndices(GetElementPtrInst &i,
+                                         std::vector<int> &GEPIndices) {
 
   outs() << "[populateGEPIndices] "
          << "\n";
+
+  Type *srcElemTy = i.getSourceElementType();
+
+  if (srcElemTy->isIntegerTy(8)) {
+    // This is a raw byte-offset GEP
+    uint64_t byteOffset = 0;
+    if (auto *CI = dyn_cast<ConstantInt>(i.getOperand(1))) {
+      byteOffset = CI->getZExtValue();
+    }
+
+    decomposeOffsetIntoIndices(const_cast<StructType *>(BPFRegStateStructType),
+                               byteOffset, GEPIndices);
+  }
+
+  else {
+    // Typed GEP — skip the outermost '0' index like your original code
+    for (unsigned opIdx = 2; opIdx < i.getNumOperands(); ++opIdx) {
+      if (auto *CI = dyn_cast<ConstantInt>(i.getOperand(opIdx))) {
+        GEPIndices.push_back(static_cast<int>(CI->getSExtValue()));
+      } else {
+        GEPIndices.push_back(0);
+      }
+    }
+  }
+
+  return;
+
+  // Value *op0 = i.getOperand(0);
+  // Value *op1 = i.getOperand(1);
+  // Value *op2 = i.getOperand(2);
+
+  // outs() << *op0 << " " << op0->getType()->isIntegerTy() << "\n";
+  // outs() << *op1 << " " << op1->getType()->isIntegerTy() << "\n";
+  // outs() << *op2 << " " << op2->getType()->isIntegerTy() << "\n";
+
+  // if (i.getNumOperands() == 4) {
+  //   Value *op3 = i.getOperand(3);
+  //   outs() << *op3 << " " << op3->getType()->isIntegerTy() << "\n";
+  // }
+
+  // for (unsigned opIdx = 1; opIdx < i.getNumOperands(); ++opIdx) {
+  //   outs() << "op" << opIdx << ": " << *i.getOperand(opIdx) << "\n";
+  //   auto *constantInt = llvm::dyn_cast<ConstantInt>(i.getOperand(opIdx));
+  //   GEPIndices.push_back(static_cast<int>(constantInt->getSExtValue()));
+  // }
+
+  // return;
 
   if (i.getNumOperands() == 3) {
     int idx;
@@ -973,13 +1057,6 @@ void FunctionEncoder::handleGEPInst(GetElementPtrInst &GEPInst) {
    * type, i.e offsets the base type directly */
   auto offsetOperandValueInt =
       BitVecHelper::getConstantIntValue(GEPInst.getOperand(1));
-  if (offsetOperandValueInt != 0) {
-    outs() << "[handleGEPInst] "
-           << "offsetOperandValueInt:" << offsetOperandValueInt << "\n";
-    throw std::runtime_error("[handleGEPInst]"
-                             "Offset operand to GEP instruction does "
-                             "not offset 0 elements into the base type\n");
-  }
 
   std::vector<int> *GEPIndices = new std::vector<int>;
   ValueIndicesPair valueIndicesPairGEP;
@@ -1040,6 +1117,7 @@ void FunctionEncoder::handleGEPInst(GetElementPtrInst &GEPInst) {
   outs() << "[handleGEPInst] "
          << "GEPMap: \n";
   printGEPMap();
+  // exit(0);
 }
 
 /*
@@ -1278,20 +1356,20 @@ void FunctionEncoder::handleLoadInst(LoadInst &loadInst) {
   Type *pointerType = pointerValue->getType();
   outs() << "[handleLoadInst] "
          << "pointerType: " << *pointerType << "\n";
-  Type *pointerBaseType = pointerType->getPointerElementType();
-  outs() << "[handleLoadInst] "
-         << "pointerBaseType: " << *pointerBaseType << "\n";
+  // Type *pointerBaseType = pointerType->getPointerElementType();
+  // outs() << "[handleLoadInst] "
+  //        << "pointerBaseType: " << *pointerBaseType << "\n";
   MemoryAccess *oldMemoryAccess =
       currentMemorySSA->getMemoryAccess(&loadInst)->getDefiningAccess();
   outs() << "[handleLoadInst] "
          << "definingAccess: " << *oldMemoryAccess << "\n";
 
-  /* Loads a pointer to pointer, treat this like a GEP instruction */
-  if (pointerBaseType->isPointerTy()) {
-    throw std::runtime_error("[handleLoadInst]"
-                             "load instruction with pointer that is a pointer "
-                             "to a pointer is not supported\n");
-  }
+  // /* Loads a pointer to pointer, treat this like a GEP instruction */
+  // if (pointerBaseType->isPointerTy()) {
+  //   throw std::runtime_error("[handleLoadInst]"
+  //                            "load instruction with pointer that is a pointer
+  //                            " "to a pointer is not supported\n");
+  // }
 
   if (loadInstValue->getType()->isAggregateType()) {
     throw std::runtime_error("[handleLoadInst]"
@@ -2637,8 +2715,108 @@ void FunctionEncoder::flattenArgToBVTree(BVTree *root, Type *argType,
 }
 #endif
 
-BVTree *FunctionEncoder::setupBVTreeForArg(Value *argVal, std::string prefix) {
+StructType *getStructTypeFromArg(Argument *arg, const std::string &structName) {
+
+  outs() << "[getStructTypeFromArg]"
+         << "looking up struct for " << structName << "\n";
+
+  llvm::Function *function = arg->getParent();
+  llvm::Module *module = function->getParent();
+
+  llvm::StructType *structType = nullptr;
+
+  for (llvm::StructType *ST : module->getIdentifiedStructTypes()) {
+    if (ST->hasName()) {
+      std::string name = ST->getName().str();
+      if (name == structName || name == "struct." + structName) {
+        structType = ST;
+        break;
+      }
+    }
+  }
+
+  if (!structType || structType->isOpaque()) {
+    throw std::runtime_error(
+        "[getStructTypeFromArg] struct not found or is opaque\n");
+  }
+
+  outs() << "[getStructTypeFromArg]"
+         << "found struct " << structType->getName() << "\n";
+
+  return structType;
+}
+
+BVTree *
+FunctionEncoder::setupBVTreeForStruct(StructType *structType,
+                                      const std::string &fieldNamePrefix) {
+  outs() << "[setupBVTreeForStruct]" << structType->getName() << ", "
+         << fieldNamePrefix << ", " << structType->isOpaque() << "\n";
+
+  BVTree *structBVTree = new BVTree();
+
+  if (!isRelevantStruct(structType)) {
+    return structBVTree;
+  }
+
+  outs() << "[setupBVTreeForStruct]"
+         << "#elements: " << structType->getNumElements() << "\n";
+
+  outs().flush();
+
+  for (unsigned i = 0; i < structType->getNumElements(); ++i) {
+    llvm::Type *innerFieldType = structType->getElementType(i);
+    if (innerFieldType->isIntegerTy()) {
+      std::string innerfieldName = fieldNamePrefix + "_" + std::to_string(i);
+      z3::expr fieldBV =
+          BitVecHelper::getBitVecForField(innerFieldType, innerfieldName);
+      BVTree *fieldNode = new BVTree();
+      fieldNode->bv = fieldBV;
+      structBVTree->children.push_back(fieldNode);
+    } else {
+      BVTree *emptyNode = new BVTree();
+      structBVTree->children.push_back(emptyNode);
+    }
+  }
+
+  return structBVTree;
+}
+
+BVTree *FunctionEncoder::setupBVTreeForArg(Value *argVal,
+                                           const std::string &argNamePrefix) {
   BVTree *BVTreeForArg = new BVTree();
+
+  Argument *arg = dyn_cast<Argument>(argVal);
+  outs() << "[setupBVTreeForArg] "
+         << "arg: " << *arg << "\n";
+
+  for (unsigned i = 0; i < BPFRegStateStructType->getNumElements(); ++i) {
+    llvm::Type *fieldType = BPFRegStateStructType->getElementType(i);
+    std::string fieldName = argNamePrefix + "_" + std::to_string(i);
+
+    llvm::outs() << "Field " << i << ": ";
+    fieldType->print(llvm::outs());
+    llvm::outs() << "," << fieldName << "\n";
+
+    if (fieldType->isIntegerTy()) {
+      z3::expr fieldBV = BitVecHelper::getBitVecForField(fieldType, fieldName);
+      BVTree *fieldNode = new BVTree();
+      fieldNode->bv = fieldBV;
+      BVTreeForArg->children.push_back(fieldNode);
+    } else if (fieldType->isStructTy()) {
+      StructType *fieldStructType = dyn_cast<StructType>(fieldType);
+      BVTree *nestedBVTreeNode =
+          setupBVTreeForStruct(fieldStructType, fieldName);
+      BVTreeForArg->children.push_back(nestedBVTreeNode);
+
+    } else {
+      // Create empty node for irrelevant fields (unions, etc.)
+      BVTree *emptyNode = new BVTree();
+      BVTreeForArg->children.push_back(emptyNode);
+    }
+  }
+
+  return BVTreeForArg;
+
   Type *argType = argVal->getType();
   outs() << "[setupBVTreeForArg] "
          << "argVal: " << *argVal << "\n";
@@ -2665,7 +2843,8 @@ BVTree *FunctionEncoder::setupBVTreeForArg(Value *argVal, std::string prefix) {
     }
     StructType *structArgType = dyn_cast<StructType>(argType);
     if ((!structArgType->isOpaque()) && isRelevantStruct(structArgType)) {
-      convertAggregateTypeArgToBVTree(BVTreeForArg, structArgType, prefix);
+      convertAggregateTypeArgToBVTree(BVTreeForArg, structArgType,
+                                      argNamePrefix);
     }
   }
   outs() << "[setupBVTreeForArg] "
@@ -2778,8 +2957,8 @@ z3::expr_vector FunctionEncoder::encodeFunctionBody(Function &F) {
     outs() << currentBB->getName() << "\n";
     outs() << "=========================\n";
 
-    /* Keep updating the mostRecentMemoryDef as you encounter MemoryDef created
-    by stores or MemoryPhis. */
+    /* Keep updating the mostRecentMemoryDef as you encounter MemoryDef
+    created by stores or MemoryPhis. */
     MemoryPhi *memoryPhiCurrentBB = currentMemorySSA->getMemoryAccess(&BB);
     if (memoryPhiCurrentBB) {
       mostRecentMemoryDef = memoryPhiCurrentBB;
@@ -3020,8 +3199,8 @@ bool FunctionEncoder::isFunctionCFGaDAG(Function &F) {
 /* This method implements what the pass does */
 void FunctionEncoder::buildSMT() {
 
-  /* Exit early if the function for which we are obtaining the SMT encoding has
-   * a backward edge */
+  /* Exit early if the function for which we are obtaining the SMT encoding
+   * has a backward edge */
   if (!this->isFunctionCFGaDAG(*this->currentFunction)) {
     throw std::runtime_error("The function " +
                              this->currentFunction->getName().str() +
@@ -3054,10 +3233,9 @@ void FunctionEncoder::buildSMT() {
    * argument to this function. */
   for (auto argIterator = this->currentFunction->arg_begin();
        argIterator != this->currentFunction->arg_end(); argIterator++) {
-    Value *argVal = dyn_cast<Value>(argIterator);
-    BVTree *BVTreeForArg =
-        this->setupBVTreeForArg(argVal, argVal->getName().str());
-    this->inputValueBVTreeMap->insert({argVal, BVTreeForArg});
+    Argument *arg = &*argIterator;
+    BVTree *BVTreeForArg = this->setupBVTreeForArg(arg, arg->getName().str());
+    this->inputValueBVTreeMap->insert({arg, BVTreeForArg});
 
     /* For each bitvector b in the BVTree, assert that (b == b) in entryBB's
      * asertions in BBAssertionsMap. This is mostly superflous, but is
@@ -3068,9 +3246,10 @@ void FunctionEncoder::buildSMT() {
     BVTreeForArg->addBVSelfEquivalencesToExprVec(entryBBAsstVec);
 
     /* Add arg to FunctionArgs list */
-    this->FunctionArgs.insert(argVal);
+    this->FunctionArgs.insert(arg);
   }
   printMemoryAccessValueBVTreeMap();
+  // exit(0);
 
   if (this->currentFunction->getReturnType()->isVoidTy()) {
     this->functionReturnsVoid = true;
