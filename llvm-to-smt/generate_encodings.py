@@ -563,25 +563,12 @@ def mark_reg_unknown_memset_remove(verifier_c_filepath):
     shutil.copy(tmpfile_path, verifier_c_filepath)
 
 
-def reg_bounds_sync_calls_remove(verifier_c_filepath):
-    inputfile_handle = verifier_c_filepath.open("r")
-    input_file_lines = inputfile_handle.readlines()
-    tmpdir_path = pathlib.Path("/tmp")
-    tmpfile_name = datetime.now().strftime("tmp_verifier_%H_%M_%d_%m_%Y.c")
-    tmpfile_path = tmpdir_path.joinpath(tmpfile_name)
-    tmpfile_handle = tmpfile_path.open("w")
-    input_file_line_iter = iter(input_file_lines)
-    for i, line in enumerate(input_file_line_iter):
-        if r"reg_bounds_sync" in line:
-            if not r"static void reg_bounds_sync" in line:
-                line = r"//" + line
-
-        tmpfile_handle.write(line)
-
-    tmpfile_handle.close()
-    inputfile_handle.close()
-
-    shutil.copy(tmpfile_path, verifier_c_filepath)
+def reg_bounds_sync_calls_remove(verifier_c_filepath, logfile, logfile_err):
+    spatch_fullpath = cocci_fullpath.joinpath('remove_sync.cocci')
+    cmd_checkout = ['spatch', '--very-quiet', '--in-place', '{}'.format(verifier_c_filepath), '--sp-file', '{}'.format(spatch_fullpath)]
+    print(" ".join(cmd_checkout))
+    subprocess.run(cmd_checkout, stdout=logfile, stderr=logfile_err,
+                   check=True, text=True, bufsize=1)
 
 
 def reg_bounds_sanity_check_calls_remove(verifier_c_filepath):
@@ -686,6 +673,9 @@ if __name__ == "__main__":
 
     scriptsdir_fullpath = llvm_to_smt_dir_fullpath.joinpath("llvm-passes")
     assert scriptsdir_fullpath.exists()
+
+    cocci_fullpath = llvm_to_smt_dir_fullpath.joinpath("cocci")
+    assert cocci_fullpath.exists()
 
     outdir_fullpath = pathlib.Path(args.outdir).resolve()
     assert outdir_fullpath.exists()
@@ -864,7 +854,7 @@ if __name__ == "__main__":
     insert_alu_wrapper(verifier_file_path)
     insert_jmp_wrapper(verifier_file_path, args.kernver)
     if args.modular:
-        reg_bounds_sync_calls_remove(verifier_file_path)
+        reg_bounds_sync_calls_remove(verifier_file_path, logfile, logfile_err)
         reg_bounds_sanity_check_calls_remove(verifier_file_path)
     insert_sync_wrapper(verifier_file_path, args.kernver)
     print_and_log(" ... done")
