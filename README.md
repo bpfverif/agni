@@ -100,6 +100,7 @@ make
 cmake
 libjsoncpp-dev
 libz3-dev
+coccinelle
 ```
 
 It also requires a few Python packages:

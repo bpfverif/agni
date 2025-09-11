@@ -48,7 +48,7 @@ jobs:
             python3 python3-pip \
             make cmake libelf-dev \
             libjsoncpp-dev stress-ng \
-            libz3-dev
+            libz3-dev coccinelle
 
           for b in clang clang++ llvm-link opt llvm-extract; do
             sudo rm /usr/bin/$b;
