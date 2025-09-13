@@ -233,20 +233,6 @@ def get_all_jmp_wrappers_concatenated(kernver):
         # Starting with v5.3-rc1~140^2~179^2^2~6.
         wrapper_jmp = wrapper_jmp_4
         wrapper_jmp32 = wrapper_jmp32_4
-    elif version.parse(kernver) >= version.parse("5.1-rc1"):
-        # Starting with v5.1-rc1~178^2~404^2~4^2~13.
-        wrapper_jmp = wrapper_jmp_3
-        wrapper_jmp32 = wrapper_jmp32_3
-
-    # no 32-bit jumps before 5.1-rc1
-    elif version.parse(kernver) >= version.parse("4.20-rc6"):
-        # Starting with v4.20-rc6~1^2~12^2^2~1.
-        wrapper_jmp = wrapper_jmp_2
-    elif version.parse(kernver) >= version.parse("4.16-rc1"):
-        # Starting with v4.16-rc1~123^2~431^2~2^2~2.
-        wrapper_jmp = wrapper_jmp_1
-    elif version.parse(kernver) >= version.parse("4.14.214"):
-        wrapper_jmp = wrapper_jmp_0
     else:
         raise RuntimeError('Unsupported kernel version')
     assert (len(wrapper_jmp) != 0)
@@ -256,10 +242,8 @@ def get_all_jmp_wrappers_concatenated(kernver):
     s = ""
     for op in bpf_jmp_ops:
         s += wrapper_jmp.format(op.op_name, op.insn)
-    # no 32-bit jumps before 5.1-rc1
-    if version.parse(kernver) >= version.parse("5.1-rc1"):
-        for op in bpf_jmp32_ops:
-            s += wrapper_jmp32.format(op.op_name, op.insn)
+    for op in bpf_jmp32_ops:
+        s += wrapper_jmp32.format(op.op_name, op.insn)
 
     return s
 
@@ -709,9 +693,9 @@ if __name__ == "__main__":
     kerndir_fullpath = pathlib.Path(args.kernbasedir).resolve()
     assert kerndir_fullpath.exists()
 
-    if version.parse(args.kernver) < version.parse("4.14.214"):
+    if version.parse(args.kernver) < version.parse("5.4"):
         raise RuntimeError(
-            'Unsupported kernel version. Only >= 4.14.214 supported.')
+            'Unsupported kernel version. Only >= 5.4 supported.')
 
     if args.specific_op is not None:
         for op in bpf_ops:
