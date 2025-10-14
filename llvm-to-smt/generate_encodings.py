@@ -681,9 +681,9 @@ if __name__ == "__main__":
     kerndir_fullpath = pathlib.Path(args.kernbasedir).resolve()
     assert kerndir_fullpath.exists()
 
-    if version.parse(args.kernver) < version.parse("5.4"):
+    if version.parse(args.kernver) < version.parse("5.4.210"):
         raise RuntimeError(
-            'Unsupported kernel version. Only >= 5.4 supported.')
+            'Unsupported kernel version. Only >= 5.4.210 supported.')
 
     if args.specific_op is not None:
         for op in bpf_ops:
