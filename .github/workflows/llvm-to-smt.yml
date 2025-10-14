@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         insn: [BPF_AND, BPF_JSLT, BPF_JSET_32]
-        kernel: ["5.4", "5.10", "5.15", "6.1", "6.6", "6.12"]
+        kernel: ["5.4.210", "5.10", "5.15", "6.1", "6.6", "6.12"]
     runs-on: ubuntu-22.04
     timeout-minutes: 40
     steps:
@@ -50,10 +50,8 @@ jobs:
       - name: Retrieve Linux sources
         run: |
           branch=v${{ matrix.kernel }}
-          tree=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
-          if [ "${{ matrix.kernel }}" = "linus" ]; then
-            branch=master
-          elif [ "${{ matrix.kernel }}" = "bpf-next" ]; then
+          tree=git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+          if [ "${{ matrix.kernel }}" = "bpf-next" ]; then
             tree=git://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git
             branch=master
           fi
