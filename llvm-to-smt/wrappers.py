@@ -651,16 +651,6 @@ void check_cond_jmp_op_wrapper_{}(
 
 wrapper_jmp32_8 = wrapper_jmp_8.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
-wrapper_sync_1 = r'''
-
-void reg_bounds_sync___(struct bpf_reg_state *dst_reg)
-{
-	__reg_deduce_bounds(dst_reg);
-	__reg_bound_offset(dst_reg);
-}
-
-'''
-
 wrapper_sync_2 = r'''
 
 void reg_bounds_sync___(struct bpf_reg_state *dst_reg)
