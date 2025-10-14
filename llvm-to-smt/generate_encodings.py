@@ -168,10 +168,8 @@ def insert_sync_wrapper(verifier_c_filepath, kernver):
         wrapper_sync = wrapper_sync_4
     elif version.parse(kernver) >= version.parse("5.19-rc6"):
         wrapper_sync = wrapper_sync_3
-    elif version.parse(kernver) >= version.parse("5.7-rc1"):
+    elif version.parse(kernver) >= version.parse("5.4.210"):
         wrapper_sync = wrapper_sync_2
-    elif version.parse(kernver) >= version.parse("4.14.214"):
-        wrapper_sync = wrapper_sync_1
     else:
         raise RuntimeError('Unsupported kernel version')
     assert (len(wrapper_sync) != 0)
