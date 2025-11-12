@@ -14,7 +14,8 @@ z3::expr BitVecHelper::getBitVec(unsigned bitwidth, std::string prefix) {
                             "_" + std::to_string(BitVecHelper::unique_bv_id++);
   z3::expr ret = ctx.bv_const(unique_name.c_str(), bitwidth);
   outs() << "[getBitVec] "
-         << "returning unique bitvector w/ prefix: " << ret.to_string().c_str() << "\n";
+         << "returning unique bitvector w/ prefix: " << ret.to_string().c_str()
+         << "\n";
   return ret;
 }
 
@@ -23,13 +24,12 @@ z3::expr BitVecHelper::getBool(std::string prefix) {
                             "_" + std::to_string(BitVecHelper::unique_bv_id++);
   z3::expr ret = ctx.bool_const(unique_name.c_str());
   outs() << "[getBool] "
-         << "returning unique bool w/ prefix: " << ret.to_string().c_str() << "\n";
+         << "returning unique bool w/ prefix: " << ret.to_string().c_str()
+         << "\n";
   return ret;
 }
 
-bool BitVecHelper::isValueConstantInt(Value *v) {
-  return isa<ConstantInt>(v);
-}
+bool BitVecHelper::isValueConstantInt(Value *v) { return isa<ConstantInt>(v); }
 
 /* TODO should this always return an int? */
 int64_t BitVecHelper::getConstantIntValue(Value *v) {
@@ -47,6 +47,11 @@ z3::expr BitVecHelper::getBitVecSingValType(Value *v) {
                              v->getName().str() + " is of aggregate type\n");
   }
   outs() << "[getBitVecSingValType] type: " << *t << "\n";
+  if (!t->isIntegerTy()) {
+    t = t->getPointerElementType();
+    outs() << "[getBitVecSingValType] type (updated): " << *t << "\n";
+  }
+
   z3::expr resBV(ctx);
   bool BVExists = (BitVecHelper::singleValueTypeMap.find(v) !=
                    BitVecHelper::singleValueTypeMap.end());

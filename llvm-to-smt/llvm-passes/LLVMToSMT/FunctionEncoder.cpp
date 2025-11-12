@@ -1435,6 +1435,24 @@ void FunctionEncoder::handleLoadInst(LoadInst &loadInst) {
 
   outs().flush();
 
+  if (FunctionArgs.find(pointerValue) != FunctionArgs.end()) {
+    outs() << "[handleLoadInst] load pointer came from a GEP\n";
+    outs().flush();
+    z3::expr loadBV = BitVecHelper::getBitVecSingValType(loadInstValue);
+    ValueBVTreeMap oldValueBVTreeMap =
+        MemoryAccessValueBVTreeMap.at(oldMemoryAccess);
+    outs() << "[handleLoadInst] "
+           << "oldValueBVTreeMap:\n";
+    printValueBVTreeMap(oldValueBVTreeMap);
+    BVTree *BVTree = oldValueBVTreeMap.at(pointerValue);
+    z3::expr loadEncoding = (BVTree->bv == loadBV);
+    outs() << "[handleLoadInst] " << loadEncoding.to_string().c_str() << "\n";
+    auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+    BBAsstVecIter->second.push_back(loadEncoding);
+    printBBAssertionsMap();
+    return;
+  }
+
   if (isa<GetElementPtrInst>(pointerValue)) {
     outs() << "[handleLoadInst] load pointer came from a GEP\n";
     GetElementPtrInst &GEPInst = *dyn_cast<GetElementPtrInst>(pointerValue);
@@ -2140,6 +2158,7 @@ void FunctionEncoder::handleStoreToGEPPtr(z3::expr BVToStore,
         "not supported.\n");
   }
 }
+
 void FunctionEncoder::handleStoreInst(StoreInst &storeInst) {
 
   /* Syntax:
@@ -2188,6 +2207,23 @@ void FunctionEncoder::handleStoreInst(StoreInst &storeInst) {
          << ValueBVTreeMapToString(newValueBVTreeMap);
 
   outs().flush();
+
+  /* store directly to a pointer passed as a function argument */
+  if (FunctionArgs.find(destPointerValue) != FunctionArgs.end()) {
+    outs() << "[handleStoreInst] load pointer came from a GEP\n";
+    outs().flush();
+    BVTree *BVTree = newValueBVTreeMap.at(destPointerValue);
+    BVTree->bv = BVToStore;
+    outs() << "[handleStoreInst] "
+           << "BVTree updated: " << BVTree->toString() << "\n";
+    MemoryAccessValueBVTreeMap.insert({storeMemoryAccess, newValueBVTreeMap});
+    mostRecentMemoryDef = storeMemoryAccess;
+    outs() << "[handleStoreToGEPPtrDerivedFromFunctionArg] "
+           << "MemoryAccessValueBVTreeMap:\n";
+    printMemoryAccessValueBVTreeMap();
+    outs().flush();
+    return;
+  }
 
   if (isa<GetElementPtrInst>(destPointerValue)) {
     GetElementPtrInst &GEPInst = *dyn_cast<GetElementPtrInst>(destPointerValue);
@@ -2776,35 +2812,48 @@ void FunctionEncoder::flattenArgToBVTree(BVTree *root, Type *argType,
 #endif
 
 BVTree *FunctionEncoder::setupBVTreeForArg(Value *argVal, std::string prefix) {
-  BVTree *BVTreeForArg = new BVTree();
-  Type *argType = argVal->getType();
   outs() << "[setupBVTreeForArg] "
          << "argVal: " << *argVal << "\n";
   outs() << "[setupBVTreeForArg] "
+         << "prefix: " << prefix << "\n";
+
+  Type *argType = argVal->getType();
+  outs() << "[setupBVTreeForArg] "
          << "argType: " << *argType << "\n";
-  if (argType->isIntegerTy()) { /* argument is like i32, i64, etc. */
+
+  if (!argType->isPointerTy()) {
+    throw std::invalid_argument(
+        "[setupBVTreeForArg] argument is not a pointer type\n");
+  }
+
+  /* treat pointers as their base type */
+  Type *argBaseType = argType->getPointerElementType();
+  outs() << "[setupBVTreeForArg] "
+         << "argType (updated): " << *argType << "\n";
+
+  BVTree *BVTreeForArg = new BVTree();
+
+  if (argBaseType->isIntegerTy()) {
     outs() << "[setupBVTreeForArg] "
            << "IntegerTy "
            << "\n";
-    z3::expr inBV = BitVecHelper::getBitVecSingValType(argVal);
+    z3::expr inBV =
+        BitVecHelper::getBitVec(argBaseType->getIntegerBitWidth(), prefix);
     BVTreeForArg->bv = inBV;
-  } else {
-    /* argument is a struct type, array type or pointer to struct type */
-    if (argType->isPointerTy()) { /* argument is a pointer type */
-      /* treat pointers as their base type */
-      argType = argType->getPointerElementType();
-      outs() << "[setupBVTreeForArg] "
-             << "argType (updated): " << *argType << "\n";
-    }
-    /* Only flatten struct types */
-    if (!argType->isStructTy()) {
+  } else if (argBaseType->isStructTy()) {
+    StructType *structArgType = dyn_cast<StructType>(argBaseType);
+    if (structArgType->isOpaque()) {
       throw std::invalid_argument(
-          "[setupBVTreeForArg] argument is not a struct type\n");
+          "[setupBVTreeForArg] argument is an opaque struct type\n");
     }
-    StructType *structArgType = dyn_cast<StructType>(argType);
-    if ((!structArgType->isOpaque()) && isRelevantStruct(structArgType)) {
-      convertAggregateTypeArgToBVTree(BVTreeForArg, structArgType, prefix);
+    if (!isRelevantStruct(structArgType)) {
+      throw std::invalid_argument(
+          "[setupBVTreeForArg] argument is not a relevant struct\n");
     }
+    convertAggregateTypeArgToBVTree(BVTreeForArg, structArgType, prefix);
+  } else {
+    throw std::invalid_argument("[setupBVTreeForArg] argument is not an "
+                                "integer pointer type or a struct type\n");
   }
   outs() << "[setupBVTreeForArg] "
          << "returning BVTree: " << BVTreeForArg->toString() << "\n";
@@ -3077,29 +3126,34 @@ Json::Value *FunctionEncoder::getJsonDictFromValueBVTree(Value *val,
   Type *type = val->getType();
   outs() << "[getJsonDictFromValueBVTree] "
          << "type: " << *type << "\n";
-  if (type->isIntegerTy()) { /* argument is like i32, i64, etc. */
+  if (!type->isPointerTy()) {
+    throw std::invalid_argument(
+        "[getJsonDictFromValueBVTree] type is not a pointer\n");
+  }
+
+  /* treat pointers as their base type */
+  Type *baseType = type->getPointerElementType();
+  outs() << "[getJsonDictFromValueBVTree] "
+         << "type (updated): " << *baseType << "\n";
+
+  /* argument is a pointer like i32*, i64*, etc. */
+  if (baseType->isIntegerTy()) {
     outs() << "[getJsonDictFromValueBVTree] "
            << "IntegerTy "
            << "\n";
     jsonRoot->append(bvT->bv.to_string());
     outs() << "[getJsonDictFromValueBVTree] "
            << "jsonRoot:" << jsonRoot->toStyledString() << "\n";
-  } else {
-    if (type->isPointerTy()) {
-      type = type->getPointerElementType();
-      outs() << "[getJsonDictFromValueBVTree] "
-             << "type (updated): " << *type << "\n";
-    }
-    if (!type->isStructTy()) {
-      throw std::invalid_argument(
-          "[getJsonDictFromValueBVTree] not a struct type\n");
-    }
-    StructType *structType = dyn_cast<StructType>(type);
+  } else if (baseType->isStructTy()) {
+    StructType *structType = dyn_cast<StructType>(baseType);
     if (structType->isOpaque() || (!isRelevantStruct(structType))) {
       jsonRoot->append("");
     } else {
       JsonRecursive(jsonRoot, bvT, structType, 0);
     }
+  } else {
+    throw std::invalid_argument("[getJsonDictFromValueBVTree] not a pointer to "
+                                "a struct type or a singlevalue type\n");
   }
   return jsonRoot;
 }
@@ -3129,6 +3183,10 @@ void FunctionEncoder::populateInputAndOutputJsonDict() {
   }
   outs() << "[populateInputAndOutputJsonDict] "
          << "Populating output json dict\n";
+  outs() << "[populateInputAndOutputJsonDict] "
+         << "outputValueBVTreeMap:\n";
+  printValueBVTreeMap(*this->outputValueBVTreeMap);
+  outs() << "\n";
 
   /* Populate output json dict directly from outputValueBVTreeMap */
   for (auto ValueBVTreePair : *this->outputValueBVTreeMap) {
