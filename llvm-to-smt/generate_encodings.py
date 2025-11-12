@@ -569,6 +569,14 @@ def reg_bounds_sync_calls_remove(verifier_c_filepath, logfile, logfile_err):
                    check=True, text=True, bufsize=1)
 
 
+def same_reg_comparison_remove(verifier_c_filepath, logfile, logfile_err):
+    spatch_fullpath = cocci_fullpath.joinpath('remove_same_reg_comparison.cocci')
+    cmd_checkout = ['spatch', '--very-quiet', '--in-place', '{}'.format(verifier_c_filepath), '--sp-file', '{}'.format(spatch_fullpath)]
+    print(" ".join(cmd_checkout))
+    subprocess.run(cmd_checkout, stdout=logfile, stderr=logfile_err,
+                   check=True, text=True, bufsize=1)
+
+
 def reg_bounds_sanity_check_calls_remove(verifier_c_filepath):
     inputfile_handle = verifier_c_filepath.open("r")
     input_file_lines = inputfile_handle.readlines()
@@ -854,6 +862,7 @@ if __name__ == "__main__":
     if args.modular:
         reg_bounds_sync_calls_remove(verifier_file_path, logfile, logfile_err)
         reg_bounds_sanity_check_calls_remove(verifier_file_path)
+    same_reg_comparison_remove(verifier_file_path, logfile, logfile_err)
     insert_sync_wrapper(verifier_file_path, args.kernver)
     print_and_log(" ... done")
 
