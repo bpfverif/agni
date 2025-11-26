@@ -267,10 +267,10 @@ class LLVMPassRunner:
             self.run_force_function_early_exit_pass()
             self.run_opt_pass(O1=True)
 
-            self.run_remove_functions_calls_pass()
+            self.run_inline_verifier_func_pass()
             self.run_opt_pass(O1=True)
 
-            self.run_inline_verifier_func_pass()
+            self.run_remove_functions_calls_pass()
             self.run_opt_pass(O1=True)
 
             self.run_promote_memcpy_pass()
