@@ -311,6 +311,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--funcname", help="function to encode within", required=True)
     parser.add_argument("--op", help="BPF op", required=True)
+    parser.add_argument("--bv-suffix", type=int, default=1,
+                    help='use a different bitvector suffix than the default (1)',
+                    required=False)
     args = parser.parse_args()
 
     outdir_fullpath = Path(args.outdir).resolve()
@@ -333,7 +336,7 @@ if __name__ == "__main__":
         op=args.op,
         function_name=args.funcname,
         output_smtfile_name="{}.smt2".format(args.op),
-        global_bv_suffix="1",
+        global_bv_suffix=str(args.bv_suffix),
         logfile_name = logfile_name,
         logfile_err_name = logfile_err_name)
 
