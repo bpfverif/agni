@@ -1,11 +1,26 @@
 {
     "function_returnvalue_map": [
-        {"function": "sanitize_needed",  "return_value": 0},
+        {"function": "sanitize_needed",  "return_value": false},
         {"function": "sanitize_val_alu",  "return_value": 0},
-        {"function": "can_skip_alu_sanitation",  "return_value": 1},
+        {"function": "can_skip_alu_sanitation",  "return_value": true},
         {"function": "update_alu_sanitation_state",  "return_value": 0},
-        {"function": "reg_is_pkt_pointer_any",  "return_value": 0},
-        {"function": "__is_pointer_value",  "return_value": 0},
-        {"function": "reg_not_null",  "return_value": 1}
+        {"function": "reg_is_pkt_pointer_any",  "return_value": false},
+        {"function": "__is_pointer_value",  "return_value": false},
+        {"function": "reg_not_null",  "return_value": true},
+        {"function": "maybe_fork_scalars", "return_value": 0},
+
+        {"function": "verbose", "return_value": null},
+        {"function": "verbose_invalid_scalar", "return_value": null},
+        {"function": "verbose_linfo", "return_value": null},
+        {"function": "print_verifier_state", "return_value": null},
+        {"function": "print_liveness", "return_value": null},
+        {"function": "print_verification_stats", "return_value": null},
+        {"function": "bpf_verifier_log_write", "return_value": null},
+        {"function": "bpf_vlog_reset", "return_value": null},
+        {"function": "bpf_log", "return_value": null},
+        {"function": "bpf_verifier_vlog", "return_value": null},
+        {"function": "print_bpf_insn", "return_value": null},
+        {"function": "verifier_bug", "return_value": null},
+        {"function": "bpf_log", "return_value": null}
     ]
 }
