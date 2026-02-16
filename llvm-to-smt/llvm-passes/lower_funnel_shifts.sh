@@ -35,7 +35,7 @@ echo "FUNCTION_TO_LOWER_FUNNEL_SHIFTS: ${FUNCTION_TO_LOWER_FUNNEL_SHIFTS}"
 echo "--------------------------------------"
 echo "running pass lower-funnel-shifts"
 echo "--------------------------------------"
-cmd="$LLVM_DIR/bin/opt -opaque-pointers=0 -load-pass-plugin ${BUILD_DIR}/libLowerFunnelShifts.so --passes=\"lower-funnel-shifts\" ${inputllfile} -S -o ${outfile_final}"
+cmd="$LLVM_DIR/bin/opt -load-pass-plugin ${BUILD_DIR}/libLowerFunnelShifts.so --passes=\"lower-funnel-shifts\" ${inputllfile} -S -o ${outfile_final}"
 
 echo $cmd
 eval $cmd || exit 1
