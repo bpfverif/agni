@@ -132,7 +132,7 @@ jobs:
           fi
 
       - name: Upload encodings
-        if: ${{ always() }} && steps.generate-encodings.outcome != 'skipped'
+        if: ${{ always() && steps.generate-encodings.outcome != 'skipped' }}
         uses: actions/upload-artifact@master
         with:
           name: bpf-encodings-${{ matrix.tree }}-${{ matrix.insn }}
@@ -158,7 +158,7 @@ jobs:
           fi
 
       - name: Upload results
-        if: ${{ always() }} && steps.bpf-verification.outcome != 'skipped'
+        if: ${{ always() && steps.bpf-verification.outcome != 'skipped' }}
         uses: actions/upload-artifact@master
         with:
           name: results-${{ matrix.tree }}-${{ matrix.insn }}
