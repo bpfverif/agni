@@ -333,25 +333,37 @@ void FunctionEncoder::handleBinaryOperatorInst(BinaryOperator &i) {
   BBAsstVecIter->second.push_back(resultExpr);
 }
 
+#if 0
+bb1: 
+%res = call { i32, i1 } @llvm.sadd.with.overflow.i32(i32 %a, i32 %b) 
+
+bb2:
+%c1 = extractvalue { i32, i1 } %res, 1 ; yields i32 
+%c0 = extractvalue { i32, i1 } %res, 0 ; yields i1
+#endif
+
 /*
-Intrinsics return aggregate types (e.g. @llvm.sadd.with.overflow.i32, returns a
-{i32, i1}), and these intrinsics are typically followed by extractvalue
-instructions, that choose the value from the aggregate type returned by the
-intrinsic.
+Consider the example above. Intrinsics return aggregate types (e.g.
+@llvm.sadd.with.overflow.i32, returns a {i32, i1}), and these intrinsics are
+typically followed by extractvalue instructions, that choose the value from the
+aggregate type returned by the intrinsic. These extractvalue instructions need
+not be defined in the same basic block.
 
-Example:
-%c = call { i32, i1 } @llvm.sadd.with.overflow.i32(i32 %a, i32 %b)
-%c1 = extractvalue { i32, i1 } %c, 1 ; yields i32
-%c0 = extractvalue { i32, i1 } %c, 0 ; yields i1
+When we encountered the llvm.sadd.with.overflow.i32 instruction, we already
+stored the two bitvectors corresponding to the aggregate return type {i32, i1}
+in BBValueBVTreeMap. 
 
-We already stored the bitvectors corresponding to the aggregate type in
-BBValueBVTreeMap when we encountered the intrinsic call instruction. After
-retreiving them, it is just a matter of extracting the appropriate bitvectors,
-and asserting equivalences:
+bb1: <%res : <[res_i32_bv, res_i1_bv]>
 
-c1_bv == res_i32_bv
-c0_bv == res_i1_bv
+When we encounter the extractvalue instruction, we need to look up the
+extractvalue operand's (i.e. res) parent (i.e. bb1) in BBValueBVTreeMap, and
+retreive the BVTree we saved. Then, it is just a matter of extracting the
+appropriate bitvectors, and asserting equivalences:
+
+(= c1_bv res_i32_bv) 
+(= c0_bv res_i1_bv)
 */
+
 void FunctionEncoder::handleExtractValueInst(ExtractValueInst &i) {
 
   outs() << "[handleExtractValueInst]\n";
@@ -380,13 +392,21 @@ void FunctionEncoder::handleExtractValueInst(ExtractValueInst &i) {
   outs() << "[handleExtractValueInst] "
          << "index: " << structAccessIndex << "\n";
 
-  ValueBVTreeMap *currentBBValueBVTreeMap =
-      this->BBValueBVTreeMap.at(currentBB);
-  printValueBVTreeMap(*currentBBValueBVTreeMap);
+  /* The intrinsic call returning the aggregate type (extractValueOperand) might
+   * be in a different BasicBlock than this extractvalue instruction. Therefore,
+   * we must look up the BVTree in BBValueBVTreeMap using the BasicBlock where
+   * the intrinsic instruction was originally defined, rather than the
+   * currentBB.
+   */
+  BasicBlock *extractValueInstBB =
+      cast<Instruction>(extractValueOperand)->getParent();
+  ValueBVTreeMap *extractValueBBValueBVTreeMap =
+      this->BBValueBVTreeMap.at(extractValueInstBB);
+  printValueBVTreeMap(*extractValueBBValueBVTreeMap);
   outs().flush();
 
   z3::expr resultExpr(ctx);
-  BVTree *oldTree = currentBBValueBVTreeMap->at(extractValueOperand);
+  BVTree *oldTree = extractValueBBValueBVTreeMap->at(extractValueOperand);
   outs() << "[handleExtractValueInst] "
          << "BVTree for " << extractValueOperand->getName() << ":"
          << oldTree->toString() << "\n";
@@ -405,7 +425,6 @@ void FunctionEncoder::handleExtractValueInst(ExtractValueInst &i) {
          << "\n";
   BBAsstVecIter->second.push_back(resultExpr);
 }
-
 /* If function has pointer arguments, construct new outputBitvectorTree(s)
  * corresponding to each pointer argument. These BVTrees will contain bitvectors
  * which are outputs to the function. Assert equivalences in the BBAssertionMap
