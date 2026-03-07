@@ -380,13 +380,15 @@ void FunctionEncoder::handleExtractValueInst(ExtractValueInst &i) {
   outs() << "[handleExtractValueInst] "
          << "index: " << structAccessIndex << "\n";
 
-  ValueBVTreeMap *currentBBValueBVTreeMap =
-      this->BBValueBVTreeMap.at(currentBB);
-  printValueBVTreeMap(*currentBBValueBVTreeMap);
+  BasicBlock *extractValueInstBB =
+      cast<Instruction>(extractValueOperand)->getParent();
+  ValueBVTreeMap *extractValueBBValueBVTreeMap =
+      this->BBValueBVTreeMap.at(extractValueInstBB);
+  printValueBVTreeMap(*extractValueBBValueBVTreeMap);
   outs().flush();
 
   z3::expr resultExpr(ctx);
-  BVTree *oldTree = currentBBValueBVTreeMap->at(extractValueOperand);
+  BVTree *oldTree = extractValueBBValueBVTreeMap->at(extractValueOperand);
   outs() << "[handleExtractValueInst] "
          << "BVTree for " << extractValueOperand->getName() << ":"
          << oldTree->toString() << "\n";
@@ -405,7 +407,6 @@ void FunctionEncoder::handleExtractValueInst(ExtractValueInst &i) {
          << "\n";
   BBAsstVecIter->second.push_back(resultExpr);
 }
-
 /* If function has pointer arguments, construct new outputBitvectorTree(s)
  * corresponding to each pointer argument. These BVTrees will contain bitvectors
  * which are outputs to the function. Assert equivalences in the BBAssertionMap
