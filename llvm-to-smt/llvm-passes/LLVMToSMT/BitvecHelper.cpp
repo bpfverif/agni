@@ -1,4 +1,5 @@
 #include "BitvecHelper.hpp"
+#include <llvm-16/llvm/Support/raw_ostream.h>
 
 /* initialize global z3 context */
 z3::context ctx;
@@ -6,15 +7,17 @@ z3::context ctx;
 /* initialize BitVecHelper static members */
 int BitVecHelper::unique_bv_id = 0;
 std::string BitVecHelper::global_bv_suffix = "";
-std::unordered_map<Value *, z3::expr> BitVecHelper::singleValueTypeMap =
-    std::unordered_map<Value *, z3::expr>();
+std::unordered_map<Value *, z3::expr> BitVecHelper::singleValueTypeMap{};
+std::unordered_map<std::string, z3::expr> BitVecHelper::fieldBitVecMap{};
 
 z3::expr BitVecHelper::getBitVec(unsigned bitwidth, std::string prefix) {
+  outs() << "[getBitVec] prefix: "<< prefix << "\n";
   std::string unique_name = prefix + "_" + BitVecHelper::global_bv_suffix +
                             "_" + std::to_string(BitVecHelper::unique_bv_id++);
   z3::expr ret = ctx.bv_const(unique_name.c_str(), bitwidth);
   outs() << "[getBitVec] "
-         << "returning unique bitvector w/ prefix: " << ret.to_string().c_str() << "\n";
+         << "returning unique bitvector w/ prefix: " << ret.to_string().c_str()
+         << "\n";
   return ret;
 }
 
@@ -23,13 +26,12 @@ z3::expr BitVecHelper::getBool(std::string prefix) {
                             "_" + std::to_string(BitVecHelper::unique_bv_id++);
   z3::expr ret = ctx.bool_const(unique_name.c_str());
   outs() << "[getBool] "
-         << "returning unique bool w/ prefix: " << ret.to_string().c_str() << "\n";
+         << "returning unique bool w/ prefix: " << ret.to_string().c_str()
+         << "\n";
   return ret;
 }
 
-bool BitVecHelper::isValueConstantInt(Value *v) {
-  return isa<ConstantInt>(v);
-}
+bool BitVecHelper::isValueConstantInt(Value *v) { return isa<ConstantInt>(v); }
 
 /* TODO should this always return an int? */
 int64_t BitVecHelper::getConstantIntValue(Value *v) {
@@ -72,6 +74,23 @@ z3::expr BitVecHelper::getBitVecSingValType(Value *v) {
   // astIDMap.insert({Z3_get_ast_id(ctx, ret), ret});
   return resBV;
 }
+
+z3::expr BitVecHelper::getBitVecForField(Type *fieldType,
+                                         const std::string &fieldName) {
+
+  auto it = BitVecHelper::fieldBitVecMap.find(fieldName);
+  if (it != BitVecHelper::fieldBitVecMap.end()) {
+    return it->second;
+  }
+
+  z3::expr fieldBV =
+      BitVecHelper::getBitVec(fieldType->getIntegerBitWidth(), fieldName);
+  BitVecHelper::fieldBitVecMap.insert({fieldName, fieldBV});
+
+  return fieldBV;
+}
+
+
 
 void BitVecHelper::init(std::string s) {
   BitVecHelper::unique_bv_id = 0;
