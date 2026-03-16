@@ -566,14 +566,22 @@ wrapper_jmp32_7 = wrapper_jmp_7.replace("BPF_JMP_REG", "BPF_JMP32_REG")
 
 wrapper_jmp_8 = '''
 void check_cond_jmp_op_wrapper_{}(
-	struct bpf_reg_state *dst_reg, struct bpf_reg_state *src_reg,
-	struct bpf_reg_state *other_branch_dst_reg,
-	struct bpf_reg_state *other_branch_src_reg)
+	struct bpf_reg_state *restrict dst_reg,
+	struct bpf_reg_state *restrict src_reg,
+	struct bpf_reg_state *restrict other_branch_dst_reg,
+	struct bpf_reg_state *restrict other_branch_src_reg)
 {{
 	struct bpf_verifier_env env;
 	struct bpf_insn insn = BPF_JMP_REG({}, BPF_REG_1, BPF_REG_2, 0);
 	dst_reg->type = SCALAR_VALUE;
 	src_reg->type = SCALAR_VALUE;
+
+	__builtin_assume(dst_reg != src_reg);
+	__builtin_assume(dst_reg != other_branch_dst_reg);
+	__builtin_assume(dst_reg != other_branch_src_reg);
+	__builtin_assume(src_reg != other_branch_dst_reg);
+	__builtin_assume(src_reg != other_branch_src_reg);
+	__builtin_assume(other_branch_dst_reg != other_branch_src_reg);
 
     // Perform custom push_stack to make sure other_branch_*_regs
     // are equal to dst/src_reg. This needs to be done here rather
