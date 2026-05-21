@@ -249,7 +249,9 @@ def get_all_jmp_wrappers_concatenated(kernver):
 def insert_jmp_wrapper(verifier_c_filepath, kernver):
     all_jmp_wrappers_concat = get_all_jmp_wrappers_concatenated(kernver)
     print(all_jmp_wrappers_concat)
-    if version.parse(kernver) >= version.parse("5.7-rc1"):
+    if version.parse(kernver) >= version.parse("7.0"):
+        all_jmp_wrappers_concat = wrapper_push_stack_cnum + all_jmp_wrappers_concat
+    elif version.parse(kernver) >= version.parse("5.7-rc1"):
         all_jmp_wrappers_concat = wrapper_push_stack_w32 + all_jmp_wrappers_concat
     else:
         # no 32-bit bounds until 5.7-rc1
@@ -839,10 +841,29 @@ if __name__ == "__main__":
     res_str_tnum += additional_clang_options + \
         r" kernel/bpf/tnum.c -o " + str(outdir_fullpath.joinpath("tnum.ll"))
     logfile.write("res_str_tnum: \n {}\n".format(res_str_tnum))
+
+    # attempt to build cnum.o
+    cmd_make_cnum = ['make', 'CC={}'.format(
+        str(clang_fullpath)), 'V=1', 'kernel/bpf/cnum.o']
+    cmdout_make_cnum = subprocess.run(
+        cmd_make_cnum, stdout=subprocess.PIPE, stderr=logfile_err, text=True, bufsize=1, check=True)
+    logfile.write("cmdout_cnum:\n")
+    logfile.write(cmdout_make_cnum.stdout)
+    logfile.write("\n")
+
+    # search for cnum.o clang compile command
+    cnum_re_search_pattern = r'([\s]*)(.*,kernel\/bpf\/\.cnum\.o\.d.*)(-c -o.*)'
+    regex_res_cnum = re.search(cnum_re_search_pattern, cmdout_make_cnum.stdout)
+    res_str_cnum = regex_res_cnum.group(2)
+    res_str_cnum = res_str_cnum.replace("-Werror ", "")
+    res_str_cnum += additional_clang_options + \
+        r" kernel/bpf/cnum.c -o " + str(outdir_fullpath.joinpath("cnum.ll"))
+    logfile.write("res_str_cnum: \n {}\n".format(res_str_cnum))
     print_and_log(" ... done")
 
     logfile.flush()
     logfile_err.flush()
+
 
     ################################
     # Edit verifier.c and tnum.c#
@@ -877,6 +898,9 @@ if __name__ == "__main__":
                    stderr=logfile_err, check=True, text=True, bufsize=1)
     subprocess.run(res_str_tnum,  shell=True, stdout=logfile,
                    stderr=logfile_err, check=True, text=True, bufsize=1)
+    subprocess.run(res_str_cnum,  shell=True, stdout=logfile,
+                   stderr=logfile_err, check=True, text=True, bufsize=1)
+
     # delete_all_files_in_dir(args.outdir)
     print_and_log(" ... done")
 
@@ -884,15 +908,15 @@ if __name__ == "__main__":
     logfile_err.flush()
 
     ############################################
-    # Link verifier.ll and tnum.ll to verifier_tnum.ll #
+    # Link verifier.ll and tnum.ll and cnum.ll to verifier_tnum.ll 
     ############################################
     print_and_log(
         "Link verifier.ll and tnum.ll to single verifier_tnum.ll")
     os.chdir(str(outdir_fullpath))
 
     llvm_link_fullpath = llvmdir_fullpath.joinpath("bin", "llvm-link")
-    cmd_link = [str(llvm_link_fullpath), '-S', 'tnum.ll', '-opaque-pointers=0',
-                'verifier.ll', '-o', 'verifier_tnum.ll']
+    cmd_link = [str(llvm_link_fullpath), '-S',  '-opaque-pointers=0', 
+                'cnum.ll', 'tnum.ll', 'verifier.ll', '-o', 'verifier_tnum.ll']
     print(" ".join(cmd_link))
     cmdout_link = subprocess.run(
         cmd_link, stdout=logfile, stderr=logfile_err, text=True, bufsize=1, check=True)

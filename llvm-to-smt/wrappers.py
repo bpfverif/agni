@@ -130,6 +130,20 @@ static void push_stack___(struct bpf_reg_state* to, struct bpf_reg_state* from){
 
 '''
 
+wrapper_push_stack_cnum = r'''
+
+static void push_stack___(struct bpf_reg_state* to, struct bpf_reg_state* from){
+    to->type = from->type;
+	to->var_off.value = from->var_off.value;
+	to->var_off.mask = from->var_off.mask;
+	to->r64.base =  from->r64.base;
+	to->r64.size =  from->r64.size;
+	to->r32.base =  from->r32.base;
+	to->r32.size =  from->r32.size;
+}
+
+'''
+
 wrapper_alu_1 = """
 
 void adjust_scalar_min_max_vals_wrapper_{}(struct bpf_reg_state *dst_reg,

@@ -206,12 +206,67 @@ std::string Z3ExprVecToString(z3::expr_vector &v) {
 
 // -----------------------------------------------------------------------------
 
+static z3::expr getConcatenatedBV(BVTree *tree) {
+    if (tree->children.empty()) {
+        if (!(bool)tree->bv) {
+            throw std::runtime_error("Empty BVTree node without bv");
+        }
+        return tree->bv;
+    }
+    z3::expr result = getConcatenatedBV(tree->children.back());
+    for (int i = (int)tree->children.size() - 2; i >= 0; i--) {
+        result = z3::concat(result, getConcatenatedBV(tree->children[i]));
+    }
+    return result;
+}
+
+static void updateBVTreeWithConcatenated(BVTree *tree, z3::expr new_bv) {
+    if (tree->children.empty()) {
+        tree->bv = new_bv;
+        return;
+    }
+    unsigned current_offset = 0;
+    for (size_t i = 0; i < tree->children.size(); i++) {
+        unsigned child_width = getConcatenatedBV(tree->children[i]).get_sort().bv_size();
+        z3::expr child_slice = new_bv.extract(current_offset + child_width - 1, current_offset);
+        updateBVTreeWithConcatenated(tree->children[i], child_slice);
+        current_offset += child_width;
+    }
+}
+
+void FunctionEncoder::handleFreezeInst(FreezeInst &i) {
+  outs() << "[handleFreezeInst]\n";
+  Value *freezeInstVal = dyn_cast<Value>(&i);
+  Value *operand = i.getOperand(0);
+
+  if (operand->getType()->isStructTy() || operand->getType()->isArrayTy()) {
+      ValueBVTreeMap *currentBBValueBVTreeMap = this->BBValueBVTreeMap.at(currentBB);
+      if (isa<UndefValue>(operand) || isa<PoisonValue>(operand)) {
+          throw std::runtime_error("Freezing undef aggregates is not yet supported");
+      }
+      BVTree *operandTree = currentBBValueBVTreeMap->at(operand);
+      currentBBValueBVTreeMap->insert({freezeInstVal, operandTree->deepCopy()});
+  } else {
+      z3::expr operandBV = BitVecHelper::getBitVecSingValType(operand);
+      z3::expr freezeBV = BitVecHelper::getBitVecSingValType(freezeInstVal);
+      z3::expr resultExpr = (freezeBV == operandBV);
+      outs() << "[handleFreezeInst] " << resultExpr.to_string().c_str() << "\n";
+      auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
+      BBAsstVecIter->second.push_back(resultExpr);
+  }
+  printBBAssertionsMap();
+}
+
 void FunctionEncoder::handleCastInst(CastInst &i) {
   outs() << "[handleCastInst]\n";
 
   if (isa<BitCastInst>(&i)) {
+    if (i.getOperand(0)->getType()->isPointerTy() && i.getType()->isPointerTy()) {
+      outs() << "[handleCastInst] Ignoring pointer bitcast\n";
+      return;
+    }
     throw std::runtime_error("[handleCastInst]"
-                             "bitcast instruction not supported\n");
+                             "bitcast instruction not supported for non-pointers\n");
   }
 
   auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
@@ -353,57 +408,101 @@ c1_bv == res_i32_bv
 c0_bv == res_i1_bv
 */
 void FunctionEncoder::handleExtractValueInst(ExtractValueInst &i) {
-
   outs() << "[handleExtractValueInst]\n";
   auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
   Value *extractValueInstVal = dyn_cast<Value>(&i);
   Value *extractValueOperand = i.getAggregateOperand();
-  outs() << "[handleExtractValueInst] "
-         << "extractValueOperand: " << *extractValueOperand << "\n";
 
-  if (!isa<IntrinsicInst>(extractValueOperand)) {
-    throw std::invalid_argument(
-        "[handleExtractValueInst] extractvalue instructions only supported "
-        "on operands that were derived from llvm.intrinsic calls.\n");
-  }
-  StructType *aggStructType =
-      dyn_cast<StructType>(extractValueOperand->getType());
-  if (!aggStructType) {
-    outs() << i;
-    throw std::invalid_argument(
-        "[handleExtractValueInst] extractvalue instructions only supported"
-        "when operand is a struct type\n");
-  }
-
-  assert(i.getNumIndices() == 1);
-  auto structAccessIndex = i.getIndices()[0];
-  outs() << "[handleExtractValueInst] "
-         << "index: " << structAccessIndex << "\n";
-
-  ValueBVTreeMap *currentBBValueBVTreeMap =
-      this->BBValueBVTreeMap.at(currentBB);
-  printValueBVTreeMap(*currentBBValueBVTreeMap);
-  outs().flush();
-
-  z3::expr resultExpr(ctx);
+  ValueBVTreeMap *currentBBValueBVTreeMap = this->BBValueBVTreeMap.at(currentBB);
   BVTree *oldTree = currentBBValueBVTreeMap->at(extractValueOperand);
-  outs() << "[handleExtractValueInst] "
-         << "BVTree for " << extractValueOperand->getName() << ":"
-         << oldTree->toString() << "\n";
-  auto bv0 = oldTree->getSubTree(0)->bv;
-  auto bv1 = oldTree->getSubTree(1)->bv;
-  auto exp = BitVecHelper::getBitVecSingValType(extractValueInstVal);
-  if (structAccessIndex == 0) {
-    resultExpr = bv0 == exp;
-  } else if (structAccessIndex == 1) {
-    resultExpr = bv1 == exp;
-  } else {
-    throw std::invalid_argument(
-        "[handleExtractValueInst] Unknown extractvalue index\n");
+  
+  BVTree *subTree = oldTree;
+  for (unsigned idx : i.getIndices()) {
+    subTree = subTree->getSubTree(idx);
   }
-  outs() << "[handleExtractValueInst] " << resultExpr.to_string().c_str()
-         << "\n";
+  
+  z3::expr exp = BitVecHelper::getBitVecSingValType(extractValueInstVal);
+  z3::expr resultExpr = (getConcatenatedBV(subTree) == exp);
+  outs() << "[handleExtractValueInst] " << resultExpr.to_string().c_str() << "\n";
   BBAsstVecIter->second.push_back(resultExpr);
+  printBBAssertionsMap();
+}
+
+void FunctionEncoder::handleInsertValueInst(InsertValueInst &i) {
+  outs() << "[handleInsertValueInst]\n";
+  outs() << "[handleInsertValueInst]\n";
+  Value *instVal = dyn_cast<Value>(&i);
+  Value *aggOp = i.getAggregateOperand();
+  Value *insertedOp = i.getInsertedValueOperand();
+  auto indices = i.getIndices();
+
+  outs() << "[handleInsertValueInst] " << *instVal << "\n";
+  outs() << "[handleInsertValueInst] " << "aggOp: " << *aggOp << "\n";
+  outs() << "[handleInsertValueInst] " << "insertedOp: " << *insertedOp << "\n";
+
+  ValueBVTreeMap *currentBBValueBVTreeMap;
+  if (this->BBValueBVTreeMap.find(currentBB) == this->BBValueBVTreeMap.end()) {
+    currentBBValueBVTreeMap = new ValueBVTreeMap();
+    BBValueBVTreeMap.insert({currentBB, currentBBValueBVTreeMap});
+  } else {
+    currentBBValueBVTreeMap = this->BBValueBVTreeMap.at(currentBB);
+  }
+
+  BVTree *newTree = nullptr;
+  
+  /* If the aggregate we are inserting into is undef/poison, we must 
+   * initialize a fresh BVTree of the correct type (struct or array) 
+   * populated with unconstrained "undef" bitvectors. 
+   */
+  if (isa<UndefValue>(aggOp) || isa<PoisonValue>(aggOp)) {
+    outs() << "[handleInsertValueInst] " << "UndefValue or PoisonValue"
+           << "\n";
+    newTree = new BVTree();
+    Type *t = instVal->getType();
+    if (t->isArrayTy()) {
+        for (unsigned j = 0; j < t->getArrayNumElements(); j++) {
+            z3::expr undefBV = BitVecHelper::getBitVec(t->getArrayElementType()->getIntegerBitWidth(), "undef");
+            newTree->children.push_back(new BVTree(undefBV));
+        }
+    } else if (t->isStructTy()) {
+      outs() << "[handleInsertValueInst] " << "StructType" << "\n";
+        convertAggregateTypeArgToBVTree(newTree, cast<StructType>(t), "undef");
+    } else {
+        throw std::runtime_error("Unsupported aggregate type in insertvalue");
+    }
+  } else {
+    /* If the aggregate already exists, we use copy() to create a new BVTree 
+     * hierarchy that shares the exact same z3::expr bitvector variables 
+     * at its leaves. This correctly models that the unmodified fields 
+     * retain their previous values.
+     */
+    outs() << "[handleInsertValueInst] " << "AggOp already exists" << "\n";
+    newTree = currentBBValueBVTreeMap->at(aggOp)->copy();
+  }
+
+  /* Navigate down the newly copied tree to the specific index being inserted */
+  BVTree *subTree = newTree;
+  for (unsigned idx : indices) {
+    subTree = subTree->getSubTree(idx);
+  }
+  
+  if (insertedOp->getType()->isIntegerTy()) {
+      /* Scalar insertion: update the target node's bitvector (or slice it 
+       * up if the target is an aggregate that SROA mapped to a single integer) */
+      z3::expr insertedBV = BitVecHelper::getBitVecSingValType(insertedOp);
+      updateBVTreeWithConcatenated(subTree, insertedBV);
+  } else {
+      /* Aggregate insertion: replace the target node's children and bitvector 
+       * with a copy of the inserted aggregate tree. */
+      BVTree *insertedTree = currentBBValueBVTreeMap->at(insertedOp);
+      subTree->children = insertedTree->copy()->children;
+      subTree->bv = insertedTree->bv;
+  }
+
+  /* Store the new resulting aggregate tree in the map so it can be retrieved 
+   * by subsequent extractvalue or insertvalue instructions. */
+  currentBBValueBVTreeMap->insert({instVal, newTree});
+  printValueBVTreeMap(*currentBBValueBVTreeMap);
 }
 
 /* If function has pointer arguments, construct new outputBitvectorTree(s)
@@ -630,7 +729,8 @@ void FunctionEncoder::handleSelectInst(SelectInst &i) {
   }
 }
 
-void FunctionEncoder::handleSwitchInst(SwitchInst &i, FunctionEncoderPassType passID) {
+void FunctionEncoder::handleSwitchInst(SwitchInst &i,
+                                       FunctionEncoderPassType passID) {
   if (passID != PathConditionsMapPass) {
     outs() << "[handleSwitchInst] "
            << "nothing to do, returning...\n";
@@ -647,16 +747,19 @@ void FunctionEncoder::handleSwitchInst(SwitchInst &i, FunctionEncoderPassType pa
   std::unordered_map<BasicBlock *, z3::expr> successors;
   z3::expr cond = BitVecHelper::getBitVecSingValType(i.getCondition());
 
-  /* If there exists a path condition for currentBB, we will need to conjunct it */
+  /* If there exists a path condition for currentBB, we will need to conjunct it
+   */
   z3::expr currentBBPathCond = ctx.bool_val(true);
   if (pathConditionsMap.find(currentBB) != pathConditionsMap.end())
     currentBBPathCond = pathConditionsMap.at(currentBB);
 
-  /* Iterate over switch cases and conjunct cases with the same basic block destination */
+  /* Iterate over switch cases and conjunct cases with the same basic block
+   * destination */
   for (auto caseIt = i.case_begin(); caseIt != i.case_end(); caseIt++) {
     BasicBlock *dst = caseIt->getCaseSuccessor();
     auto it = successors.find(dst);
-    z3::expr caseVal = BitVecHelper::getBitVecSingValType(caseIt->getCaseValue());
+    z3::expr caseVal =
+        BitVecHelper::getBitVecSingValType(caseIt->getCaseValue());
     if (it == successors.end()) {
       successors.insert({dst, cond == caseVal});
     } else {
@@ -685,11 +788,12 @@ void FunctionEncoder::handleSwitchInst(SwitchInst &i, FunctionEncoderPassType pa
     outs() << "[handleSwitchInst] " << it->first->getName() << ": "
            << pathConditionsMap.at(it->first).to_string().c_str() << "\n";
     outs() << "[handleSwitchInst] "
-           << "<" << bbPair.first->getName() << ", "
-           << bbPair.second->getName()
-           << "> :" << EdgeAssertionsMap.at(bbPair).to_string().c_str()
-           << "\n";
+           << "<" << bbPair.first->getName() << ", " << bbPair.second->getName()
+           << "> :" << EdgeAssertionsMap.at(bbPair).to_string().c_str() << "\n";
   }
+  printPathConditionsMap();
+  printEdgeAssertionsMap();
+  exit(0);
 }
 
 void FunctionEncoder::handleBranchInst(BranchInst &i,
@@ -1472,6 +1576,10 @@ void FunctionEncoder::handleLoadInst(LoadInst &loadInst) {
   Value *pointerValue = loadInst.getOperand(0);
   outs() << "[handleLoadInst] "
          << "pointerValue: " << *pointerValue << "\n";
+  if (isa<BitCastInst>(pointerValue)) {
+    pointerValue = cast<BitCastInst>(pointerValue)->getOperand(0);
+    outs() << "[handleLoadInst] actual pointerValue from BitCast: " << *pointerValue << "\n";
+  }
   Type *pointerType = pointerValue->getType();
   outs() << "[handleLoadInst] "
          << "pointerType: " << *pointerType << "\n";
@@ -1508,7 +1616,7 @@ void FunctionEncoder::handleLoadInst(LoadInst &loadInst) {
            << "oldValueBVTreeMap:\n";
     printValueBVTreeMap(oldValueBVTreeMap);
     BVTree *BVTree = oldValueBVTreeMap.at(pointerValue);
-    z3::expr loadEncoding = (BVTree->bv == loadBV);
+    z3::expr loadEncoding = (getConcatenatedBV(BVTree) == loadBV);
     outs() << "[handleLoadInst] " << loadEncoding.to_string().c_str() << "\n";
     auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
     BBAsstVecIter->second.push_back(loadEncoding);
@@ -1575,9 +1683,7 @@ void FunctionEncoder::handleLoadInst(LoadInst &loadInst) {
   } else {
     throw std::runtime_error("Unexpected GEPMapIndices size\n");
   }
-  assert(subTree->bv);
-
-  z3::expr loadEncoding = (subTree->bv == loadBV);
+  z3::expr loadEncoding = (getConcatenatedBV(subTree) == loadBV);
   outs() << "[handleLoadInst] " << loadEncoding.to_string().c_str() << "\n";
   auto BBAsstVecIter = BBAssertionsMap.find(currentBB);
   BBAsstVecIter->second.push_back(loadEncoding);
@@ -2166,8 +2272,7 @@ void FunctionEncoder::handleStoreToGEPPtrDerivedFromFunctionArg(
 
   outs() << "[handleStoreToGEPPtrDerivedFromFunctionArg] "
          << "subTree: " << subTree->toString() << "\n";
-  assert(subTree->bv);
-  subTree->bv = BVToStore;
+  updateBVTreeWithConcatenated(subTree, BVToStore);
   outs() << "[handleStoreToGEPPtrDerivedFromFunctionArg] "
          << "subTree updated: " << subTree->toString() << "\n";
 
@@ -2239,6 +2344,10 @@ void FunctionEncoder::handleStoreInst(StoreInst &storeInst) {
   Value *destPointerValue = storeInst.getPointerOperand();
   outs() << "[handleStoreInst] "
          << "destPointerValue: " << *destPointerValue << "\n";
+  if (isa<BitCastInst>(destPointerValue)) {
+    destPointerValue = cast<BitCastInst>(destPointerValue)->getOperand(0);
+    outs() << "[handleStoreInst] actual destPointerValue from BitCast: " << *destPointerValue << "\n";
+  }
   outs().flush();
 
   /* get MemoryAccess corresponding to this store */
@@ -2276,7 +2385,7 @@ void FunctionEncoder::handleStoreInst(StoreInst &storeInst) {
     outs() << "[handleStoreInst] load pointer came from a GEP\n";
     outs().flush();
     BVTree *BVTree = newValueBVTreeMap.at(destPointerValue);
-    BVTree->bv = BVToStore;
+    updateBVTreeWithConcatenated(BVTree, BVToStore);
     outs() << "[handleStoreInst] "
            << "BVTree updated: " << BVTree->toString() << "\n";
     MemoryAccessValueBVTreeMap.insert({storeMemoryAccess, newValueBVTreeMap});
@@ -2695,6 +2804,8 @@ void FunctionEncoder::populateBBAssertionsMap(BasicBlock &B) {
       continue;
     } else if (isa<BinaryOperator>(&I)) {
       handleBinaryOperatorInst(*(dyn_cast<BinaryOperator>(&I)));
+    } else if (isa<FreezeInst>(&I)) {
+      handleFreezeInst(*(dyn_cast<FreezeInst>(&I)));
     } else if (isa<CastInst>(&I)) {
       handleCastInst(*(dyn_cast<CastInst>(&I)));
     } else if (isa<ICmpInst>(&I)) {
@@ -2713,6 +2824,8 @@ void FunctionEncoder::populateBBAssertionsMap(BasicBlock &B) {
       handleCallInst(*dyn_cast<CallInst>(&I));
     } else if (isa<ExtractValueInst>(&I)) {
       handleExtractValueInst(*(dyn_cast<ExtractValueInst>(&I)));
+    } else if (isa<InsertValueInst>(&I)) {
+      handleInsertValueInst(*(dyn_cast<InsertValueInst>(&I)));
     } else if (isa<BranchInst>(&I)) {
       handleBranchInst(*dyn_cast<BranchInst>(&I), BBAssertionsMapPass);
     } else if (isa<SwitchInst>(&I)) {
@@ -2786,52 +2899,24 @@ void FunctionEncoder::convertAggregateTypeArgToBVTree(
              << "pointer to same type, continuing\n";
       continue;
     }
-
-    /* TODO: if array types are need to be supported, change the ifdef to 1.
-     * Arrays will also need to be supported in creating JSON dictionaries
-     * in getJsonDictFromValueBVTree() and friends. */
-    assert(!internalType->isArrayTy());
-
-#if 0
     if (internalType->isArrayTy()) {
       ArrayType *arrayType = dyn_cast<ArrayType>(internalType);
       auto arrayInternalType = arrayType->getElementType();
-      outs() << "[convertAggregateTypeArgToBVTree] "
-             << "arrayInteralType " << *arrayInternalType << "\n";
       while (arrayInternalType->isPointerTy()) {
-        /* treat pointers as their base type */
         arrayInternalType = arrayInternalType->getPointerElementType();
-        outs() << "[convertAggregateTypeArgToBVTree] "
-               << "argType (updated): " << *arrayInternalType << "\n";
       }
-
-      /* since this is an arrayType, create another BVTree to hold the BVTree
-       * for the arrayInternalType, for GEP indexing to work. */
       BVTree *child = new BVTree();
       parent->children.push_back(child);
-      if (arrayInternalType->isStructTy()) {
-        StructType *arrayInternalStructType =
-            dyn_cast<StructType>(arrayInternalType);
-        BVTree *grandChild = new BVTree();
-        child->children.push_back(grandChild);
-        if ((!arrayInternalStructType->isOpaque()) &&
-            isRelevantStruct(arrayInternalStructType)) {
-          lookInsideStruct(grandChild, arrayInternalStructType, prefix);
+      for (unsigned i = 0; i < arrayType->getNumElements(); i++) {
+        if (arrayInternalType->isIntegerTy()) {
+          z3::expr inBV = BitVecHelper::getBitVec(arrayInternalType->getIntegerBitWidth(), prefix);
+          child->children.push_back(new BVTree(inBV));
+        } else if (arrayInternalType->isStructTy()) {
+          convertAggregateTypeArgToBVTree(child, cast<StructType>(arrayInternalType), prefix);
         }
-
-      } else if (arrayInternalType->isSingleValueType()) {
-        /* internal type is not a struct (i64, i32, etc.) */
-        z3::expr inBV =
-            BitVecHelper::getBitVec(arrayInternalType->getIntegerBitWidth(), prefix);
-        outs() << "[convertAggregateTypeArgToBVTree] "
-               << "arrayInternalType is singleValueType:"
-               << inBV.to_string().c_str() << "\n";
-        BVTree *inBVNode = new BVTree(inBV);
-        child->children.push_back(inBVNode);
       }
       continue;
     }
-#endif
 
     if (internalType->isStructTy()) { /* internal type is a struct */
       StructType *internalStructType = dyn_cast<StructType>(internalType);

@@ -95,7 +95,7 @@ public:
   std::unordered_set<std::string> relevantStructs{
       "struct.bpf_reg_state",  "struct.bpf_verifier_env",
       "struct.bpf_func_state", "struct.bpf_verifier_state",
-      "struct.tnum",           "struct.bpf_insn"};
+      "struct.tnum", "struct.bpf_insn", "struct.cnum64", "struct.cnum32"};
 
   /* A map to keep track of what Type a bitcasted value originally came from */
   std::unordered_map<Value *, Type *> BitCastTypeMap;
@@ -143,8 +143,10 @@ public:
 
   /* Functions that handle individual llvm instructions */
   void handleCastInst(CastInst &i);
+  void handleFreezeInst(FreezeInst &i);
   void handleBinaryOperatorInst(BinaryOperator &i);
   void handleExtractValueInst(ExtractValueInst &i);
+  void handleInsertValueInst(InsertValueInst &i);
   void handleReturnInstPointerArgs(ReturnInst &i);
   bool functionHasPointerArguments(Function &F);
   void handleReturnInst(ReturnInst &i, FunctionEncoderPassType passID);

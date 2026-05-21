@@ -273,6 +273,8 @@ class LLVMPassRunner:
             self.run_inline_verifier_func_pass()
             self.run_opt_pass(O1=True)
 
+            self.run_llvm_extract()
+
             self.run_promote_memcpy_pass()
             self.run_opt_pass(O1=False)
 
@@ -281,7 +283,6 @@ class LLVMPassRunner:
 
             # self.run_opt_pass(O1=False)
 
-            self.run_llvm_extract()
             self.run_llvm_to_smt_pass()
 
         except subprocess.CalledProcessError as e:
