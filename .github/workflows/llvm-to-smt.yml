@@ -18,8 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        insn: [BPF_AND, BPF_JSLT, BPF_JSET_32]
-        kernel: ["5.4.210", "5.10", "5.15", "6.1", "6.6", "6.12"]
+        insn: [BPF_JSLT, BPF_JSET_32, BPF_JLT, BPF_JLE, BPF_JSLE, BPF_JEQ, BPF_JNE, BPF_JGE, BPF_JGT, BPF_JSGE, BPF_JSGT, BPF_JSET, BPF_JLT_32, BPF_JLE_32, BPF_JSLT_32, BPF_JSLE_32, BPF_JEQ_32, BPF_JNE_32, BPF_JGE_32, BPF_JGT_32, BPF_JSGE_32, BPF_JSGT_32]
+        kernel: ["6.18"]
     runs-on: ubuntu-22.04
     timeout-minutes: 40
     steps:

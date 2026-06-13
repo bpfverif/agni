@@ -10,7 +10,7 @@ jobs:
   download-linux:
     strategy:
       matrix:
-        tree: ["bpf_bpf-next", "bpf_bpf", "stable_linux_linux-6.12.y", "stable_linux_linux-6.6.y", "stable_linux_linux-6.1.y", "stable_linux_linux-5.15.y", "stable_linux_linux-5.10.y", "stable_linux_linux-5.4.y"]
+        tree: ["bpf_bpf-next", "bpf_bpf", "stable_linux_linux-6.18.y", "stable_linux_linux-6.12.y", "stable_linux_linux-6.6.y", "stable_linux_linux-6.1.y", "stable_linux_linux-5.15.y", "stable_linux_linux-5.10.y"]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -37,7 +37,7 @@ jobs:
       fail-fast: false
       matrix:
         insn: [BPF_SYNC1, BPF_SYNC2, BPF_SYNC3, BPF_ADD, BPF_SUB, BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_ARSH, BPF_JLT, BPF_JLE, BPF_JSLT, BPF_JSLE, BPF_JEQ, BPF_JNE, BPF_JGE, BPF_JGT, BPF_JSGE, BPF_JSGT, BPF_JSET]
-        tree: ["bpf_bpf-next", "bpf_bpf", "stable_linux_linux-6.12.y", "stable_linux_linux-6.6.y", "stable_linux_linux-6.1.y", "stable_linux_linux-5.15.y", "stable_linux_linux-5.10.y", "stable_linux_linux-5.4.y"]
+        tree: ["bpf_bpf-next", "bpf_bpf", "stable_linux_linux-6.18.y", "stable_linux_linux-6.12.y", "stable_linux_linux-6.6.y", "stable_linux_linux-6.1.y", "stable_linux_linux-5.15.y", "stable_linux_linux-5.10.y"]
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
