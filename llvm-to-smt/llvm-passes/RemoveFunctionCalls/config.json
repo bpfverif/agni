@@ -10,6 +10,7 @@
         "bpf_vlog_reset",
         "bpf_log",
         "bpf_verifier_vlog",
-        "print_bpf_insn"
+        "print_bpf_insn",
+        "llvm.assume"
     ]
 }
